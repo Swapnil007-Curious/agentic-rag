@@ -1,0 +1,15 @@
+# Runtime dependencies, pinned to the versions this pipeline was developed and tested with.
+#
+# IMPORTANT: install the CPU-only build of torch FIRST, from the PyTorch CPU wheel index:
+#   pip install torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
+# The pin below is then already satisfied (2.15.0+cpu matches ==2.15.0), so pip will not
+# pull the much larger CUDA build from PyPI. No GPU is required anywhere in this project.
+torch==2.15.0
+
+pymupdf==2.1
+pydantic==2.14.3
+PyYAML==6.0.3
+numpy==2.4.6
+psutil==7.2.2
+sentence-transformers==6.2.0
+transformers==5.22.2

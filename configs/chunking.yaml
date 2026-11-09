@@ -1,0 +1,29 @@
+# Chunking configuration. All chunkers are deterministic.
+
+paths:
+  processed_dir: data/processed     # reads clean/ and structure/, writes chunks/
+  cache_dir: data/processed/cache   # embedding cache for the semantic chunker
+
+tokenizer_model: BAAI/bge-small-en-v1.5
+seed: 42
+
+fixed:
+  - name: fixed_256
+    size: 256
+    overlap: 32
+  - name: fixed_512
+    size: 512
+    overlap: 64
+
+semantic:
+  embedding_model: BAAI/bge-small-en-v1.5
+  device: cpu
+  batch_size: 32
+  breakpoint_percentile: 90.0
+  min_tokens: 64
+  max_tokens: 512
+
+structural:
+  max_tokens: 384        # split a section/rule above this many tokens (body text)
+  min_tokens: 48         # merge consecutive sibling pieces below this within one parent
+  contextual_header: true

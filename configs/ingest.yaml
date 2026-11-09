@@ -1,0 +1,133 @@
+# Ingestion + structure-parsing configuration.
+# Paths are relative to the repository root unless absolute; override with CLI flags.
+
+paths:
+  raw_dir: data/raw
+  processed_dir: data/processed   # clean/ and structure/ are created below this
+
+# One entry per logical document. Several entries may point at the same PDF and select
+# different parts of it with start_marker / end_marker (regexes matched against cleaned lines).
+#   parser: "statute" (IndianStatuteParser) or "generic" (GenericParser); any PDF that is not
+#           configured as an act/rules document should use "generic".
+#   start_marker: first matching line starts the document body (earlier lines are dropped).
+#   end_marker:   first matching line after the start ends the body (it and later lines dropped).
+#   back_matter_markers: lines that start un-numbered trailing material (kept as heading nodes).
+#   parent_act: doc_id that "the Act" / unqualified "section N" in a Rules document refers to.
+documents:
+  - file: cpa2019.pdf
+    doc_id: cpa2019
+    title: "The Consumer Protection Act, 2019"
+    short_title: "Consumer Protection Act, 2019"
+    doc_type: act
+    parser: statute
+    source_url: "https://www.indiacode.nic.in/bitstream/123456789/18964/1/cpa.pdf"
+    # India Code copy: title page, list of amending Acts and abbreviations precede the
+    # ARRANGEMENT OF SECTIONS; the enacted text starts at "ACT NO. 35 OF 2019".
+    start_marker: '^ACT NO\. \d+ OF \d{4}$'
+    back_matter_markers:
+      - '^STATEMENT OF OBJECTS AND REASONS$'
+
+  - file: ecommerce_rules_2020.pdf
+    doc_id: ecom2020
+    title: "The Consumer Protection (E-Commerce) Rules, 2020"
+    short_title: "Consumer Protection (E-Commerce) Rules, 2020"
+    doc_type: rules
+    parser: statute
+    parent_act: cpa2019
+    source_url: "https://consumeraffairs.nic.in/acts-and-rules/consumer-protection"
+    start_marker: '^MINISTRY OF CONSUMER AFFAIRS'
+    end_marker: '^\[\s*F\.?\s*No\.?'
+
+  - file: commission_rules_2020.pdf
+    doc_id: commissions2020
+    title: "The Consumer Protection (Consumer Disputes Redressal Commissions) Rules, 2020"
+    short_title: "Consumer Protection (Consumer Disputes Redressal Commissions) Rules, 2020"
+    doc_type: rules
+    parser: statute
+    parent_act: cpa2019
+    source_url: "https://consumeraffairs.nic.in/acts-and-rules/consumer-protection"
+    # This Gazette issue carries two notifications: G.S.R. 448(E) (these rules, pages 9-16)
+    # and G.S.R. 449(E) (Consumer Protection (General) Rules, 2020, pages 16-18). The end
+    # marker stops at the first file-number line, so only G.S.R. 448(E) is ingested here.
+    start_marker: '^MINISTRY OF CONSUMER AFFAIRS'
+    end_marker: '^\[\s*F\.?\s*No\.?'
+
+  - file: jurisdiction_rules_2021.pdf
+    doc_id: jurisdiction2021
+    title: "The Consumer Protection (Jurisdiction of the District Commission, the State Commission and the National Commission) Rules, 2021"
+    short_title: "Consumer Protection (Jurisdiction of the District Commission, the State Commission and the National Commission) Rules, 2021"
+    doc_type: rules
+    parser: statute
+    parent_act: cpa2019
+    source_url: "https://consumeraffairs.nic.in/acts-and-rules/consumer-protection"
+    start_marker: '^MINISTRY OF CONSUMER AFFAIRS'
+    end_marker: '^\[\s*F\.?\s*No\.?'
+
+  - file: mediation_rules_2020.pdf
+    doc_id: mediation2020
+    title: "The Consumer Protection (Mediation) Rules, 2020"
+    short_title: "Consumer Protection (Mediation) Rules, 2020"
+    doc_type: rules
+    parser: statute
+    parent_act: cpa2019
+    source_url: "https://consumeraffairs.nic.in/acts-and-rules/consumer-protection"
+    start_marker: '^MINISTRY OF CONSUMER AFFAIRS'
+    end_marker: '^\[\s*F\.?\s*No\.?'
+
+  # Second notification inside commission_rules_2020.pdf (G.S.R. 449(E)). Not part of the
+  # five-document case-study corpus, so disabled; set enabled: true to ingest it as well.
+  # Its English preamble shares page 17 with the Hindi text (a page dropped as predominantly
+  # Devanagari), so the body is anchored at rule 1 on page 18.
+  - file: commission_rules_2020.pdf
+    doc_id: general2020
+    title: "The Consumer Protection (General) Rules, 2020"
+    short_title: "Consumer Protection (General) Rules, 2020"
+    doc_type: rules
+    parser: statute
+    parent_act: cpa2019
+    source_url: "https://consumeraffairs.nic.in/acts-and-rules/consumer-protection"
+    start_marker: 'These rules may be called the Consumer Protection \(General\) Rules'
+    end_marker: '^\[\s*F\.?\s*No\.?'
+    enabled: false
+
+cleaning:
+  # A line is a running header/footer if it lies in the top/bottom margin band and its
+  # digit-normalised text recurs at a similar vertical position on >= this fraction of all
+  # pages, or of the pages of the same parity (Gazette copies alternate odd/even headers),
+  # with at least header_footer_min_pages occurrences.
+  header_footer_min_page_fraction: 0.5
+  header_footer_y_tolerance: 8.0
+  header_footer_min_pages: 3
+  header_footer_band: 0.15
+  # Standalone page numbers are only removed inside the top/bottom band (fraction of height).
+  page_number_band: 0.12
+  # Devanagari: drop a line when > 30% of its letters are U+0900-U+097F; drop a whole page
+  # when > 50% of its letters are.
+  devanagari_line_threshold: 0.30
+  devanagari_page_threshold: 0.50
+  # Footnotes: lines at the bottom of a page, below the last body-size line, whose font size
+  # is <= ratio * body font size.
+  footnote_max_size_ratio: 0.90
+  # Superscript footnote markers inside body lines (small digit/asterisk spans).
+  marker_max_size_ratio: 0.80
+  # Paragraph break when the vertical gap between lines exceeds ratio * line height.
+  paragraph_gap_ratio: 0.35
+  toc_markers:
+    - '^ARRANGEMENT OF (SECTIONS|RULES|CLAUSES|REGULATIONS)$'
+    - '^TABLE OF CONTENTS$'
+    - '^CONTENTS$'
+  # Extra running-header patterns that repetition alone cannot catch in very short files
+  # (e.g. a 2-page Gazette notification has one even page).
+  # Page number, title and part label share one baseline and are merged into one line, e.g.
+  # "4 THE GAZETTE OF INDIA : EXTRAORDINARY [PART II—SEC. 3(i)]".
+  header_footer_patterns:
+    - '^(\d+\s+)?THE GAZETTE OF INDIA\s*:\s*EXTRAORDINARY(\s*\[PART II\s*—\s*SEC\.\s*3\(i\)\])?$'
+    - '^\[PART II\s*—\s*SEC\.\s*3\(i\)\]$'
+  drop_line_patterns: []
+
+structure:
+  definitions_heading_pattern: '^(Definitions?|Interpretations?)\b'
+  # Titles that refer to a corpus document (used to resolve "section 101 of the Consumer
+  # Protection Act, 2019"). Matching is case-insensitive and ignores "(35 of 2019)".
+  act_aliases:
+    "Consumer Protection Act, 2019": cpa2019

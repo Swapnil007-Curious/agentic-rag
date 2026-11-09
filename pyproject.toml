@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ragsys"
+version = "0.1.0"
+description = "Agnostic Agentic-RAG: Hybrid Vector-Semantic Document Intelligence for Niche Low-Resource Corpora (ingestion pipeline)"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Swapnil" }]
+requires-python = ">=3.11,<3.12"
+# Exact pins live in requirements.txt / requirements-dev.txt.
+# torch must be installed from the CPU wheel index first (see README).
+dependencies = [
+    "pymupdf>=2.1",
+    "pydantic>=2.14,<3",
+    "pyyaml>=6.0",
+    "numpy>=2.0",
+    "psutil>=7.0",
+    "sentence-transformers>=6.0",
+    "transformers>=5.0",
+    "torch>=2.4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=9.0", "ruff>=0.17", "mypy>=2.0", "types-PyYAML"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ragsys = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "scripts", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+ignore = [
+    "E501",   # line length is handled by `ruff format`; long string literals are left intact
+    "RUF001", # ambiguous unicode characters are intentional (dashes/quotes normalisation tables)
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["pymupdf", "pymupdf.*", "sentence_transformers", "sentence_transformers.*", "transformers", "transformers.*", "psutil", "psutil.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m \"not corpus\""
+markers = [
+    "corpus: integration tests on the real PDFs in data/raw (skipped automatically when absent)",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::FutureWarning",
+]

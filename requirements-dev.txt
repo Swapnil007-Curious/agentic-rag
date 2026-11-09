@@ -1,0 +1,6 @@
+# Development / CI dependencies. Install CPU torch first (see requirements.txt header).
+-r requirements.txt
+pytest==9.2.0
+ruff==0.17.4
+mypy==2.4.1
+types-PyYAML==6.0.12.20261103

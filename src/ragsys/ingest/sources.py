@@ -1,0 +1,69 @@
+"""data/raw/SOURCES.csv: provenance of every raw PDF (hash, size, pages, URL)."""
+
+from __future__ import annotations
+
+import csv
+import hashlib
+from pathlib import Path
+
+from ragsys.config import IngestConfig
+from ragsys.ingest.extract import pdf_page_count
+
+FIELDS = [
+    "file_name",
+    "doc_id",
+    "official_title",
+    "source_url",
+    "sha256",
+    "bytes",
+    "pages",
+    "downloaded_on",
+]
+
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for block in iter(lambda: fh.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def build_sources_rows(
+    cfg: IngestConfig, raw_dir: Path, existing: Path | None = None
+) -> list[dict[str, str]]:
+    """One row per enabled document; keeps any downloaded_on dates already filled in."""
+    previous: dict[tuple[str, str], str] = {}
+    if existing is not None and existing.exists():
+        with existing.open(encoding="utf-8", newline="") as fh:
+            for row in csv.DictReader(fh):
+                previous[(row.get("file_name", ""), row.get("doc_id", ""))] = row.get(
+                    "downloaded_on", ""
+                )
+    rows = []
+    for d in cfg.enabled_documents():
+        path = raw_dir / d.file
+        present = path.exists()
+        rows.append(
+            {
+                "file_name": d.file,
+                "doc_id": d.doc_id,
+                "official_title": d.title,
+                "source_url": d.source_url,
+                "sha256": sha256_file(path) if present else "",
+                "bytes": str(path.stat().st_size) if present else "",
+                "pages": str(pdf_page_count(path)) if present else "",
+                "downloaded_on": previous.get((d.file, d.doc_id), ""),
+            }
+        )
+    return rows
+
+
+def write_sources_csv(cfg: IngestConfig, raw_dir: Path, out: Path) -> list[dict[str, str]]:
+    rows = build_sources_rows(cfg, raw_dir, existing=out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=FIELDS, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+    return rows

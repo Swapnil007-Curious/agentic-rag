@@ -1,6 +1,6 @@
 # Agnostic Agentic-RAG: Hybrid Vector-Semantic Document Intelligence for Niche Low-Resource Corpora
 
-This repository contains two parts of the project.
+This repository contains three parts of the project.
 
 * **Document ingestion:**
   * PDF text extraction and cleaning;
@@ -14,8 +14,14 @@ This repository contains two parts of the project.
   * an interactive search tool;
   * an OpenAI-compatible LLM client, used to build the evaluation set automatically (with
     automatic quality filters) and to draft questions for human review.
-
-Answer generation, agents and UI are later stages and are not part of this code yet.
+* **Answering:**
+  * a Synthesizer agent that answers only from retrieved passages, with a citation after every
+    sentence, and a Critic agent with one bounded revision round;
+  * deterministic hallucination guards (citation validity, number grounding) and calibrated
+    abstention (a retrieval-score threshold tuned on dev);
+  * an answer-quality evaluation harness (NLI-based faithfulness and correctness, citation
+    quality, abstention, cost) with the same dev/test discipline as retrieval;
+  * a local web UI with clickable citations.
 
 "Agnostic" means the pipeline is domain-independent: document structure comes from a pluggable
 `StructureParser`. The case-study corpus uses `IndianStatuteParser`; any other PDF can be
@@ -69,6 +75,8 @@ HuggingFace cache. Building the retrieval indexes also downloads:
 * `BAAI/bge-base-en-v1.5` (about 440 MB);
 * `BAAI/bge-large-en-v1.5` (about 1.3 GB);
 * `cross-encoder/ms-marco-MiniLM-L-6-v2` (about 90 MB).
+
+The answer evaluation downloads `cross-encoder/nli-deberta-v3-base` (about 740 MB) on first use.
 
 ## Commands
 
@@ -185,7 +193,7 @@ answerable and 30 unanswerable questions.
 | `gold_node_ids` | list of strings | node IDs from `nodes.jsonl`; empty for unanswerable questions |
 | `gold_answer` | string | short reference answer; for unanswerable questions a one-line reason |
 | `difficulty` | string | `easy`, `medium`, `hard` |
-| `author` | string | `Swapnil`; automatic items: `auto (<model>) - filtered` |
+| `author` | string | `Swapnil`; `seed example` for q001-q003; automatic items: `auto (<model>) - filtered` |
 | `notes` | string, optional | |
 | `origin` | string, optional | `human` (default), `llm_draft_human_reviewed` or `llm_auto_filtered` |
 | `gen_meta` | object, optional | automatic items only: method, filters passed, source nodes, lexical overlap, model, seed, ... |
@@ -193,7 +201,7 @@ answerable and 30 unanswerable questions.
 Example line:
 
 ```json
-{"id": "q001", "question": "What does \"e-commerce\" mean under the Consumer Protection Act, 2019?", "type": "definition", "answerable": true, "gold_node_ids": ["cpa2019:s2(16)"], "gold_answer": "Buying or selling of goods or services, including digital products, over a digital or electronic network.", "difficulty": "easy", "author": "Swapnil"}
+{"id": "q001", "question": "What does \"e-commerce\" mean under the Consumer Protection Act, 2019?", "type": "definition", "answerable": true, "gold_node_ids": ["cpa2019:s2(16)"], "gold_answer": "Buying or selling of goods or services, including digital products, over a digital or electronic network.", "difficulty": "easy", "author": "seed example", "notes": "seed example created during tooling development"}
 ```
 
 Workflow:
@@ -206,8 +214,10 @@ Workflow:
    consistency, prints counts by type, difficulty and document, and shows progress toward
    90 + 30. It exits non-zero on errors.
 
-The three questions shipped in the file are examples built from real nodes; their `notes` say
-"example — replace or keep after review", and the validator warns until that note is removed.
+The first three questions (q001-q003) are seed examples built from real nodes while the tooling
+was developed; their author is `seed example` and their `notes` say so. The validator warns about
+any other author name, and about items whose notes still carry the old "replace or keep after
+review" marker.
 
 ## Retrieval
 
@@ -289,8 +299,9 @@ Quote config ids in PowerShell, because they contain `|`. Output is ASCII-folded
   `sha256("split-v1:" + question id)`, divided by 2^32, are below 0.30; otherwise it is in
   `test`. The split is computed, never stored, so adding questions never moves existing ones.
   `validate_eval.py` prints counts per split x type x origin.
-* **Test split guard.** Only `scripts/eval_retrieval.py` can read test questions:
-  * the harness needs a grant, and `grant_test_access()` only issues it to that script;
+* **Test split guard.** Only `scripts/eval_retrieval.py` (and, for answer generation,
+  `scripts/eval_generation.py`) can read test questions:
+  * the harness needs a grant, and `grant_test_access()` only issues it to those scripts;
   * every grant is appended to `results/test_access_log.json` (UTC time, git commit, dirty flag,
     configs, number of questions);
   * a test scans the source tree to check that no other file asks for a grant;
@@ -383,8 +394,9 @@ refuses a second test evaluation unless you pass `--allow-repeat`, and the repea
 ## LLM client
 
 `src/ragsys/llm/client.py` is a single client for any OpenAI-compatible chat endpoint (the `openai`
-SDK with a `base_url`), configured in `configs/llm.yaml`. It is used only to build and draft
-evaluation questions.
+SDK with a `base_url`), configured in `configs/llm.yaml`. It builds and drafts evaluation
+questions and runs the answering agents (with the overrides of `configs/generation.yaml`:
+temperature 0, max_tokens 512).
 
 * **Ollama (default):** install Ollama, run `ollama pull qwen2.5:3b` and keep it running. The
   default `base_url` is `http://localhost:11434/v1`; no key is needed.
@@ -401,7 +413,10 @@ Features:
   5xx responses;
 * per-call latency and token usage;
 * an on-disk response cache in `data/processed/llm_cache/`, keyed by (base_url, model, messages,
-  parameters), so reruns are free and reproducible.
+  parameters), so reruns are free and reproducible. A cache hit reports `latency_ms = 0` (no
+  model time spent now) and carries the latency measured on the original call in
+  `stored_latency_ms`; `reported_latency_ms` is what latency figures use, so they do not depend
+  on whether the cache was warm.
 
 Tests use `FakeLLM` and a fake HTTP transport; no test calls a network endpoint.
 
@@ -587,10 +602,234 @@ Every question carries an `origin` field:
 
 Results can be broken down by origin (`retrieval_*_by_origin.csv`).
 
+## Answering
+
+### Agent architecture
+
+```
+question
+  |
+  |-- retriever (RetrievalConfig of the system) --> ranked chunks + abstention score
+  |
+  |-- [G5] abstention score < dev-tuned threshold? --> ABSTAIN (low_retrieval_score), no LLM call
+  |
+  |-- context builder: ranked chunks in order until the next would exceed 1024 tokens
+  |     -> passages [C1] [C2] ... (heading path, section ids, text) inside delimiters
+  v
+Synthesizer (LLM) --> {"abstain", "answer", "citations"}   abstain --> ABSTAIN (synth_abstain)
+  |
+  v
+deterministic guards: citation_validity + number_grounding
+  |   G1/G2: recorded only        G3: failure --> ABSTAIN (guard_fail)
+  v
+Critic (LLM; sees the question, the cited passages and the answer)       [G4, G5, G6]
+  |   "abstain" --> ABSTAIN (critic_abstain)
+  |   "accept" and guards passed --> ANSWER
+  |   guards failed or "revise":
+  v
+revision round (once): context extended with the next chunks up to 2048 tokens; the
+synthesizer gets the guard reasons, the critic feedback and its previous answer
+  |
+  v
+guards + critic again --> ANSWER, or ABSTAIN (synth_abstain | guard_fail | critic_abstain)
+```
+
+* At most 2 synthesizer rounds and 2 critic rounds per question. Each round may use one
+  JSON-repair retry (the reply and a short repair instruction are sent back once); repairs are
+  counted in the LLM-call totals. An unreadable synthesizer reply after the repair counts as
+  `synth_abstain`; an unreadable critic reply is recorded and treated as no objection (the
+  guards have already passed at that point).
+* When round 1 fails the guards, the critic is skipped and the revision uses the guard reasons
+  (`loop.critic_on_guard_fail: false`, saves one LLM call). When the critic still asks for a
+  revision in the final round, the system abstains (`loop.on_final_revise: abstain`).
+* Every step is recorded (name, round, status, details, timing, LLM calls with token usage and
+  latency). Cached LLM responses report the latency measured on the original call, and the
+  retrieval step reports the retriever's cache-adjusted total, so end-to-end latency does not
+  depend on warm caches.
+* A warning is recorded when a prompt comes close to the model's context window
+  (`llm_context_window`, 4096 for qwen2.5:3b under Ollama here). Round-1 prompts are about 1.2k
+  tokens and revision prompts about 2.5k, so they fit; if you raise the budgets, also raise
+  `OLLAMA_CONTEXT_LENGTH`.
+
+**Untrusted document text.** Passages go into the user message only, each wrapped in
+`<<<PASSAGE Cn>>> ... <<<END Cn>>>`. Delimiter look-alikes inside document text (`<<<`, `>>>`)
+are neutralised so a passage cannot close its block, and the fixed system prompts say that
+passages are data and that instructions inside them must be ignored. System prompts never
+contain document text.
+
+**Plain-language mode** (UI and `ask.py --plain` only) adds one rule to the synthesizer's system
+prompt: simpler wording, still one citation per sentence. Evaluation always uses the default
+mode.
+
+Code lives in `src/ragsys/agents/`:
+
+| module | content |
+|---|---|
+| `config.py` | `GenerationSettings` (`configs/generation.yaml`): budgets, loop, systems, abstention, NLI, UI |
+| `context.py` | `ContextBuilder` (packing, extension), `Passage` (delimited block), `PackedContext` |
+| `synthesizer.py` / `critic.py` | prompts, strict-JSON parsing and validation |
+| `llmcall.py` | JSON reply with one repair retry; per-call latency (stored latency on cache hits) and tokens |
+| `guards.py` | `citation_validity`, `number_grounding` |
+| `text.py` | citation tags, sentence splitting (legal abbreviations, citations after the full stop) |
+| `orchestrator.py` | `Orchestrator`, `PipelineSpec`, `AnswerResult` (trace, cost, record) |
+| `abstention.py` | threshold tuning and the threshold file |
+| `derive.py` | derived systems G3 and G5 from base records |
+| `engine.py` | builds orchestrators per system on shared retrieval resources |
+| `fake.py` | deterministic offline LLM stand-in (`--fake-llm`, tests) |
+
+### Guards (no LLM)
+
+* **citation_validity**: the answer is not empty, every sentence ends with at least one
+  citation, and every cited label (inline tags and the `citations` field) exists in the context.
+* **number_grounding**: every number in the answer (digits or English words, including lakh /
+  crore amounts and durations such as "forty-five days") occurs, compared by value, in at least
+  one cited passage (its heading path, section ids or text; page numbers do not count). "30 days"
+  matches "thirty days" and "50 lakh" matches "Rs. 50,00,000". A bare "one" (as in "any one of")
+  is not treated as a number.
+
+A failed guard marks the answer `unsupported` with its reasons.
+
+### Abstention
+
+The abstention score is the top-1 dense cosine of the first-stage retriever (the dense
+component of hybrid rankings), or the top-1 rerank score when reranking is on.
+`scripts/tune_abstention.py` computes it for every dev question with the retriever of
+`abstention.tuned_system` (G5, i.e. the retriever of G4). It tries every distinct dev score as the
+threshold (abstain when score < threshold) and keeps the one with the highest abstention F1
+(positive class = unanswerable); ties go to the lower threshold. Because the candidates are
+observed scores, "abstain on everything" is never chosen. The result goes to
+`results/tables/abstention_threshold.json` (threshold, dev precision / recall / F1, the whole
+curve, per-question dev scores). Questions below the threshold are abstained before any LLM
+call.
+
+### Systems (`configs/generation.yaml`)
+
+| system | retrieval | guards | critic loop | threshold | how it is produced |
+|---|---|---|---|---|---|
+| G1 naive | `fixed_512\|dense\|bge-base` | recorded only | - | - | run |
+| G2 structural | `structural\|dense\|bge-base` (best dev retrieval config) | recorded only | - | - | run |
+| G3 | as G2 | failure -> abstain | - | - | derived from G2's records, no LLM calls |
+| G4 | as G2 | yes | yes | - | run (round 1 reuses G2's synthesizer call from the LLM cache) |
+| G5 | as G2 | yes | yes | yes | derived from G4's records + threshold; questions below it lose their LLM cost |
+| G6 | `fixed_256\|hybrid_linear\|bge-base\|a0.5\|rerank-minilm` (best dev recall@5) | yes | yes | - | run (reranking comparison) |
+
+Derived systems can also run live (UI, `ask.py`): G3 as G2 with the guards applied, G5 as G4
+with the threshold check first. Without a threshold file, G5 runs like G4 and every result says
+so.
+
+### Answer evaluation
+
+`src/ragsys/eval/answers.py` is independent of the generator LLM. The NLI model is
+`cross-encoder/nli-deberta-v3-base` on CPU (about 740 MB, downloaded on first use; if it cannot
+be loaded, `cross-encoder/nli-distilroberta-base` is used and the reason is written to the
+table metadata). P(entailment) is cached in `data/processed/nli_cache/nli_scores.sqlite`. Long
+premises are split into 400-token windows (stride 300) and the maximum over windows is used.
+
+| metric | definition | over |
+|---|---|---|
+| faithfulness | supported sentences / sentences; a sentence (citation tags removed) is supported when the max over its cited passages of P(entailment) >= 0.5; a sentence without a valid citation is unsupported | answered items (mean per answer; `faithfulness_micro` pools sentences) |
+| unsupported-claim rate | 1 - faithfulness | answered items |
+| answers with an unsupported sentence | share of answers with at least one unsupported sentence | answered items |
+| correct | P(entailment \| premise = answer, hypothesis = gold answer) >= 0.5, or, for `numeric` questions, every number of the gold answer occurs in the answer (by value) | answerable items that were answered (`correct_rate_answered`); all answerable items (`correct_rate_answerable`) |
+| correct and faithful | correct and every sentence supported | all answerable items |
+| citation precision | cited passages relevant to a gold node (retrieval relevance definition) / cited labels; labels not in the context count as not relevant; no citation gives 0 | answerable items that were answered |
+| citation recall | gold nodes covered by the cited passages / gold nodes | answerable items that were answered |
+| correct refusal | abstained | unanswerable items |
+| false abstention | abstained | answerable items |
+| abstention precision / recall / F1 | positive class = unanswerable | all items |
+| overall accuracy | (answerable and answered correctly) + (unanswerable and abstained) | all items |
+| cost | LLM calls, prompt / completion tokens (means), end-to-end latency p50 / p95 | all items |
+
+Abstentions are also counted by reason. A paired bootstrap (1000 seeded resamples) compares
+every system with G1 on overall accuracy (all questions), faithfulness (questions both systems
+answered) and correct refusal (unanswerable questions). Tables are broken down by question type.
+
+### Protocol
+
+* Dev and test are the retrieval split (hash of the question id). Everything that is chosen
+  (the systems' retrieval configs, the prompts, the loop settings, the threshold) is chosen on
+  dev.
+* `scripts/eval_generation.py` is the only generation code path that reads test questions:
+  * it needs a grant from `grant_test_access()`, which is issued to `scripts/eval_retrieval.py`
+    and `scripts/eval_generation.py` only (a test checks the source tree);
+  * every start is appended to `results/test_access_log.json`;
+  * it refuses to start without `abstention_threshold.json`;
+  * it refuses a second complete run unless `--allow-repeat` is given (and logged).
+
+  `run_generation.py`, `derive_systems.py` and `tune_abstention.py` only accept dev.
+* Per-question records are reused only when the question (id, text, type, answerability, gold
+  nodes and answer) and the system fingerprint (system definition, retrieval config, budgets,
+  loop settings, prompt texts, LLM model and parameters) match; otherwise they are recomputed.
+
+### Commands
+
+```powershell
+ollama pull qwen2.5:3b                  # once; keep Ollama running
+
+# one question, with citations, step trace and timings
+python scripts/ask.py "Within how many days must a complaint be decided if no testing of goods is needed?" --system G4
+python scripts/ask.py "Who can file a complaint?" --system G5 --plain
+
+# local web UI on http://127.0.0.1:8000 (loopback only; Ctrl+C to stop)
+python scripts/serve.py
+
+# 1. dev runs (resumable; one record per question as it is answered)
+python scripts/run_generation.py --split dev --systems G1 G2 G4 G6
+# 2. abstention threshold on dev (retrieval only, about a minute)
+python scripts/tune_abstention.py
+# 3. derived systems G3 / G5 on dev and the complete dev tables
+python scripts/derive_systems.py --split dev
+# 4. once, at the end: test evaluation of all six systems
+python scripts/eval_generation.py --split test --systems G1 G2 G3 G4 G5 G6
+# optional: LLM-judge cross-check of the NLI verdicts with another model family
+python scripts/judge_sample.py --model llama3.2:3b --results results/generation/dev/G4
+```
+
+On a 2-core laptop CPU an LLM call takes roughly 10-45 s, so a synthesizer-only system needs
+about half a minute to a minute per question and a critic system about one to two minutes.
+Expect a few hours for the dev runs and several hours for the test evaluation. Both resume
+after an interruption: rerun the same command, and finished LLM calls come from the cache.
+Memory: one bge-base encoder, the MiniLM reranker and later the NLI model (the retrieval models
+are released before the NLI model is loaded); Ollama runs in its own process.
+
+Outputs:
+
+| path | content |
+|---|---|
+| `results/generation/<split>/<system>/per_question.jsonl` | answer, outcome and reason, sentences and citations, context passages (ids, sections, pages), retrieval scores, every round (synthesizer, guards, critic), step trace, cost |
+| `results/generation/<split>/<system>/eval.jsonl` | per-question answer metrics, with the NLI score of every sentence |
+| `results/tables/generation_<split>.csv` | one row per system: all metrics above, abstentions by reason |
+| `results/tables/generation_<split>_by_type.csv`, `_bootstrap.csv`, `.meta.json` | breakdown by question type, paired bootstrap vs G1, settings, NLI model, threshold, run info |
+| `results/tables/abstention_threshold.json` | dev-tuned threshold with its curve |
+
+### Web UI
+
+`scripts/serve.py` starts a FastAPI app (`src/ragsys/app/`) bound to 127.0.0.1, port 8000 by
+default:
+
+* ask box, system selector (G2, G4, G5, G6; default G5) and a plain-language switch;
+* the answer with a superscript citation chip after each sentence; a chip opens a side panel
+  with the passage's heading path, section id, pages and text, with the cited sentence's key
+  terms highlighted;
+* when the system abstains: "Not found in these documents" and the three closest sections,
+  each opening its passage;
+* a collapsible step trace (retrieval, context, threshold, synthesis, guards, critic, revision)
+  with timings and LLM usage;
+* thumbs up / down stored in `data/feedback.jsonl` (git-ignored, stays on this machine);
+* footer: "Information from the Consumer Protection Act, 2019 and four Rules. Not legal advice."
+  and the corpus documents with their versions (file hash and pages from `SOURCES.csv`).
+
+Endpoints: `GET /`, `GET /api/meta`, `POST /ask`, `GET /passage?chunk_id=...`,
+`POST /feedback`. The page loads no external resources and has no inline script (strict
+Content-Security-Policy), and all document and model text is inserted as text. Requests are
+answered one at a time, and only loopback host names are accepted. The page is keyboard
+accessible (labelled controls, visible focus, Esc closes the passage panel) and works at 360 px
+width.
+
 ## Tests and CI
 
 ```powershell
-pytest -q              # synthetic fixtures only (corpus tests are deselected by default)
+pytest -q              # synthetic fixtures, fake models, FakeLLM, fake NLI; no network (corpus tests deselected)
 pytest -q -m corpus    # integration test on the real PDFs in data/raw (skipped if absent)
 ruff check . ; ruff format --check . ; mypy --strict src
 ```
@@ -620,6 +859,18 @@ HuggingFace model directory.
   footnotes are kept as footnote records, not merged into the provisions.
 * Hindi text is removed, not translated; scanned (image-only) PDFs are skipped because OCR is
   out of scope.
+* Answering uses a small local generator (qwen2.5:3b, 4-bit, CPU). It follows the citation
+  format well but can cite a passage that does not answer the question, or copy a related
+  provision. The critic is the same small model and is lenient about relevance, and the guards
+  only check citation form and numbers, not the meaning of a sentence.
+* Faithfulness and correctness are NLI-based, an automatic proxy rather than human judgement: a
+  correct paraphrase can score below 0.5, and gold answers are short, so the correctness test is
+  approximate. `judge_sample.py` offers a cross-check with another model family.
+* Most evaluation questions were generated and filtered automatically (see above) and the dev
+  split is small, so the threshold and the system comparisons on dev are noisy; use the
+  bootstrap intervals.
+* Sentence splitting is rule-based (legal abbreviations, citations after the full stop); unusual
+  formatting can merge or split sentences.
 
 ## License
 

@@ -8,6 +8,10 @@
   fallback; retries with exponential backoff on rate limits, timeouts, connection errors and
   5xx responses (at most ``max_retries``); per-call latency and token usage; an on-disk response
   cache keyed by (base_url, model, messages, params), so reruns are free and reproducible.
+* A cache hit reports ``latency_ms = 0`` (no model time was spent now) and carries the latency
+  measured when the response was first computed in ``stored_latency_ms``;
+  :attr:`LLMResponse.reported_latency_ms` gives the latency to report either way, so latency
+  figures do not depend on whether the cache was warm (as for the rerank cache).
 """
 
 from __future__ import annotations
@@ -61,6 +65,14 @@ class LLMResponse:
     latency_ms: float = 0.0
     cached: bool = False
     attempts: int = 1
+    stored_latency_ms: float | None = None  # cache hits: latency measured on the original call
+
+    @property
+    def reported_latency_ms(self) -> float:
+        """Measured latency of a fresh call, or the originally measured latency of a cache hit."""
+        if self.cached and self.stored_latency_ms is not None:
+            return self.stored_latency_ms
+        return self.latency_ms
 
 
 class ChatModel(Protocol):
@@ -112,6 +124,13 @@ def extract_json(text: str) -> dict[str, Any]:
         if isinstance(data, dict):
             return data
     raise LLMJSONError(f"no JSON object in model reply: {text[:200]!r}")
+
+
+def _float_or_none(value: Any) -> float | None:
+    try:
+        return None if value is None else float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 _RETRYABLE: tuple[type[Exception], ...] = (
@@ -202,6 +221,7 @@ class LLMClient:
                 usage=data["response"].get("usage", {}),
                 latency_ms=0.0,
                 cached=True,
+                stored_latency_ms=_float_or_none(data.get("latency_ms")),
             )
             self._record(resp)
             return resp
@@ -273,6 +293,7 @@ class LLMClient:
         rec = {
             "model": resp.model,
             "latency_ms": resp.latency_ms,
+            "reported_latency_ms": resp.reported_latency_ms,
             "usage": resp.usage,
             "cached": resp.cached,
             "attempts": resp.attempts,

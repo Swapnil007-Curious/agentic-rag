@@ -1,0 +1,75 @@
+# Answer generation: context budgets, loop bounds, systems G1-G6, abstention, answer evaluation
+# and the local web UI (unknown keys raise).
+
+llm_config: configs/llm.yaml          # endpoint, model, seed, cache (qwen2.5:3b through Ollama)
+llm_overrides:
+  temperature: 0.0                    # deterministic generation (the fixed seed comes from llm.yaml)
+  max_tokens: 512
+llm_context_window: 4096              # Ollama's context length for qwen2.5:3b here; prompts near it are flagged
+retrieval_config: configs/retrieval.yaml
+results_dir: results
+seed: 42
+
+context:
+  budget_tokens: 1024                 # first round: ranked chunks packed until the next one would not fit
+  revision_budget_tokens: 2048        # revision round: the context is extended with the next chunks
+  min_passages: 1
+
+loop:
+  max_synth_calls: 2                  # synthesis rounds per question (1 = no revision)
+  max_critic_calls: 2                 # critic rounds per question
+  critic_on_guard_fail: false         # round 1 with failed guards: revise from the guard reasons only
+  on_final_revise: abstain            # final round: critic still says "revise" -> abstain (critic_abstain)
+
+systems:
+  G1:
+    description: "naive RAG: fixed_512 chunks, dense bge-base, synthesizer only"
+    retrieval: "fixed_512|dense|bge-base"
+  G2:
+    description: "structural chunks, dense bge-base (best dev retrieval config), synthesizer only"
+    retrieval: "structural|dense|bge-base"
+  G3:
+    description: "G2 + deterministic guards (a guard failure becomes an abstention)"
+    derived_from: G2
+    guards: true
+  G4:
+    description: "G2 + guards + critic with one revision round"
+    retrieval: "structural|dense|bge-base"
+    guards: true
+    critic: true
+  G5:
+    description: "G4 + retrieval-score abstention threshold (tuned on dev)"
+    derived_from: G4
+    guards: true
+    critic: true
+    threshold: true
+  G6:
+    description: "fixed_256 hybrid (linear, alpha 0.5) + MiniLM reranking (best dev recall@5), guards + critic"
+    retrieval: "fixed_256|hybrid_linear|bge-base|a0.5|rerank-minilm"
+    guards: true
+    critic: true
+
+abstention:
+  threshold_file: results/tables/abstention_threshold.json
+  tuned_system: G5
+
+nli:
+  model: cross-encoder/nli-deberta-v3-base
+  fallback_model: cross-encoder/nli-distilroberta-base   # used (and recorded) only if the model above fails to load
+  entailment_threshold: 0.5
+  window_tokens: 400                  # long passages are split into windows; the max entailment counts
+  window_stride: 300
+  batch_size: 8
+  cache_dir: data/processed/nli_cache
+
+eval:
+  bootstrap_resamples: 1000
+  seed: 42
+  reference_system: G1                # paired bootstrap differences are computed against it
+
+ui:
+  port: 8000                          # always bound to 127.0.0.1
+  systems: [G2, G4, G5, G6]
+  default_system: G5
+  feedback_file: data/feedback.jsonl  # git-ignored
+  sources_csv: data/raw/SOURCES.csv

@@ -1,0 +1,380 @@
+// Consumer Law Answers: vanilla JS for the local UI. All document and model text is inserted
+// with textContent (never innerHTML).
+"use strict";
+
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const form = $("ask-form");
+  const question = $("question");
+  const systemSel = $("system");
+  const systemDesc = $("system-desc");
+  const plain = $("plain");
+  const askBtn = $("ask-button");
+  const statusEl = $("status");
+  const result = $("result");
+  const resultHeading = $("result-heading");
+  const badge = $("outcome-badge");
+  const warnings = $("warnings");
+  const answerEl = $("answer");
+  const abstainedEl = $("abstained");
+  const abstainWhy = $("abstain-why");
+  const closest = $("closest");
+  const traceList = $("trace-list");
+  const traceTotal = $("trace-total");
+  const fbStatus = $("fb-status");
+  const panel = $("panel");
+  const layout = document.querySelector(".layout");
+
+  const STOP = new Set(
+    ("the a an and or of to in on for by with from that this these those which who whom whose " +
+      "is are was were be been being shall may must can will would should under any such its it " +
+      "their there than then also into upon other not no nor but if as at so per out within " +
+      "has have had having does do did section rule sub clause act rules")
+      .split(" ")
+  );
+  const STEP_NAMES = {
+    retrieval: "Retrieval",
+    context: "Context packed",
+    threshold: "Retrieval-score check",
+    synthesis: "Synthesis",
+    guards: "Guards",
+    critic: "Critic",
+    revision_context: "Context extended",
+  };
+
+  let systems = [];
+  let current = null; // last /ask response
+  let lastTrigger = null; // element that opened the panel
+  let timer = null;
+
+  function el(tag, cls, text) {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined && text !== null) node.textContent = text;
+    return node;
+  }
+
+  function fmtMs(ms) {
+    if (ms === null || ms === undefined) return "";
+    return ms >= 1000 ? (ms / 1000).toFixed(1) + " s" : Math.round(ms) + " ms";
+  }
+
+  function setStatus(text, opts) {
+    statusEl.textContent = "";
+    statusEl.classList.toggle("error", Boolean(opts && opts.error));
+    if (opts && opts.busy) statusEl.appendChild(el("span", "spinner"));
+    statusEl.appendChild(document.createTextNode(text));
+  }
+
+  // ------------------------------------------------------------------ metadata
+  async function loadMeta() {
+    try {
+      const res = await fetch("/api/meta");
+      const meta = await res.json();
+      systems = meta.systems;
+      systemSel.textContent = "";
+      for (const s of systems) {
+        const opt = el("option", null, s.id + " — " + s.description);
+        opt.value = s.id;
+        if (s.id === meta.default_system) opt.selected = true;
+        systemSel.appendChild(opt);
+      }
+      updateSystemDesc();
+      if (meta.disclaimer) $("disclaimer").textContent = meta.disclaimer;
+      const docs = $("documents");
+      docs.textContent = "";
+      for (const d of meta.documents) {
+        const li = el("li");
+        li.appendChild(document.createTextNode(d.title + " "));
+        const v = [d.file, d.pages ? d.pages + " pages" : "", d.version].filter(Boolean).join(" · ");
+        li.appendChild(el("span", "version", "(" + v + ")"));
+        docs.appendChild(li);
+      }
+      if (!meta.threshold_tuned) {
+        systemDesc.dataset.note = "G5's abstention threshold is not tuned yet; G5 currently runs like G4.";
+        updateSystemDesc();
+      }
+    } catch (err) {
+      setStatus("Could not load the system list: " + err, { error: true });
+    }
+  }
+
+  function updateSystemDesc() {
+    const s = systems.find((x) => x.id === systemSel.value);
+    let text = s ? s.description : "";
+    if (systemSel.value === "G5" && systemDesc.dataset.note) text += " " + systemDesc.dataset.note;
+    systemDesc.textContent = text;
+  }
+
+  // ------------------------------------------------------------------ ask
+  async function ask(evt) {
+    if (evt) evt.preventDefault();
+    const q = question.value.trim();
+    if (q.length < 3) {
+      setStatus("Please type a question first.", { error: true });
+      question.focus();
+      return;
+    }
+    closePanel(false);
+    askBtn.disabled = true;
+    askBtn.textContent = "Working…";
+    const started = Date.now();
+    const tick = () =>
+      setStatus("Retrieving passages and writing the answer… " + Math.round((Date.now() - started) / 1000) + " s", {
+        busy: true,
+      });
+    tick();
+    timer = setInterval(tick, 1000);
+    try {
+      const res = await fetch("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: q, system: systemSel.value, plain: plain.checked }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.detail ? JSON.stringify(body.detail) : res.statusText);
+      current = body;
+      render(body);
+      setStatus("Done in " + fmtMs(body.cost.e2e_ms) + ".");
+      resultHeading.focus();
+    } catch (err) {
+      setStatus("Something went wrong: " + err.message, { error: true });
+    } finally {
+      clearInterval(timer);
+      askBtn.disabled = false;
+      askBtn.textContent = "Ask";
+    }
+  }
+
+  // ------------------------------------------------------------------ rendering
+  function render(data) {
+    result.hidden = false;
+    fbStatus.textContent = "";
+    for (const b of document.querySelectorAll(".fb-btn")) b.setAttribute("aria-pressed", "false");
+    warnings.textContent = "";
+    warnings.hidden = !data.warnings || data.warnings.length === 0;
+    for (const w of data.warnings || []) warnings.appendChild(el("li", null, w));
+
+    const answered = data.outcome === "answered";
+    badge.textContent = answered ? "Answered from the documents · " + data.system : "Not found · " + data.system;
+    badge.classList.toggle("abstained", !answered);
+    answerEl.textContent = "";
+    answerEl.hidden = !answered;
+    abstainedEl.hidden = answered;
+
+    if (answered) {
+      const p = el("p");
+      data.sentences.forEach((s, i) => {
+        const span = el("span", "sentence", s.text);
+        span.id = "sentence-" + i;
+        p.appendChild(span);
+        for (const label of s.citations) p.appendChild(chip(label, s, span, data));
+        p.appendChild(document.createTextNode(" "));
+      });
+      answerEl.appendChild(p);
+    } else {
+      abstainWhy.textContent = reasonText(data.reason, data.detail);
+      closest.textContent = "";
+      for (const c of data.closest_sections || []) {
+        const li = el("li");
+        const btn = el("button", "link-btn");
+        btn.type = "button";
+        btn.appendChild(el("span", "path", c.heading_path));
+        btn.appendChild(el("span", "sub", (c.section_ids.join(", ") || "-") + " · pages " + c.pages));
+        btn.setAttribute("aria-label", "Open passage: " + c.heading_path);
+        btn.addEventListener("click", () => openClosest(c.chunk_id, btn));
+        li.appendChild(btn);
+        closest.appendChild(li);
+      }
+    }
+    renderTrace(data);
+  }
+
+  function reasonText(reason, detail) {
+    const map = {
+      synth_abstain: "The passages retrieved for this question do not contain an answer.",
+      guard_fail: "An answer was drafted but failed the citation and number checks, so it is not shown.",
+      critic_abstain: "The checking step could not confirm an answer from the passages.",
+      low_retrieval_score: "No passage matched the question closely enough.",
+    };
+    return (map[reason] || "No supported answer was found.") + (detail ? " (" + detail + ")" : "");
+  }
+
+  function chip(label, sentence, span, data) {
+    const passage = data.passages[label];
+    const btn = el("button", "chip", label.replace(/^C/, ""));
+    btn.type = "button";
+    if (!passage) {
+      btn.classList.add("missing");
+      btn.setAttribute("aria-label", "Citation " + label + " (not in the retrieved passages)");
+      btn.disabled = true;
+      return btn;
+    }
+    btn.setAttribute("aria-label", "Show source " + label + ": " + passage.heading_path);
+    btn.setAttribute("aria-controls", "panel");
+    btn.setAttribute("aria-expanded", "false");
+    btn.addEventListener("click", () => {
+      for (const s of document.querySelectorAll(".sentence.active")) s.classList.remove("active");
+      for (const c of document.querySelectorAll(".chip[aria-expanded='true']")) c.setAttribute("aria-expanded", "false");
+      span.classList.add("active");
+      btn.setAttribute("aria-expanded", "true");
+      openPanel(passage, label, keyTerms(sentence.text), btn, "Key terms of the cited sentence are highlighted.");
+    });
+    return btn;
+  }
+
+  function renderTrace(data) {
+    traceList.textContent = "";
+    traceTotal.textContent = "· " + fmtMs(data.cost.e2e_ms) + ", " + data.cost.llm_calls + " LLM call(s)";
+    for (const s of data.steps) {
+      const li = el("li");
+      const bad = ["unsupported", "below", "abstain", "error", "revise"].includes(s.status);
+      if (bad) li.classList.add("bad");
+      const row = el("div", "trace-row");
+      let name = STEP_NAMES[s.name] || s.name;
+      if (s.name === "synthesis" && s.round > 1) name = "Revision";
+      if (s.round > 1 && s.name !== "synthesis") name += " (round " + s.round + ")";
+      row.appendChild(el("span", "trace-name", name));
+      row.appendChild(el("span", "trace-status", s.status));
+      row.appendChild(el("span", "trace-ms", fmtMs(s.ms)));
+      li.appendChild(row);
+      const detail = traceDetail(s);
+      if (detail) li.appendChild(el("p", "trace-detail", detail));
+      traceList.appendChild(li);
+    }
+  }
+
+  function traceDetail(s) {
+    const d = s.detail || {};
+    const calls = s.llm_calls || [];
+    let usage = "";
+    if (calls.length) {
+      const pt = calls.reduce((a, c) => a + c.prompt_tokens, 0);
+      const ct = calls.reduce((a, c) => a + c.completion_tokens, 0);
+      usage = " " + calls.length + " LLM call(s), " + pt + " prompt + " + ct + " completion tokens.";
+    }
+    switch (s.name) {
+      case "retrieval":
+        return (d.config_id || "") + (d.abstention_score != null ? " · top score " + d.abstention_score.toFixed(3) : "");
+      case "context":
+      case "revision_context":
+        return d.n_passages + " passages, " + d.used_tokens + " of " + d.budget_tokens + " tokens" +
+          (d.added && d.added.length ? " (added " + d.added.join(", ") + ")" : "");
+      case "threshold":
+        return "score " + d.score + " vs threshold " + d.threshold;
+      case "guards":
+        return d.reasons && d.reasons.length ? d.reasons.join("; ") : "Every sentence cited; every number found in its sources.";
+      case "critic":
+        return (d.feedback || (d.verdict === "accept" ? "Accepted." : "")) + usage;
+      case "synthesis":
+        return (d.error || d.note || "") + usage;
+      default:
+        return usage.trim();
+    }
+  }
+
+  // ------------------------------------------------------------------ passage panel
+  function keyTerms(text) {
+    const words = (text.toLowerCase().match(/[a-z][a-z\-']{3,}|\d[\d,]*/g) || []).filter((w) => !STOP.has(w));
+    return Array.from(new Set(words)).slice(0, 24);
+  }
+
+  function escapeRe(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function highlighted(text, terms) {
+    const frag = document.createDocumentFragment();
+    if (!terms.length) {
+      frag.appendChild(document.createTextNode(text));
+      return frag;
+    }
+    const re = new RegExp("\\b(" + terms.map(escapeRe).sort((a, b) => b.length - a.length).join("|") + ")", "gi");
+    let last = 0;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      frag.appendChild(el("mark", null, m[0]));
+      last = m.index + m[0].length;
+      if (m[0].length === 0) re.lastIndex++;
+    }
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    return frag;
+  }
+
+  function openPanel(passage, label, terms, trigger, note) {
+    lastTrigger = trigger;
+    $("panel-label").textContent = label ? "Source " + label : "Passage";
+    $("panel-heading").textContent = passage.heading_path;
+    $("panel-section").textContent = (passage.section_ids || []).join(", ") || "-";
+    $("panel-pages").textContent = passage.pages;
+    $("panel-note").textContent = terms.length ? note : "";
+    const textEl = $("panel-text");
+    textEl.textContent = "";
+    textEl.appendChild(highlighted(passage.text, terms));
+    panel.hidden = false;
+    layout.classList.add("has-panel");
+    $("panel-heading").focus();
+  }
+
+  function closePanel(restoreFocus) {
+    if (panel.hidden) return;
+    panel.hidden = true;
+    layout.classList.remove("has-panel");
+    for (const c of document.querySelectorAll(".chip[aria-expanded='true']")) c.setAttribute("aria-expanded", "false");
+    for (const s of document.querySelectorAll(".sentence.active")) s.classList.remove("active");
+    if (restoreFocus !== false && lastTrigger) lastTrigger.focus();
+  }
+
+  async function openClosest(chunkId, trigger) {
+    try {
+      const res = await fetch("/passage?chunk_id=" + encodeURIComponent(chunkId));
+      if (!res.ok) throw new Error(res.statusText);
+      const passage = await res.json();
+      const terms = current ? keyTerms(current.question) : [];
+      openPanel(passage, "", terms, trigger, "Words from your question are highlighted.");
+    } catch (err) {
+      setStatus("Could not open the passage: " + err.message, { error: true });
+    }
+  }
+
+  // ------------------------------------------------------------------ feedback
+  async function sendFeedback(btn) {
+    if (!current) return;
+    const rating = btn.dataset.rating;
+    try {
+      const res = await fetch("/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: current.question,
+          system: current.system,
+          outcome: current.outcome,
+          answer: current.answer || "",
+          rating: rating,
+        }),
+      });
+      if (!res.ok) throw new Error(res.statusText);
+      for (const b of document.querySelectorAll(".fb-btn")) b.setAttribute("aria-pressed", String(b === btn));
+      fbStatus.textContent = "Thanks — saved on this computer.";
+    } catch (err) {
+      fbStatus.textContent = "Could not save feedback: " + err.message;
+    }
+  }
+
+  // ------------------------------------------------------------------ wiring
+  form.addEventListener("submit", ask);
+  question.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) ask(e);
+  });
+  systemSel.addEventListener("change", updateSystemDesc);
+  $("panel-close").addEventListener("click", () => closePanel(true));
+  panel.addEventListener("click", (e) => {
+    if (e.target === panel) closePanel(true); // backdrop on small screens
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !panel.hidden) closePanel(true);
+  });
+  for (const b of document.querySelectorAll(".fb-btn")) b.addEventListener("click", () => sendFeedback(b));
+  loadMeta();
+})();

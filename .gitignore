@@ -37,3 +37,8 @@ Thumbs.db
 # Regenerable retrieval outputs
 results/retrieval/
 results/smoke/
+# Regenerable generation outputs (per-question records; the LLM cache makes reruns cheap)
+results/generation/
+
+# Local UI feedback (stays on this machine)
+data/feedback.jsonl

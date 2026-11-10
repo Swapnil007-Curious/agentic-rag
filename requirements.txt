@@ -18,3 +18,7 @@ rank-bm25==0.2.2
 chromadb==1.5.9
 openai==3.48.0
 httpx2==2.16.0   # HTTP layer of openai 3.x; imported directly for the client's http_client type
+# Local web UI
+fastapi==0.162.3
+starlette==1.10.0
+uvicorn==0.54.0

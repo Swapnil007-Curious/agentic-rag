@@ -1,0 +1,855 @@
+{
+  "created_utc": "2026-11-10T23:10:49+00:00",
+  "label": "",
+  "systems": {
+    "G1": {
+      "description": "naive RAG: fixed_512 chunks, dense bge-base, synthesizer only",
+      "retrieval": "fixed_512|dense|bge-base",
+      "derived_from": null,
+      "guards": false,
+      "critic": false,
+      "threshold": false
+    },
+    "G2": {
+      "description": "structural chunks, dense bge-base (best dev retrieval config), synthesizer only",
+      "retrieval": "structural|dense|bge-base",
+      "derived_from": null,
+      "guards": false,
+      "critic": false,
+      "threshold": false
+    },
+    "G3": {
+      "description": "G2 + deterministic guards (a guard failure becomes an abstention)",
+      "retrieval": null,
+      "derived_from": "G2",
+      "guards": true,
+      "critic": false,
+      "threshold": false
+    },
+    "G4": {
+      "description": "G2 + guards + critic with one revision round",
+      "retrieval": "structural|dense|bge-base",
+      "derived_from": null,
+      "guards": true,
+      "critic": true,
+      "threshold": false
+    },
+    "G5": {
+      "description": "G4 + retrieval-score abstention threshold (tuned on dev)",
+      "retrieval": null,
+      "derived_from": "G4",
+      "guards": true,
+      "critic": true,
+      "threshold": true
+    },
+    "G6": {
+      "description": "fixed_256 hybrid (linear, alpha 0.5) + MiniLM reranking (best dev recall@5), guards + critic",
+      "retrieval": "fixed_256|hybrid_linear|bge-base|a0.5|rerank-minilm",
+      "derived_from": null,
+      "guards": true,
+      "critic": true,
+      "threshold": false
+    }
+  },
+  "reference": "G1",
+  "run_info": {
+    "utc_time": "2026-11-10T23:10:49+00:00",
+    "git": {
+      "commit": "1715a80ad9b3ff1086d2f7c7fb6dfe261a5ab65a",
+      "dirty": true
+    },
+    "python": "3.11.9",
+    "python_executable": "C:\\Users\\Admin\\agentic-rag\\.venv\\Scripts\\python.exe",
+    "os": "Windows 10 (10.0.26200)",
+    "machine": "AMD64",
+    "cpu_model": "11th Gen Intel(R) Core(TM) i3-1115G4 @ 3.00GHz",
+    "cpu_count_logical": 4,
+    "cpu_count_physical": 2,
+    "ram_total_gb": 19.75,
+    "packages": {
+      "ragsys": "0.1.0",
+      "pymupdf": "2.1",
+      "pydantic": "2.14.3",
+      "PyYAML": "6.0.3",
+      "numpy": "2.4.6",
+      "psutil": "7.2.2",
+      "torch": "2.15.0+cpu",
+      "transformers": "5.22.2",
+      "tokenizers": "0.23.3",
+      "sentence-transformers": "6.2.0"
+    }
+  },
+  "split": "test",
+  "questions_digest": "deb04419344fae501643f6cde7be045b64fcf586263b5ac57fedb87d21baa0d3",
+  "nli": {
+    "model": "cross-encoder/nli-deberta-v3-base",
+    "requested_model": "cross-encoder/nli-deberta-v3-base",
+    "fallback_reason": null,
+    "entailment_threshold": 0.5,
+    "window_tokens": 400,
+    "window_stride": 300
+  },
+  "settings": {
+    "llm_config": "configs\\llm.yaml",
+    "llm_overrides": {
+      "temperature": 0.0,
+      "max_tokens": 512
+    },
+    "llm_context_window": 4096,
+    "retrieval_config": "configs\\retrieval.yaml",
+    "results_dir": "results",
+    "seed": 42,
+    "context": {
+      "budget_tokens": 1024,
+      "revision_budget_tokens": 2048,
+      "min_passages": 1
+    },
+    "loop": {
+      "max_synth_calls": 2,
+      "max_critic_calls": 2,
+      "critic_on_guard_fail": false,
+      "on_final_revise": "abstain"
+    },
+    "systems": {
+      "G1": {
+        "description": "naive RAG: fixed_512 chunks, dense bge-base, synthesizer only",
+        "retrieval": "fixed_512|dense|bge-base",
+        "derived_from": null,
+        "guards": false,
+        "critic": false,
+        "threshold": false
+      },
+      "G2": {
+        "description": "structural chunks, dense bge-base (best dev retrieval config), synthesizer only",
+        "retrieval": "structural|dense|bge-base",
+        "derived_from": null,
+        "guards": false,
+        "critic": false,
+        "threshold": false
+      },
+      "G3": {
+        "description": "G2 + deterministic guards (a guard failure becomes an abstention)",
+        "retrieval": null,
+        "derived_from": "G2",
+        "guards": true,
+        "critic": false,
+        "threshold": false
+      },
+      "G4": {
+        "description": "G2 + guards + critic with one revision round",
+        "retrieval": "structural|dense|bge-base",
+        "derived_from": null,
+        "guards": true,
+        "critic": true,
+        "threshold": false
+      },
+      "G5": {
+        "description": "G4 + retrieval-score abstention threshold (tuned on dev)",
+        "retrieval": null,
+        "derived_from": "G4",
+        "guards": true,
+        "critic": true,
+        "threshold": true
+      },
+      "G6": {
+        "description": "fixed_256 hybrid (linear, alpha 0.5) + MiniLM reranking (best dev recall@5), guards + critic",
+        "retrieval": "fixed_256|hybrid_linear|bge-base|a0.5|rerank-minilm",
+        "derived_from": null,
+        "guards": true,
+        "critic": true,
+        "threshold": false
+      }
+    },
+    "abstention": {
+      "threshold_file": "results\\tables\\abstention_threshold.json",
+      "tuned_system": "G5"
+    },
+    "nli": {
+      "model": "cross-encoder/nli-deberta-v3-base",
+      "fallback_model": "cross-encoder/nli-distilroberta-base",
+      "entailment_threshold": 0.5,
+      "window_tokens": 400,
+      "window_stride": 300,
+      "batch_size": 8,
+      "cache_dir": "data\\processed\\nli_cache"
+    },
+    "eval": {
+      "bootstrap_resamples": 1000,
+      "seed": 42,
+      "reference_system": "G1"
+    },
+    "ui": {
+      "port": 8000,
+      "systems": [
+        "G2",
+        "G4",
+        "G5",
+        "G6"
+      ],
+      "default_system": "G5",
+      "feedback_file": "data\\feedback.jsonl",
+      "sources_csv": "data\\raw\\SOURCES.csv"
+    }
+  },
+  "abstention_threshold": {
+    "created_utc": "2026-11-10T19:10:54+00:00",
+    "split": "dev",
+    "system": "G5",
+    "retrieval_config_id": "structural|dense|bge-base",
+    "score": "top1_dense_cosine",
+    "rule": "abstain when score < threshold; threshold = distinct dev score maximising abstention F1 (positive = unanswerable); ties -> lower threshold",
+    "threshold": 0.671119,
+    "dev": {
+      "precision": 0.5454545454545454,
+      "recall": 0.8571428571428571,
+      "f1": 0.6666666666666665,
+      "tp": 12,
+      "fp": 10,
+      "fn": 2,
+      "tn": 14,
+      "n_abstained": 22
+    },
+    "n": 38,
+    "n_unanswerable": 14,
+    "questions_digest": "61e9f57bda585c581331d522e65b3cff4f0a482a2a930f6b55e03f0a8be71ce7",
+    "curve": [
+      {
+        "threshold": 0.49364,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 14,
+        "tn": 24,
+        "n_abstained": 0
+      },
+      {
+        "threshold": 0.51687,
+        "precision": 1.0,
+        "recall": 0.07142857142857142,
+        "f1": 0.13333333333333333,
+        "tp": 1,
+        "fp": 0,
+        "fn": 13,
+        "tn": 24,
+        "n_abstained": 1
+      },
+      {
+        "threshold": 0.54407,
+        "precision": 1.0,
+        "recall": 0.14285714285714285,
+        "f1": 0.25,
+        "tp": 2,
+        "fp": 0,
+        "fn": 12,
+        "tn": 24,
+        "n_abstained": 2
+      },
+      {
+        "threshold": 0.545197,
+        "precision": 1.0,
+        "recall": 0.21428571428571427,
+        "f1": 0.35294117647058826,
+        "tp": 3,
+        "fp": 0,
+        "fn": 11,
+        "tn": 24,
+        "n_abstained": 3
+      },
+      {
+        "threshold": 0.574024,
+        "precision": 0.75,
+        "recall": 0.21428571428571427,
+        "f1": 0.3333333333333333,
+        "tp": 3,
+        "fp": 1,
+        "fn": 11,
+        "tn": 23,
+        "n_abstained": 4
+      },
+      {
+        "threshold": 0.574849,
+        "precision": 0.6,
+        "recall": 0.21428571428571427,
+        "f1": 0.3157894736842105,
+        "tp": 3,
+        "fp": 2,
+        "fn": 11,
+        "tn": 22,
+        "n_abstained": 5
+      },
+      {
+        "threshold": 0.575888,
+        "precision": 0.6666666666666666,
+        "recall": 0.2857142857142857,
+        "f1": 0.4,
+        "tp": 4,
+        "fp": 2,
+        "fn": 10,
+        "tn": 22,
+        "n_abstained": 6
+      },
+      {
+        "threshold": 0.584867,
+        "precision": 0.7142857142857143,
+        "recall": 0.35714285714285715,
+        "f1": 0.4761904761904762,
+        "tp": 5,
+        "fp": 2,
+        "fn": 9,
+        "tn": 22,
+        "n_abstained": 7
+      },
+      {
+        "threshold": 0.604043,
+        "precision": 0.625,
+        "recall": 0.35714285714285715,
+        "f1": 0.45454545454545453,
+        "tp": 5,
+        "fp": 3,
+        "fn": 9,
+        "tn": 21,
+        "n_abstained": 8
+      },
+      {
+        "threshold": 0.60883,
+        "precision": 0.5555555555555556,
+        "recall": 0.35714285714285715,
+        "f1": 0.43478260869565216,
+        "tp": 5,
+        "fp": 4,
+        "fn": 9,
+        "tn": 20,
+        "n_abstained": 9
+      },
+      {
+        "threshold": 0.617578,
+        "precision": 0.5,
+        "recall": 0.35714285714285715,
+        "f1": 0.41666666666666663,
+        "tp": 5,
+        "fp": 5,
+        "fn": 9,
+        "tn": 19,
+        "n_abstained": 10
+      },
+      {
+        "threshold": 0.618243,
+        "precision": 0.5454545454545454,
+        "recall": 0.42857142857142855,
+        "f1": 0.4799999999999999,
+        "tp": 6,
+        "fp": 5,
+        "fn": 8,
+        "tn": 19,
+        "n_abstained": 11
+      },
+      {
+        "threshold": 0.620587,
+        "precision": 0.5,
+        "recall": 0.42857142857142855,
+        "f1": 0.4615384615384615,
+        "tp": 6,
+        "fp": 6,
+        "fn": 8,
+        "tn": 18,
+        "n_abstained": 12
+      },
+      {
+        "threshold": 0.624087,
+        "precision": 0.46153846153846156,
+        "recall": 0.42857142857142855,
+        "f1": 0.4444444444444445,
+        "tp": 6,
+        "fp": 7,
+        "fn": 8,
+        "tn": 17,
+        "n_abstained": 13
+      },
+      {
+        "threshold": 0.63084,
+        "precision": 0.5,
+        "recall": 0.5,
+        "f1": 0.5,
+        "tp": 7,
+        "fp": 7,
+        "fn": 7,
+        "tn": 17,
+        "n_abstained": 14
+      },
+      {
+        "threshold": 0.637089,
+        "precision": 0.5333333333333333,
+        "recall": 0.5714285714285714,
+        "f1": 0.5517241379310344,
+        "tp": 8,
+        "fp": 7,
+        "fn": 6,
+        "tn": 17,
+        "n_abstained": 15
+      },
+      {
+        "threshold": 0.640107,
+        "precision": 0.5625,
+        "recall": 0.6428571428571429,
+        "f1": 0.6000000000000001,
+        "tp": 9,
+        "fp": 7,
+        "fn": 5,
+        "tn": 17,
+        "n_abstained": 16
+      },
+      {
+        "threshold": 0.649605,
+        "precision": 0.5882352941176471,
+        "recall": 0.7142857142857143,
+        "f1": 0.6451612903225806,
+        "tp": 10,
+        "fp": 7,
+        "fn": 4,
+        "tn": 17,
+        "n_abstained": 17
+      },
+      {
+        "threshold": 0.655078,
+        "precision": 0.5555555555555556,
+        "recall": 0.7142857142857143,
+        "f1": 0.6250000000000001,
+        "tp": 10,
+        "fp": 8,
+        "fn": 4,
+        "tn": 16,
+        "n_abstained": 18
+      },
+      {
+        "threshold": 0.661428,
+        "precision": 0.5263157894736842,
+        "recall": 0.7142857142857143,
+        "f1": 0.6060606060606061,
+        "tp": 10,
+        "fp": 9,
+        "fn": 4,
+        "tn": 15,
+        "n_abstained": 19
+      },
+      {
+        "threshold": 0.662622,
+        "precision": 0.55,
+        "recall": 0.7857142857142857,
+        "f1": 0.6470588235294117,
+        "tp": 11,
+        "fp": 9,
+        "fn": 3,
+        "tn": 15,
+        "n_abstained": 20
+      },
+      {
+        "threshold": 0.665396,
+        "precision": 0.5238095238095238,
+        "recall": 0.7857142857142857,
+        "f1": 0.6285714285714286,
+        "tp": 11,
+        "fp": 10,
+        "fn": 3,
+        "tn": 14,
+        "n_abstained": 21
+      },
+      {
+        "threshold": 0.671119,
+        "precision": 0.5454545454545454,
+        "recall": 0.8571428571428571,
+        "f1": 0.6666666666666665,
+        "tp": 12,
+        "fp": 10,
+        "fn": 2,
+        "tn": 14,
+        "n_abstained": 22
+      },
+      {
+        "threshold": 0.675138,
+        "precision": 0.5217391304347826,
+        "recall": 0.8571428571428571,
+        "f1": 0.6486486486486486,
+        "tp": 12,
+        "fp": 11,
+        "fn": 2,
+        "tn": 13,
+        "n_abstained": 23
+      },
+      {
+        "threshold": 0.682236,
+        "precision": 0.5,
+        "recall": 0.8571428571428571,
+        "f1": 0.631578947368421,
+        "tp": 12,
+        "fp": 12,
+        "fn": 2,
+        "tn": 12,
+        "n_abstained": 24
+      },
+      {
+        "threshold": 0.68559,
+        "precision": 0.48,
+        "recall": 0.8571428571428571,
+        "f1": 0.6153846153846153,
+        "tp": 12,
+        "fp": 13,
+        "fn": 2,
+        "tn": 11,
+        "n_abstained": 25
+      },
+      {
+        "threshold": 0.688542,
+        "precision": 0.46153846153846156,
+        "recall": 0.8571428571428571,
+        "f1": 0.6,
+        "tp": 12,
+        "fp": 14,
+        "fn": 2,
+        "tn": 10,
+        "n_abstained": 26
+      },
+      {
+        "threshold": 0.696853,
+        "precision": 0.48148148148148145,
+        "recall": 0.9285714285714286,
+        "f1": 0.6341463414634146,
+        "tp": 13,
+        "fp": 14,
+        "fn": 1,
+        "tn": 10,
+        "n_abstained": 27
+      },
+      {
+        "threshold": 0.701797,
+        "precision": 0.4642857142857143,
+        "recall": 0.9285714285714286,
+        "f1": 0.6190476190476191,
+        "tp": 13,
+        "fp": 15,
+        "fn": 1,
+        "tn": 9,
+        "n_abstained": 28
+      },
+      {
+        "threshold": 0.708687,
+        "precision": 0.4482758620689655,
+        "recall": 0.9285714285714286,
+        "f1": 0.6046511627906977,
+        "tp": 13,
+        "fp": 16,
+        "fn": 1,
+        "tn": 8,
+        "n_abstained": 29
+      },
+      {
+        "threshold": 0.71223,
+        "precision": 0.43333333333333335,
+        "recall": 0.9285714285714286,
+        "f1": 0.5909090909090909,
+        "tp": 13,
+        "fp": 17,
+        "fn": 1,
+        "tn": 7,
+        "n_abstained": 30
+      },
+      {
+        "threshold": 0.714778,
+        "precision": 0.41935483870967744,
+        "recall": 0.9285714285714286,
+        "f1": 0.5777777777777778,
+        "tp": 13,
+        "fp": 18,
+        "fn": 1,
+        "tn": 6,
+        "n_abstained": 31
+      },
+      {
+        "threshold": 0.726095,
+        "precision": 0.4375,
+        "recall": 1.0,
+        "f1": 0.6086956521739131,
+        "tp": 14,
+        "fp": 18,
+        "fn": 0,
+        "tn": 6,
+        "n_abstained": 32
+      },
+      {
+        "threshold": 0.738076,
+        "precision": 0.42424242424242425,
+        "recall": 1.0,
+        "f1": 0.5957446808510638,
+        "tp": 14,
+        "fp": 19,
+        "fn": 0,
+        "tn": 5,
+        "n_abstained": 33
+      },
+      {
+        "threshold": 0.753245,
+        "precision": 0.4117647058823529,
+        "recall": 1.0,
+        "f1": 0.5833333333333334,
+        "tp": 14,
+        "fp": 20,
+        "fn": 0,
+        "tn": 4,
+        "n_abstained": 34
+      },
+      {
+        "threshold": 0.794539,
+        "precision": 0.4,
+        "recall": 1.0,
+        "f1": 0.5714285714285715,
+        "tp": 14,
+        "fp": 21,
+        "fn": 0,
+        "tn": 3,
+        "n_abstained": 35
+      },
+      {
+        "threshold": 0.831163,
+        "precision": 0.3888888888888889,
+        "recall": 1.0,
+        "f1": 0.56,
+        "tp": 14,
+        "fp": 22,
+        "fn": 0,
+        "tn": 2,
+        "n_abstained": 36
+      },
+      {
+        "threshold": 0.8576,
+        "precision": 0.3783783783783784,
+        "recall": 1.0,
+        "f1": 0.5490196078431372,
+        "tp": 14,
+        "fp": 23,
+        "fn": 0,
+        "tn": 1,
+        "n_abstained": 37
+      }
+    ],
+    "dev_scores": [
+      {
+        "qid": "q003",
+        "answerable": false,
+        "score": 0.688542
+      },
+      {
+        "qid": "q004",
+        "answerable": true,
+        "score": 0.68559
+      },
+      {
+        "qid": "q010",
+        "answerable": true,
+        "score": 0.8576
+      },
+      {
+        "qid": "q015",
+        "answerable": true,
+        "score": 0.753245
+      },
+      {
+        "qid": "q018",
+        "answerable": true,
+        "score": 0.675138
+      },
+      {
+        "qid": "q022",
+        "answerable": true,
+        "score": 0.708687
+      },
+      {
+        "qid": "q023",
+        "answerable": true,
+        "score": 0.574024
+      },
+      {
+        "qid": "q029",
+        "answerable": true,
+        "score": 0.618243
+      },
+      {
+        "qid": "q031",
+        "answerable": true,
+        "score": 0.620587
+      },
+      {
+        "qid": "q032",
+        "answerable": true,
+        "score": 0.738076
+      },
+      {
+        "qid": "q033",
+        "answerable": true,
+        "score": 0.60883
+      },
+      {
+        "qid": "q034",
+        "answerable": true,
+        "score": 0.726095
+      },
+      {
+        "qid": "q037",
+        "answerable": true,
+        "score": 0.701797
+      },
+      {
+        "qid": "q038",
+        "answerable": true,
+        "score": 0.794539
+      },
+      {
+        "qid": "q043",
+        "answerable": true,
+        "score": 0.696853
+      },
+      {
+        "qid": "q045",
+        "answerable": true,
+        "score": 0.671119
+      },
+      {
+        "qid": "q049",
+        "answerable": true,
+        "score": 0.655078
+      },
+      {
+        "qid": "q052",
+        "answerable": true,
+        "score": 0.584867
+      },
+      {
+        "qid": "q054",
+        "answerable": true,
+        "score": 0.545197
+      },
+      {
+        "qid": "q060",
+        "answerable": true,
+        "score": 0.649605
+      },
+      {
+        "qid": "q067",
+        "answerable": true,
+        "score": 0.604043
+      },
+      {
+        "qid": "q069",
+        "answerable": true,
+        "score": 0.831163
+      },
+      {
+        "qid": "q075",
+        "answerable": true,
+        "score": 0.682236
+      },
+      {
+        "qid": "q079",
+        "answerable": true,
+        "score": 0.662622
+      },
+      {
+        "qid": "q090",
+        "answerable": true,
+        "score": 0.71223
+      },
+      {
+        "qid": "q094",
+        "answerable": false,
+        "score": 0.54407
+      },
+      {
+        "qid": "q096",
+        "answerable": false,
+        "score": 0.574849
+      },
+      {
+        "qid": "q102",
+        "answerable": false,
+        "score": 0.624087
+      },
+      {
+        "qid": "q104",
+        "answerable": false,
+        "score": 0.49364
+      },
+      {
+        "qid": "q105",
+        "answerable": false,
+        "score": 0.661428
+      },
+      {
+        "qid": "q106",
+        "answerable": false,
+        "score": 0.617578
+      },
+      {
+        "qid": "q108",
+        "answerable": false,
+        "score": 0.63084
+      },
+      {
+        "qid": "q109",
+        "answerable": false,
+        "score": 0.575888
+      },
+      {
+        "qid": "q110",
+        "answerable": false,
+        "score": 0.714778
+      },
+      {
+        "qid": "q113",
+        "answerable": false,
+        "score": 0.640107
+      },
+      {
+        "qid": "q115",
+        "answerable": false,
+        "score": 0.665396
+      },
+      {
+        "qid": "q119",
+        "answerable": false,
+        "score": 0.51687
+      },
+      {
+        "qid": "q121",
+        "answerable": false,
+        "score": 0.637089
+      }
+    ],
+    "run_info": {
+      "utc_time": "2026-11-10T19:10:54+00:00",
+      "git": {
+        "commit": "1715a80ad9b3ff1086d2f7c7fb6dfe261a5ab65a",
+        "dirty": true
+      },
+      "python": "3.11.9",
+      "python_executable": "C:\\Users\\Admin\\agentic-rag\\.venv\\Scripts\\python.exe",
+      "os": "Windows 10 (10.0.26200)",
+      "machine": "AMD64",
+      "cpu_model": "11th Gen Intel(R) Core(TM) i3-1115G4 @ 3.00GHz",
+      "cpu_count_logical": 4,
+      "cpu_count_physical": 2,
+      "ram_total_gb": 19.75,
+      "packages": {
+        "ragsys": "0.1.0",
+        "pymupdf": "2.1",
+        "pydantic": "2.14.3",
+        "PyYAML": "6.0.3",
+        "numpy": "2.4.6",
+        "psutil": "7.2.2",
+        "torch": "2.15.0+cpu",
+        "transformers": "5.22.2",
+        "tokenizers": "0.23.3",
+        "sentence-transformers": "6.2.0"
+      }
+    }
+  }
+}

@@ -7,9 +7,10 @@ The split is computed from the question id and never stored:
 Adding questions never moves existing ones between splits.
 
 Test questions can only be obtained with a :class:`TestAccess` grant, and
-:func:`grant_test_access` only grants it when called from ``scripts/eval_retrieval.py``; each
-grant is appended to ``results/test_access_log.json``. A test in the suite also checks the
-source tree statically so no other file calls :func:`grant_test_access`.
+:func:`grant_test_access` only grants it when called from ``scripts/eval_retrieval.py`` (retrieval)
+or ``scripts/eval_generation.py`` (answer generation); each grant is appended to
+``results/test_access_log.json``. A test in the suite also checks the source tree statically so
+no other file calls :func:`grant_test_access`.
 """
 
 from __future__ import annotations
@@ -27,7 +28,9 @@ from ragsys.utils.runinfo import git_info
 Split = Literal["dev", "test"]
 SPLIT_SALT = "split-v1:"
 DEV_FRACTION = 0.30
-TEST_EVAL_SCRIPT = ("scripts", "eval_retrieval.py")  # the only caller allowed to read test
+TEST_EVAL_SCRIPT = ("scripts", "eval_retrieval.py")  # retrieval test evaluation
+GENERATION_TEST_EVAL_SCRIPT = ("scripts", "eval_generation.py")  # generation test evaluation
+TEST_EVAL_SCRIPTS = (TEST_EVAL_SCRIPT, GENERATION_TEST_EVAL_SCRIPT)  # the only callers allowed
 
 _GRANT_KEY = object()
 
@@ -61,7 +64,7 @@ class TestAccess:
 
 def _is_test_eval_script(filename: str) -> bool:
     p = Path(filename).resolve()
-    return (p.parent.name, p.name) == TEST_EVAL_SCRIPT
+    return (p.parent.name, p.name) in TEST_EVAL_SCRIPTS
 
 
 def read_access_log(log_path: Path) -> list[dict[str, Any]]:
@@ -74,12 +77,13 @@ def read_access_log(log_path: Path) -> list[dict[str, Any]]:
 def grant_test_access(
     log_path: Path, configs: Sequence[str], n_questions: int, note: str = ""
 ) -> TestAccess:
-    """Open the test split (only from scripts/eval_retrieval.py) and log the access."""
+    """Open the test split (only from scripts/eval_retrieval.py or scripts/eval_generation.py)
+    and log the access."""
     caller = inspect.stack(context=0)[1].filename
     if not _is_test_eval_script(caller):
         raise TestSplitLocked(
-            "the test split can only be evaluated by scripts/eval_retrieval.py "
-            f"(called from {caller}); use --split dev for development"
+            "the test split can only be evaluated by scripts/eval_retrieval.py or "
+            f"scripts/eval_generation.py (called from {caller}); use --split dev for development"
         )
     entries = read_access_log(log_path)
     git = git_info()
@@ -108,7 +112,7 @@ def questions_for_split(
     if split == "test" and not (isinstance(access, TestAccess) and access.valid):
         raise TestSplitLocked(
             "test-split questions requested without a TestAccess grant; "
-            "only scripts/eval_retrieval.py may evaluate the test split"
+            "only scripts/eval_retrieval.py and scripts/eval_generation.py may evaluate the test split"
         )
     if split not in ("dev", "test"):
         raise ValueError(f"unknown split {split!r}")

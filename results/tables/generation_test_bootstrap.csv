@@ -1,0 +1,16 @@
+system,reference,label,metric,scope,n,mean_diff,ci_low,ci_high,n_resamples,seed
+G2,G1,,overall_accuracy,all questions,85,0.2000,0.0941,0.3059,1000,42
+G2,G1,,faithfulness,questions answered by both,53,0.5723,0.4088,0.7359,1000,42
+G2,G1,,correct_refusal_rate,unanswerable questions,17,0.1176,0.0000,0.2941,1000,42
+G3,G1,,overall_accuracy,all questions,85,0.1647,0.0706,0.2588,1000,42
+G3,G1,,faithfulness,questions answered by both,46,0.6775,0.5108,0.8261,1000,42
+G3,G1,,correct_refusal_rate,unanswerable questions,17,0.1176,0.0000,0.2941,1000,42
+G4,G1,,overall_accuracy,all questions,85,0.1529,0.0588,0.2471,1000,42
+G4,G1,,faithfulness,questions answered by both,39,0.6838,0.5128,0.8378,1000,42
+G4,G1,,correct_refusal_rate,unanswerable questions,17,0.1176,0.0000,0.2941,1000,42
+G5,G1,,overall_accuracy,all questions,85,0.0706,-0.0235,0.1765,1000,42
+G5,G1,,faithfulness,questions answered by both,27,0.5802,0.3333,0.8025,1000,42
+G5,G1,,correct_refusal_rate,unanswerable questions,17,0.1176,0.0000,0.2941,1000,42
+G6,G1,,overall_accuracy,all questions,85,0.0000,-0.0826,0.0824,1000,42
+G6,G1,,faithfulness,questions answered by both,31,0.2903,0.1183,0.4733,1000,42
+G6,G1,,correct_refusal_rate,unanswerable questions,17,0.0588,0.0000,0.1765,1000,42

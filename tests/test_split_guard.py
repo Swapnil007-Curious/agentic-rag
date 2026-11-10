@@ -43,10 +43,14 @@ def test_grant_refused_outside_eval_script(tmp_path: Path) -> None:
     assert not log.exists()
 
 
-def test_static_only_eval_retrieval_opens_test() -> None:
+TEST_SCRIPTS = {"eval_retrieval.py", "eval_generation.py"}
+
+
+def test_static_only_the_test_eval_scripts_open_test() -> None:
     allowed = {
         REPO / "src" / "ragsys" / "eval" / "split.py",
         REPO / "scripts" / "eval_retrieval.py",
+        REPO / "scripts" / "eval_generation.py",
     }
     offenders = []
     for base in (REPO / "src", REPO / "scripts"):
@@ -54,11 +58,11 @@ def test_static_only_eval_retrieval_opens_test() -> None:
             text = py.read_text(encoding="utf-8")
             if re.search(r"\bgrant_test_access\b", text) and py not in allowed:
                 offenders.append(str(py.relative_to(REPO)))
-            if (
-                re.search(r"""choices=\[[^\]]*["']test["']""", text)
-                and py.name != "eval_retrieval.py"
-            ):
+            if re.search(r"""choices=\[[^\]]*["']test["']""", text) and py.name not in TEST_SCRIPTS:
                 offenders.append(f"{py.relative_to(REPO)} (--split test)")
     assert offenders == []
-    grid = (REPO / "scripts" / "run_retrieval_grid.py").read_text(encoding="utf-8")
-    assert 'choices=["dev"]' in grid
+    for name in ("run_retrieval_grid.py", "run_generation.py", "derive_systems.py"):
+        text = (REPO / "scripts" / name).read_text(encoding="utf-8")
+        assert 'choices=["dev"]' in text, name
+    gen = (REPO / "scripts" / "eval_generation.py").read_text(encoding="utf-8")
+    assert 'choices=["test"]' in gen and "grant_test_access(" in gen

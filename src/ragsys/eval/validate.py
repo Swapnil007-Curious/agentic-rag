@@ -21,6 +21,10 @@ from ragsys.eval.schema import (
 from ragsys.eval.split import split_of
 
 MIN_DEV_ANSWERABLE = 15  # below this, dev metrics (and config selection) are too noisy
+# "seed example": the hand-written items created while the tooling was developed (q001-q003).
+KNOWN_AUTHORS = frozenset({"Swapnil", "seed example"})
+# Items whose notes still carry this marker have not been reviewed yet.
+PENDING_EXAMPLE_NOTE = "replace or keep"
 
 
 @dataclass
@@ -103,9 +107,9 @@ def validate_questions(questions: list[EvalQuestion], node_ids: list[str]) -> Va
                 sug = suggest_ids(gid, node_ids)
                 hint = f"; did you mean: {', '.join(sug)}" if sug else ""
                 rep.errors.append(f"{q.id}: gold_node_id {gid!r} not found in nodes.jsonl{hint}")
-        if q.author != "Swapnil" and q.origin != AUTO_ORIGIN:
+        if q.author not in KNOWN_AUTHORS and q.origin != AUTO_ORIGIN:
             rep.warnings.append(f"{q.id}: author is {q.author!r}")
-        if q.notes and "example" in q.notes.lower():
+        if q.notes and PENDING_EXAMPLE_NOTE in q.notes.lower():
             rep.warnings.append(f"{q.id}: still marked as an example in notes")
 
     answerable = sum(1 for q in questions if q.answerable)

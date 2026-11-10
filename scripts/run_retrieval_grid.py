@@ -1,0 +1,114 @@
+"""Run the retrieval grid of configs/retrieval.yaml on the DEV split.
+
+Usage:
+    python scripts/run_retrieval_grid.py --split dev [--overwrite] [--only TEXT ...] [--smoke]
+Writes results/retrieval/dev/<config>/per_query.jsonl and summary.json for every config, and
+results/tables/retrieval_dev.csv (one row per config), retrieval_dev_by_type.csv,
+_by_document.csv, _by_origin.csv, _bootstrap.csv (vs the naive baseline) and .meta.json.
+Configs whose outputs exist for the same dev question set are skipped (resumable) unless
+--overwrite. --smoke writes everything under results/smoke/ and labels every row
+"smoke - not results". The test split cannot be selected here (see eval_retrieval.py).
+Build the indexes first: python scripts/build_index.py --chunker all --models bge-small bge-base bge-large
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+import time
+from pathlib import Path
+
+from ragsys.config import resolve_path
+from ragsys.eval.harness import (
+    SMOKE_LABEL,
+    Evaluator,
+    load_existing,
+    run_configs,
+    split_counts,
+    write_tables,
+)
+from ragsys.eval.validate import validate_file
+from ragsys.retrieval.config import load_retrieval_settings
+from ragsys.retrieval.pipeline import RetrievalResources
+from ragsys.utils.console import emit
+from ragsys.utils.seed import set_seed
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument("--split", choices=["dev"], default="dev", help="only dev is allowed")
+    ap.add_argument("--config", default="configs/retrieval.yaml")
+    ap.add_argument("--questions", default=None, help="override paths.questions")
+    ap.add_argument("--overwrite", action="store_true", help="recompute existing configs")
+    ap.add_argument("--only", nargs="+", default=None, help="run configs whose id contains TEXT")
+    ap.add_argument("--smoke", action="store_true", help='write to results/smoke, label "smoke"')
+    args = ap.parse_args(argv)
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
+
+    t_start = time.perf_counter()
+    settings = load_retrieval_settings(resolve_path(Path(args.config)))
+    set_seed(settings.seed)
+    qpath = resolve_path(Path(args.questions) if args.questions else settings.paths.questions)
+    res = RetrievalResources(settings)
+    rep = validate_file(qpath, res.processed_dir / "structure" / "nodes.jsonl")
+    if not rep.ok:
+        for e in rep.errors:
+            emit(f"ERROR: {e}")
+        emit("fix the evaluation set first (python scripts/validate_eval.py)")
+        return 1
+    counts = split_counts(rep.questions)
+    root = resolve_path(settings.paths.results_dir)
+    label = ""
+    if args.smoke:
+        root = root / "smoke"
+        label = SMOKE_LABEL
+        emit(f"*** {SMOKE_LABEL.upper()} ***")
+    emit(
+        f"dev split: {counts['dev']['answerable']} answerable + "
+        f"{counts['dev']['unanswerable']} unanswerable question(s)"
+    )
+    if counts["dev"]["answerable"] == 0:
+        emit("WARNING: no answerable dev questions; retrieval metrics will be empty (n/a)")
+
+    grid = settings.grid_configs()
+    configs = grid
+    if args.only:
+        configs = [c for c in grid if any(s in c.config_id() for s in args.only)]
+    emit(f"{len(configs)} config(s)")
+    evaluator = Evaluator(settings, res)
+    out_root = root / "retrieval" / "dev"
+    run_configs(
+        evaluator,
+        configs,
+        rep.questions,
+        "dev",
+        out_root,
+        overwrite=args.overwrite,
+        label=label,
+        log=emit,
+    )
+    # tables always cover every grid config with up-to-date outputs, not only this run's subset
+    summaries, records = load_existing(grid, rep.questions, "dev", out_root, label=label)
+    emit(f"tables cover {len(summaries)}/{len(grid)} grid config(s)")
+    baseline = settings.selection.baselines[settings.selection.reference_baseline]
+    paths = write_tables(
+        root / "tables",
+        "retrieval_dev",
+        summaries,
+        records,
+        settings,
+        baseline_id=baseline,
+        label=label,
+        extra_meta={"split": "dev", "split_counts": counts},
+    )
+    for p in paths:
+        emit(f"wrote {p}")
+    emit(f"total wall time {time.perf_counter() - t_start:.1f} s")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

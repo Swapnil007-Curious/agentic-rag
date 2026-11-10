@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ragsys"
 version = "0.1.0"
-description = "Agnostic Agentic-RAG: Hybrid Vector-Semantic Document Intelligence for Niche Low-Resource Corpora (ingestion pipeline)"
+description = "Agnostic Agentic-RAG: Hybrid Vector-Semantic Document Intelligence for Niche Low-Resource Corpora (ingestion and retrieval)"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Swapnil" }]
@@ -21,6 +21,10 @@ dependencies = [
     "sentence-transformers>=6.0",
     "transformers>=5.0",
     "torch>=2.4",
+    "rank-bm25>=0.2.2",
+    "chromadb>=1.5",
+    "openai>=3.0",
+    "httpx2>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -55,7 +59,7 @@ strict = true
 mypy_path = "src"
 
 [[tool.mypy.overrides]]
-module = ["pymupdf", "pymupdf.*", "sentence_transformers", "sentence_transformers.*", "transformers", "transformers.*", "psutil", "psutil.*"]
+module = ["pymupdf", "pymupdf.*", "sentence_transformers", "sentence_transformers.*", "transformers", "transformers.*", "psutil", "psutil.*", "rank_bm25", "rank_bm25.*", "chromadb", "chromadb.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

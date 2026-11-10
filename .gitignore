@@ -27,3 +27,13 @@ Thumbs.db
 
 # CI HuggingFace cache
 .hf-cache/
+
+# Secrets (LLM_API_KEY is read from the environment only)
+.env
+.env.*
+*.key
+*.pem
+
+# Regenerable retrieval outputs
+results/retrieval/
+results/smoke/

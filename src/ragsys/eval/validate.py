@@ -13,6 +13,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from ragsys.eval.schema import TARGET_ANSWERABLE, TARGET_UNANSWERABLE, EvalQuestion
+from ragsys.eval.split import split_of
 
 
 @dataclass
@@ -106,6 +107,17 @@ def validate_questions(questions: list[EvalQuestion], node_ids: list[str]) -> Va
     for q in questions:
         qdocs = sorted({g.split(":", 1)[0] for g in q.gold_node_ids}) or ["(none)"]
         docs.update(qdocs)
+    by_split: dict[str, dict[str, dict[str, int]]] = {}
+    for q in questions:
+        cell = by_split.setdefault(split_of(q.id), {}).setdefault(q.type, {})
+        cell[q.origin] = cell.get(q.origin, 0) + 1
+    split_totals = {
+        sp: {
+            "total": sum(1 for q in questions if split_of(q.id) == sp),
+            "answerable": sum(1 for q in questions if split_of(q.id) == sp and q.answerable),
+        }
+        for sp in ("dev", "test")
+    }
     rep.counts = {
         "total": len(questions),
         "answerable": answerable,
@@ -117,6 +129,12 @@ def validate_questions(questions: list[EvalQuestion], node_ids: list[str]) -> Va
         "progress": {
             "answerable": f"{answerable}/{TARGET_ANSWERABLE}",
             "unanswerable": f"{unanswerable}/{TARGET_UNANSWERABLE}",
+        },
+        "by_origin": dict(sorted(Counter(q.origin for q in questions).items())),
+        "by_split": split_totals,
+        "by_split_type_origin": {
+            sp: {t: dict(sorted(o.items())) for t, o in sorted(types.items())}
+            for sp, types in sorted(by_split.items())
         },
     }
     return rep
@@ -140,13 +158,26 @@ def format_report(rep: ValidationReport) -> str:
         f"questions: {c.get('total', 0)}  (answerable {c.get('answerable', 0)}, "
         f"unanswerable {c.get('unanswerable', 0)})"
     ]
-    for key in ("by_type", "by_difficulty", "by_document"):
+    for key in ("by_type", "by_difficulty", "by_document", "by_origin"):
         items = ", ".join(f"{k}={v}" for k, v in c.get(key, {}).items()) or "-"
         lines.append(f"{key.replace('_', ' ')}: {items}")
     prog = c.get("progress", {})
     lines.append(
         f"progress: answerable {prog.get('answerable')}, unanswerable {prog.get('unanswerable')}"
     )
+    splits = c.get("by_split", {})
+    if splits:
+        lines.append(
+            "split (hash of id, ~30% dev): "
+            + ", ".join(
+                f"{sp} {v['total']} ({v['answerable']} answerable)" for sp, v in splits.items()
+            )
+        )
+        lines.append(f"  {'split':6s} {'type':16s} {'origin':26s} count")
+        for sp, types in c.get("by_split_type_origin", {}).items():
+            for t, origins in types.items():
+                for o, n in origins.items():
+                    lines.append(f"  {sp:6s} {t:16s} {o:26s} {n:5d}")
     for w in rep.warnings:
         lines.append(f"WARNING: {w}")
     for e in rep.errors:

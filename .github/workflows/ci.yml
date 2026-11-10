@@ -20,6 +20,7 @@ jobs:
       HF_HOME: ${{ github.workspace }}/.hf-cache
       PYTHONIOENCODING: utf-8
       TOKENIZERS_PARALLELISM: "false"
+      ANONYMIZED_TELEMETRY: "False"   # chromadb: no telemetry calls from tests
     steps:
       - uses: actions/checkout@v4
 

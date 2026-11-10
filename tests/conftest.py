@@ -95,3 +95,34 @@ def load_script(name: str) -> ModuleType:
 @pytest.fixture(scope="session")
 def script() -> Callable[[str], ModuleType]:
     return load_script
+
+
+@pytest.fixture(scope="session")
+def retrieval_dir(
+    ingested: IngestResult,
+    processed_dir: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+    tokenizer: object,
+) -> Path:
+    """Copy of the synthetic processed corpus plus chunks/fixed_64.jsonl and structural.jsonl."""
+    import shutil
+
+    from ragsys.chunking.fixed import FixedChunker
+    from ragsys.chunking.pipeline import load_corpus
+    from ragsys.chunking.structural import StructuralChunker
+
+    d = tmp_path_factory.mktemp("retrieval") / "processed"
+    shutil.copytree(processed_dir / "structure", d / "structure")
+    shutil.copytree(processed_dir / "clean", d / "clean")
+    docs = load_corpus(d)
+    (d / "chunks").mkdir()
+    chunkers = [
+        FixedChunker("fixed_64", 64, 8, tokenizer),  # type: ignore[arg-type]
+        StructuralChunker(tokenizer, 384, 48, True),  # type: ignore[arg-type]
+    ]
+    for chunker in chunkers:
+        with (d / "chunks" / f"{chunker.name}.jsonl").open("w", encoding="utf-8") as fh:
+            for doc in docs:
+                for c in chunker.chunk_document(doc):
+                    fh.write(c.model_dump_json() + "\n")
+    return d

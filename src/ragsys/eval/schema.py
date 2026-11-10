@@ -16,6 +16,9 @@ QuestionType = Literal[
     "unanswerable",
 ]
 Difficulty = Literal["easy", "medium", "hard"]
+# "llm_draft_human_reviewed": drafted by scripts/draft_questions.py, then accepted (possibly
+# edited) by a person in scripts/review_drafts.py. Older entries without the field are "human".
+Origin = Literal["human", "llm_draft_human_reviewed"]
 
 TARGET_ANSWERABLE = 90
 TARGET_UNANSWERABLE = 30
@@ -38,6 +41,7 @@ class EvalQuestion(BaseModel):
     difficulty: Difficulty
     author: str = Field(min_length=1)
     notes: str | None = None
+    origin: Origin = "human"
 
     def consistency_errors(self) -> list[str]:
         errs: list[str] = []

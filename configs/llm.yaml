@@ -1,0 +1,17 @@
+# OpenAI-compatible chat endpoint (used only for drafting evaluation questions).
+#
+# Ollama (default): install Ollama, run `ollama pull qwen2.5:3b`, keep it running; no key needed.
+# Any other OpenAI-compatible provider: set base_url and model here and put the key in the
+# environment variable LLM_API_KEY (PowerShell: $env:LLM_API_KEY = "..."). Never write a key in
+# this file; it is read from the environment only and never logged, cached or stored.
+base_url: http://localhost:11434/v1
+model: qwen2.5:3b
+temperature: 0.2
+max_tokens: 512
+seed: 0               # sent with each request; set to null if a provider rejects it
+json_mode: true       # response_format={"type": "json_object"}; replies are also parsed leniently
+timeout_s: 120
+max_retries: 5        # exponential backoff on rate limits / timeouts / connection errors / 5xx
+backoff_initial_s: 1.0
+backoff_max_s: 30.0
+cache_dir: data/processed/llm_cache   # responses cached by (base_url, model, messages, params)

@@ -1,0 +1,78 @@
+# Retrieval, evaluation and experiment-grid configuration (unknown keys raise).
+
+paths:
+  processed_dir: data/processed       # reads chunks/<chunker>.jsonl and structure/
+  emb_dir: data/processed/emb         # <model_slug>/<chunker>.npy + .json sidecar (rebuilt when stale)
+  chroma_dir: data/processed/chroma   # chromadb PersistentClient (parity check / optional store)
+  results_dir: results                # retrieval/<split>/<config>/, tables/, test_access_log.json
+  questions: data/eval/questions.jsonl
+
+seed: 42
+device: cpu
+embed_batch_size: 16
+rerank_batch_size: 16
+# bge v1.5 query instruction; applied to queries only, when a config has query_instruction: true
+query_instruction: "Represent this sentence for searching relevant passages: "
+
+dense_models:
+  bge-small: BAAI/bge-small-en-v1.5
+  bge-base: BAAI/bge-base-en-v1.5
+  bge-large: BAAI/bge-large-en-v1.5
+rerankers:
+  minilm: cross-encoder/ms-marco-MiniLM-L-6-v2
+  bge-reranker-base: BAAI/bge-reranker-base
+
+# Default retriever for scripts/search.py (any field can be overridden by flags).
+defaults:
+  chunker: structural
+  retriever: hybrid_rrf
+  dense_model: bge-base
+  query_instruction: true
+  bm25_k1: 1.5
+  bm25_b: 0.75
+  bm25_stem: false
+  rrf_k: 60
+  alpha: 0.5
+  first_stage_k: 50
+  xref_expand: true
+  xref_top_m: 5
+  xref_max_added: 10
+  xref_per_target: 1
+  rerank: true
+  rerank_model: minilm
+  rerank_n: 20
+  final_k: 10
+
+eval:
+  ks: [1, 3, 5, 10]
+  budgets: [512, 1024, 2048]     # token-budget coverage (chunk n_tokens)
+  bootstrap_resamples: 1000
+  seed: 42
+
+# Dev grid: each block is the product chunkers x retrievers x xref_expand x rerank.
+# Fields not given in a block come from `defaults` (so set xref_expand / rerank here explicitly).
+grid:
+  - chunkers: [fixed_256, fixed_512, semantic, structural]
+    retrievers:
+      - {retriever: bm25}
+      - {retriever: dense, dense_model: bge-small}
+      - {retriever: dense, dense_model: bge-base}
+      - {retriever: dense, dense_model: bge-large}
+      - {retriever: hybrid_rrf, dense_model: bge-base}
+      - {retriever: hybrid_linear, dense_model: bge-base, alpha: 0.5}
+    xref_expand: [false, true]
+    rerank: [false, true]
+    rerank_model: minilm
+  - chunkers: [fixed_256, fixed_512, semantic, structural]
+    retrievers:
+      - {retriever: hybrid_rrf, dense_model: bge-large}
+    xref_expand: [false]
+    rerank: [false, true]
+    rerank_model: minilm
+
+selection:
+  baselines:
+    naive_rag: "fixed_512|dense|bge-base"   # naive RAG baseline
+    bm25: "fixed_512|bm25"
+  reference_baseline: naive_rag              # bootstrap differences are computed against it
+  min_answerable_for_test: 20                # eval_retrieval.py refuses to run below this

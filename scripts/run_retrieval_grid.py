@@ -2,12 +2,18 @@
 
 Usage:
     python scripts/run_retrieval_grid.py --split dev [--overwrite] [--only TEXT ...] [--smoke]
+                                         [--no-rerank-cache] [--threads 4]
 Writes results/retrieval/dev/<config>/per_query.jsonl and summary.json for every config, and
 results/tables/retrieval_dev.csv (one row per config), retrieval_dev_by_type.csv,
 _by_document.csv, _by_origin.csv, _bootstrap.csv (vs the naive baseline) and .meta.json.
 Configs whose outputs exist for the same dev question set are skipped (resumable) unless
 --overwrite. --smoke writes everything under results/smoke/ and labels every row
 "smoke - not results". The test split cannot be selected here (see eval_retrieval.py).
+Memory/speed: configs run grouped by dense model (BM25-only first, then one encoder at a time,
+released between groups); the reranker is loaded once; rerank scores are cached in
+data/processed/rerank_cache/<model>.sqlite (latencies stored on first scoring are reported on
+cache hits; --no-rerank-cache disables it); query embeddings are cached in memory for the run.
+RSS is printed at group boundaries, an ETA after each config, and the peak RSS at the end.
 Build the indexes first: python scripts/build_index.py --chunker all --models bge-small bge-base bge-large
 """
 
@@ -31,6 +37,7 @@ from ragsys.eval.validate import validate_file
 from ragsys.retrieval.config import load_retrieval_settings
 from ragsys.retrieval.pipeline import RetrievalResources
 from ragsys.utils.console import emit
+from ragsys.utils.memory import fmt_mb, peak_rss_bytes, set_torch_threads
 from ragsys.utils.seed import set_seed
 
 
@@ -44,6 +51,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--overwrite", action="store_true", help="recompute existing configs")
     ap.add_argument("--only", nargs="+", default=None, help="run configs whose id contains TEXT")
     ap.add_argument("--smoke", action="store_true", help='write to results/smoke, label "smoke"')
+    ap.add_argument(
+        "--no-rerank-cache", action="store_true", help="always rescore with the reranker"
+    )
+    ap.add_argument("--threads", type=int, default=4, help="torch CPU threads (default 4)")
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
@@ -51,8 +62,9 @@ def main(argv: list[str] | None = None) -> int:
     t_start = time.perf_counter()
     settings = load_retrieval_settings(resolve_path(Path(args.config)))
     set_seed(settings.seed)
+    threads = set_torch_threads(args.threads)
     qpath = resolve_path(Path(args.questions) if args.questions else settings.paths.questions)
-    res = RetrievalResources(settings)
+    res = RetrievalResources(settings, rerank_cache=not args.no_rerank_cache)
     rep = validate_file(qpath, res.processed_dir / "structure" / "nodes.jsonl")
     if not rep.ok:
         for e in rep.errors:
@@ -77,7 +89,10 @@ def main(argv: list[str] | None = None) -> int:
     configs = grid
     if args.only:
         configs = [c for c in grid if any(s in c.config_id() for s in args.only)]
-    emit(f"{len(configs)} config(s)")
+    emit(
+        f"{len(configs)} config(s); torch threads {threads}; rerank cache "
+        + ("off" if res.rerank_cache_dir is None else f"{res.rerank_cache_dir}")
+    )
     evaluator = Evaluator(settings, res)
     out_root = root / "retrieval" / "dev"
     run_configs(
@@ -104,8 +119,10 @@ def main(argv: list[str] | None = None) -> int:
         label=label,
         extra_meta={"split": "dev", "split_counts": counts},
     )
+    res.close()
     for p in paths:
         emit(f"wrote {p}")
+    emit(f"peak RSS {fmt_mb(peak_rss_bytes())}")
     emit(f"total wall time {time.perf_counter() - t_start:.1f} s")
     return 0
 

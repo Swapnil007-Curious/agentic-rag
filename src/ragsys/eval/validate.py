@@ -12,8 +12,15 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from ragsys.eval.schema import TARGET_ANSWERABLE, TARGET_UNANSWERABLE, EvalQuestion
+from ragsys.eval.schema import (
+    AUTO_ORIGIN,
+    TARGET_ANSWERABLE,
+    TARGET_UNANSWERABLE,
+    EvalQuestion,
+)
 from ragsys.eval.split import split_of
+
+MIN_DEV_ANSWERABLE = 15  # below this, dev metrics (and config selection) are too noisy
 
 
 @dataclass
@@ -96,7 +103,7 @@ def validate_questions(questions: list[EvalQuestion], node_ids: list[str]) -> Va
                 sug = suggest_ids(gid, node_ids)
                 hint = f"; did you mean: {', '.join(sug)}" if sug else ""
                 rep.errors.append(f"{q.id}: gold_node_id {gid!r} not found in nodes.jsonl{hint}")
-        if q.author != "Swapnil":
+        if q.author != "Swapnil" and q.origin != AUTO_ORIGIN:
             rep.warnings.append(f"{q.id}: author is {q.author!r}")
         if q.notes and "example" in q.notes.lower():
             rep.warnings.append(f"{q.id}: still marked as an example in notes")
@@ -118,6 +125,20 @@ def validate_questions(questions: list[EvalQuestion], node_ids: list[str]) -> Va
         }
         for sp in ("dev", "test")
     }
+    by_origin_detail: dict[str, dict[str, int]] = {}
+    for q in questions:
+        row = by_origin_detail.setdefault(
+            q.origin, {"total": 0, "answerable": 0, "unanswerable": 0, "dev_answerable": 0}
+        )
+        row["total"] += 1
+        row["answerable" if q.answerable else "unanswerable"] += 1
+        if q.answerable and split_of(q.id) == "dev":
+            row["dev_answerable"] += 1
+    if split_totals["dev"]["answerable"] < MIN_DEV_ANSWERABLE:
+        rep.warnings.append(
+            f"dev split has only {split_totals['dev']['answerable']} answerable question(s) "
+            f"(fewer than {MIN_DEV_ANSWERABLE}); dev metrics and config selection will be noisy"
+        )
     rep.counts = {
         "total": len(questions),
         "answerable": answerable,
@@ -131,6 +152,7 @@ def validate_questions(questions: list[EvalQuestion], node_ids: list[str]) -> Va
             "unanswerable": f"{unanswerable}/{TARGET_UNANSWERABLE}",
         },
         "by_origin": dict(sorted(Counter(q.origin for q in questions).items())),
+        "by_origin_detail": dict(sorted(by_origin_detail.items())),
         "by_split": split_totals,
         "by_split_type_origin": {
             sp: {t: dict(sorted(o.items())) for t, o in sorted(types.items())}
@@ -165,6 +187,16 @@ def format_report(rep: ValidationReport) -> str:
     lines.append(
         f"progress: answerable {prog.get('answerable')}, unanswerable {prog.get('unanswerable')}"
     )
+    detail = c.get("by_origin_detail", {})
+    if detail:
+        lines.append(
+            f"  {'origin':26s} {'total':>5s} {'answerable':>10s} {'unanswerable':>12s} {'dev answerable':>14s}"
+        )
+        for o, row in detail.items():
+            lines.append(
+                f"  {o:26s} {row['total']:5d} {row['answerable']:10d} {row['unanswerable']:12d} "
+                f"{row['dev_answerable']:14d}"
+            )
     splits = c.get("by_split", {})
     if splits:
         lines.append(

@@ -12,8 +12,8 @@ This repository contains two parts of the project.
   * structure-aware cross-reference expansion;
   * a retrieval evaluation harness (dev/test split, ablation grid, paired bootstrap);
   * an interactive search tool;
-  * an OpenAI-compatible LLM client, used for drafting evaluation questions that a person then
-    reviews.
+  * an OpenAI-compatible LLM client, used to build the evaluation set automatically (with
+    automatic quality filters) and to draft questions for human review.
 
 Answer generation, agents and UI are later stages and are not part of this code yet.
 
@@ -185,9 +185,10 @@ answerable and 30 unanswerable questions.
 | `gold_node_ids` | list of strings | node IDs from `nodes.jsonl`; empty for unanswerable questions |
 | `gold_answer` | string | short reference answer; for unanswerable questions a one-line reason |
 | `difficulty` | string | `easy`, `medium`, `hard` |
-| `author` | string | `Swapnil` |
+| `author` | string | `Swapnil`; automatic items: `auto (<model>) - filtered` |
 | `notes` | string, optional | |
-| `origin` | string, optional | `human` (default) or `llm_draft_human_reviewed` |
+| `origin` | string, optional | `human` (default), `llm_draft_human_reviewed` or `llm_auto_filtered` |
+| `gen_meta` | object, optional | automatic items only: method, filters passed, source nodes, lexical overlap, model, seed, ... |
 
 Example line:
 
@@ -317,7 +318,10 @@ Quote config ids in PowerShell, because they contain `|`. Output is ASCII-folded
   generator would actually receive. Budget metrics use the whole ranked list (the reranked head
   plus the first-stage tail), not just the top 10.
 * **Latency** per stage (BM25, query encoding, dense search, fusion, xref, rerank, total): p50
-  and p95 in ms. It is measured after a warm-up query, with no caching across configs.
+  and p95 in ms, measured after a warm-up query. Rerank scores (SQLite, across runs) and query
+  embeddings (in memory, within a run) are cached; on a cache hit the latency measured when the
+  value was first computed is reported for that stage and included in `total`, so latency
+  figures do not depend on whether a cache was warm.
 * **Unanswerable questions.** The top-1 first-stage score, and the top-1 rerank score when
   reranking is on, are summarised separately for answerable and unanswerable questions. The AUROC
   of the top-1 score for separating the two groups is reported as input for later abstention
@@ -354,6 +358,18 @@ Outputs:
 
 Every table has a `.meta.json` with the settings and run info.
 
+Memory and speed (both `run_retrieval_grid.py` and `eval_retrieval.py`):
+* configs run grouped by dense model: BM25-only configs first (no encoder loaded), then one
+  group per encoder; at most one sentence-transformers encoder is in memory, and it is released
+  (`del` + `gc.collect()`) before the next group. Tables keep the order of the grid.
+* the cross-encoder is loaded once and shared by all configs; its scores are cached in
+  `data/processed/rerank_cache/<model>.sqlite`, keyed by (model, sha256(query), chunk_id,
+  sha256(chunk text)), together with the per-pair latency measured when the pair was first
+  scored. `--no-rerank-cache` always rescores.
+* query embeddings are cached in memory per (model, query) for the run.
+* torch uses 4 CPU threads (`--threads`). The RSS is printed at group boundaries, an ETA after
+  every config and the peak RSS at the end.
+
 Options:
 * the grid skips configs whose outputs exist for the same dev question set, unless you pass
   `--overwrite`;
@@ -367,8 +383,8 @@ refuses a second test evaluation unless you pass `--allow-repeat`, and the repea
 ## LLM client
 
 `src/ragsys/llm/client.py` is a single client for any OpenAI-compatible chat endpoint (the `openai`
-SDK with a `base_url`), configured in `configs/llm.yaml`. It is used only to draft evaluation
-questions.
+SDK with a `base_url`), configured in `configs/llm.yaml`. It is used only to build and draft
+evaluation questions.
 
 * **Ollama (default):** install Ollama, run `ollama pull qwen2.5:3b` and keep it running. The
   default `base_url` is `http://localhost:11434/v1`; no key is needed.
@@ -388,6 +404,130 @@ Features:
   parameters), so reruns are free and reproducible.
 
 Tests use `FakeLLM` and a fake HTTP transport; no test calls a network endpoint.
+
+## Evaluation set construction
+
+The evaluation set is built automatically with the local model of `configs/llm.yaml`
+(qwen2.5:3b through Ollama by default). The model is small and makes factual mistakes, so a
+generated item is kept only if it passes every automatic check. The three hand-written examples
+in `questions.jsonl` (and any other `human` or `llm_draft_human_reviewed` item) are never changed.
+
+```powershell
+python scripts/build_auto_eval.py          # 1-3 hours on a laptop CPU; resumable
+python scripts/validate_eval.py
+python scripts/spot_check.py --n 20 --seed 0   # optional manual check (see below)
+```
+
+* Every LLM call goes through the on-disk response cache (`data/processed/llm_cache/`). If the
+  run is interrupted, run the same command again: finished calls are answered from the cache.
+  Progress lines show the elapsed time and an ETA per phase.
+* Nothing is written until the end. The script refuses to run when `questions.jsonl` already
+  contains `llm_auto_filtered` items; `--rebuild` replaces exactly those items and keeps every
+  other line byte-for-byte.
+* The bge-small encoder used for duplicates and the retrieval check is released before the
+  script ends. Do not run the retrieval grid at the same time; `ollama stop qwen2.5:3b` frees
+  the model's memory afterwards.
+
+### Answerable questions
+
+1. **Candidates.** 200 targets from the drafting code (same type mix as `draft_questions.py`,
+   stratified by document and node level, seed 0; nodes used by existing questions are
+   excluded), one drafting call each. `gold_node_ids` are the source node(s).
+2. **Filters**, applied in this order; each is logged with pass/fail counts and reasons:
+
+   | filter | rule |
+   |---|---|
+   | `format` | valid JSON with a question and an answer; question 6-40 words; answer at most 40 words |
+   | `provision_number` | no section, sub-section, rule or clause number in the question (allowed for `cross_reference`) |
+   | `copy` | lexical overlap with the source text at most 0.6; otherwise the LLM paraphrases the question once in plain citizen language and the paraphrase is checked again (overlap, length, provision numbers) |
+   | `numbers` | deterministic: every number in the gold answer, written as digits or English words ("30", "thirty", "Rs. 50,00,000", "fifty lakh"), occurs in the source in some form (compared by value); numbers inside a provision reference may also match the source node ids |
+   | `support` | LLM judge on source text + question + answer, strict JSON `{"supported": true\|false, "corrected_answer": "..."}`; only `supported: true` is kept; a corrected answer is recorded but never used |
+   | `answerable_from_source` | the LLM answers the question from the source text alone; the item is dropped when that answer states different numbers than the gold answer, or names a different entity of the same kind (capitalised terms such as "State Commission" vs "District Commission") |
+   | `near_duplicate` | bge-small cosine similarity above 0.90 to an existing question or to an earlier candidate: keep the first |
+
+3. **Selection.** Up to 90 survivors, stratified by type (the drafting mix; a type with too
+   few survivors passes its share to the others) and spread as evenly over documents as
+   availability allows. A shortfall is reported, not filled.
+
+### Unanswerable questions
+
+1. **Candidates** (90): 45 out-of-scope questions (3 per call over 15 topics the corpus does not
+   contain: state-specific fees and procedures, other statutes such as IPC/BNS, the Motor
+   Vehicles Act, the RTI Act, the Income-tax Act and the Contract Act, the repealed Consumer
+   Protection Act, 1986, case law, office addresses and phone numbers, timelines of real cases,
+   banking ombudsman schemes) and 45 perturbations of accepted answerable questions (the key
+   entity or scope moved to another law, a specific state, a specific company or a specific
+   year).
+2. **Filters:** `format` (6-40 words); `corpus_provision_number` (the question names no section
+   or rule number that exists in this corpus; applied before the LLM step to save calls);
+   `near_duplicate` (also against all answerable questions); `retrieval_check`: the hybrid
+   retriever `structural|hybrid_rrf|bge-small` (BM25 + bge-small, RRF) returns its top 5 chunks
+   and the LLM must answer strict JSON `{"answered": false}`.
+3. **Selection:** 30, balanced across the two methods (and over topics / perturbation kinds
+   within a method). The gold answer is a one-line reason derived from the generation method,
+   e.g. "Not in the corpus: it asks about the Right to Information Act, 2005, which the Consumer
+   Protection Act, 2019 and its four Rules do not cover."
+
+### Outputs
+
+* `data/eval/questions.jsonl`: the selected items are appended with ids continuing from the
+  existing ones, `origin: "llm_auto_filtered"`, `author: "auto (qwen2.5:3b) - filtered"` and
+  `gen_meta` (method, filters passed, source nodes, lexical overlap, model, seed, prompt
+  version; for answerable items also the paraphrase history, the judge's verdict and the
+  independent answer; for unanswerable items the topic or perturbation target and the ids of the
+  five retrieved chunks).
+* `results/tables/eval_construction.json`: candidates generated, pass/fail counts and reasons per
+  filter (with examples), paraphrase statistics, selection and shortfall, final counts by type,
+  document and split, mean lexical overlap, LLM calls (cached / uncached, model time), wall
+  time, peak memory, model name and run info.
+
+Code: `src/ragsys/eval/autogen.py` (pipeline and prompts), `src/ragsys/eval/checks.py`
+(deterministic checks), `src/ragsys/eval/spot_check.py`.
+
+### Spot check (optional)
+
+```powershell
+python scripts/spot_check.py --n 20 --seed 0     # y = correct, n = wrong, s = skip, q = quit
+python scripts/spot_check.py --apply-removals    # only if you decide to remove the wrong items
+python scripts/validate_eval.py
+```
+
+* The sample is a seeded random draw of `llm_auto_filtered` items, stratified into answerable
+  and unanswerable items in proportion to their numbers (at least one of each).
+* Answerable items are shown with the text of their gold nodes. Judge an item correct when the
+  question is answerable from that text and the gold answer is right.
+* Unanswerable items are shown with the five passages retrieved during construction. Judge an
+  item correct when the corpus really does not answer the question.
+* `results/tables/eval_spot_check.json` records the counts, the error rate among judged items
+  with a 95% Wilson score interval (overall and per stratum) and the ids marked wrong. The
+  session itself never edits `questions.jsonl`.
+* `--apply-removals` removes the items marked wrong. It only removes `llm_auto_filtered` items
+  whose question text is still the one that was judged. Removing items changes the dev/test
+  question sets, so the grid re-runs the affected configs automatically. Do the spot check
+  before the one-time test evaluation.
+
+### Disclosure wording for the paper
+
+Fill in the numbers from `eval_construction.json`, `validate_eval.py` and (if done)
+`eval_spot_check.json`:
+
+> The evaluation set contains <N> questions (<A> answerable, <U> unanswerable). <H> questions
+> were written by the author; the remaining <M> were generated automatically by a small
+> open-weight language model (qwen2.5:3b, run locally, temperature 0.2, seed 0) and kept only if
+> they passed a fixed sequence of automatic filters. They were not individually reviewed by a
+> person. Answerable questions were generated from provisions sampled by question type and
+> document, with the source provision(s) as gold evidence. Items were removed when the question
+> copied the source wording (lexical overlap above 0.6 after one paraphrase attempt), cited
+> provision numbers, contained numbers in the answer that do not occur in the source, were
+> judged unsupported by the source by the same model, received a conflicting answer (different
+> numbers or entities) when the model answered from the source alone, or were near-duplicates
+> (cosine similarity above 0.90 with bge-small). Unanswerable questions were generated for
+> topics outside the corpus and by changing the entity or scope of accepted questions; they were
+> kept only if the model judged that the top five passages of a hybrid BM25 + dense retriever did
+> not answer them. Every item records its origin and generation metadata, and results are
+> reported separately by origin. [If a spot check was done:] A seeded random sample of <n>
+> automatically generated items, stratified by answerability, was checked manually; <k> were
+> judged incorrect (error rate <p>, 95% Wilson interval [<lo>, <hi>]).
 
 ## Drafting and reviewing questions
 
@@ -442,6 +582,8 @@ Every question carries an `origin` field:
 * `llm_draft_human_reviewed`: drafted by a language model from the provision text, then read,
   possibly edited, and accepted by a person. The `notes` of such questions name the draft and the
   model.
+* `llm_auto_filtered`: generated by `scripts/build_auto_eval.py` and kept only because it passed
+  every automatic filter; not individually reviewed by a person (see below).
 
 Results can be broken down by origin (`retrieval_*_by_origin.csv`).
 

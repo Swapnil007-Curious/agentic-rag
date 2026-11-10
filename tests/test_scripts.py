@@ -80,6 +80,7 @@ def test_validate_eval_script(
     assert validate.main(["--questions", str(good), "--nodes", nodes]) == 0
     out = capsys.readouterr().out
     assert "progress: answerable 1/90, unanswerable 0/30" in out and "RESULT: OK" in out
+    assert "dev answerable" in out and "WARNING: dev split has only 0 answerable" in out
 
     bad = tmp_path / "bad.jsonl"
     bad.write_text(

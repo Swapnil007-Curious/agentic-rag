@@ -33,6 +33,7 @@ from ragsys.eval.schema import EvalQuestion
 from ragsys.eval.split import Split, TestAccess, questions_for_split, split_of
 from ragsys.retrieval.config import RetrievalConfig, RetrievalSettings, config_dir_name
 from ragsys.retrieval.pipeline import STAGES, RetrievalResources, Retriever
+from ragsys.utils.memory import fmt_duration, fmt_mb, rss_bytes
 from ragsys.utils.runinfo import collect_run_info
 
 SMOKE_LABEL = "smoke - not results"
@@ -257,40 +258,88 @@ def run_configs(
 ) -> tuple[list[dict[str, Any]], dict[str, list[dict[str, Any]]]]:
     """Evaluate ``configs`` on one split; per config writes ``<out_root>/<config_dir>/``
     ``per_query.jsonl`` and ``summary.json``. Existing outputs for the same question set are
-    reused unless ``overwrite``. Returns summaries and per-query records by config id."""
+    reused unless ``overwrite``. Returns summaries (in the order of ``configs``) and per-query
+    records by config id.
+
+    Configs are executed grouped by dense model (:func:`execution_groups`): configs without a
+    dense encoder first, then one group per encoder, which is released (``del`` +
+    ``gc.collect()``) before the next group starts, so at most one encoder is in memory. The
+    process RSS is logged at group boundaries and an ETA after each evaluated config."""
     questions = questions_for_split(all_questions, split, access)
     sha = questions_fingerprint(questions)
-    summaries: list[dict[str, Any]] = []
-    records_by: dict[str, list[dict[str, Any]]] = {}
     total = len(configs)
-    for i, cfg in enumerate(configs, start=1):
-        cid = cfg.config_id()
-        d = out_root / config_dir_name(cid)
+    reuse: dict[int, tuple[dict[str, Any], Path]] = {}
+    status_of: dict[int, str] = {}
+    for i, cfg in enumerate(configs):
+        d = out_root / config_dir_name(cfg.config_id())
         sp, pq = d / "summary.json", d / "per_query.jsonl"
-        status = "ran"
+        status_of[i] = "ran"
         if not overwrite and sp.exists() and pq.exists():
             old = json.loads(sp.read_text(encoding="utf-8"))
             if old.get("questions_sha256") == sha and old.get("label", "") == label:
-                summaries.append(old)
-                records_by[cid] = _read_jsonl(pq)
-                log(f"[{i:3d}/{total}] skip (exists) {cid}")
-                continue
-            status = "rerun (question set changed)"
-        t0 = time.perf_counter()
-        records, summary = evaluator.evaluate_config(cfg, questions, split, label)
-        summary["wall_time_s"] = round(time.perf_counter() - t0, 2)
-        _write_jsonl(pq, records)
-        sp.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
-        summaries.append(summary)
-        records_by[cid] = records
-        m = summary["metrics"]
-        lat = summary["latency_ms"].get("total", {}).get("p50")
+                reuse[i] = (old, pq)
+            else:
+                status_of[i] = "rerun (question set changed)"
+    n_to_run = total - len(reuse)
+    results: dict[int, tuple[dict[str, Any], list[dict[str, Any]]]] = {}
+    resources = evaluator.resources
+    ran_seconds: list[float] = []
+    pos = 0
+    groups = execution_groups(configs, evaluator.settings)
+    for model_name, idxs in groups:
+        n_run_here = sum(1 for i in idxs if i not in reuse)
+        what = f"dense encoder {model_name}" if model_name else "no dense encoder"
         log(
-            f"[{i:3d}/{total}] {status:4s} {cid}  n={summary['n_questions']} "
-            f"R@5={_fmt(m.get('recall@5'))} cov@1024={_fmt(m.get('coverage@1024'))} "
-            f"p50={_fmt(lat, 1)}ms ({summary['wall_time_s']}s)"
+            f"== group: {what}: {len(idxs)} config(s), {n_run_here} to evaluate | "
+            f"RSS {fmt_mb(rss_bytes())}"
         )
+        for i in idxs:
+            pos += 1
+            cfg = configs[i]
+            cid = cfg.config_id()
+            if i in reuse:
+                old, pq = reuse[i]
+                results[i] = (old, _read_jsonl(pq))
+                log(f"[{pos:3d}/{total}] skip (exists) {cid}")
+                continue
+            d = out_root / config_dir_name(cid)
+            t0 = time.perf_counter()
+            records, summary = evaluator.evaluate_config(cfg, questions, split, label)
+            summary["wall_time_s"] = round(time.perf_counter() - t0, 2)
+            _write_jsonl(d / "per_query.jsonl", records)
+            (d / "summary.json").write_text(
+                json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+            results[i] = (summary, records)
+            ran_seconds.append(summary["wall_time_s"])
+            left = n_to_run - len(ran_seconds)
+            eta = fmt_duration(left * sum(ran_seconds) / len(ran_seconds))
+            m = summary["metrics"]
+            lat = summary["latency_ms"].get("total", {}).get("p50")
+            log(
+                f"[{pos:3d}/{total}] {status_of[i]:4s} {cid}  n={summary['n_questions']} "
+                f"R@5={_fmt(m.get('recall@5'))} cov@1024={_fmt(m.get('coverage@1024'))} "
+                f"p50={_fmt(lat, 1)}ms ({summary['wall_time_s']}s)  ETA {eta}"
+            )
+        if model_name is not None:
+            released = resources.release_encoders()
+            if released:
+                log(f"   released {', '.join(released)} | RSS {fmt_mb(rss_bytes())}")
+    summaries = [results[i][0] for i in range(total)]
+    records_by = {configs[i].config_id(): results[i][1] for i in range(total)}
     return summaries, records_by
+
+
+def execution_groups(
+    configs: Sequence[RetrievalConfig], settings: RetrievalSettings
+) -> list[tuple[str | None, list[int]]]:
+    """Indices of ``configs`` grouped by dense model name: configs without a dense encoder
+    (BM25 only) first, then one group per model in order of first appearance."""
+    groups: dict[str | None, list[int]] = {None: []}
+    for i, cfg in enumerate(configs):
+        key = settings.dense_model_name(cfg.dense_model) if cfg.uses_dense else None
+        groups.setdefault(key, []).append(i)
+    return [(k, v) for k, v in groups.items() if v]
 
 
 def load_existing(

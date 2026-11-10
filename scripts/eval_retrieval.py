@@ -9,6 +9,9 @@ of Recall@5 and coverage@1024) and appends an entry to results/test_access_log.j
 git commit, dirty flag, configs, number of questions). Refuses to run when the evaluation set
 has fewer answerable questions than selection.min_answerable_for_test, or when the test split
 was already accessed (pass --allow-repeat to run again; the repeat is logged too).
+Configs run grouped by dense model with one encoder in memory at a time, the rerank score cache
+is used (--no-rerank-cache disables it; stored latencies are reported on hits) and RSS, an ETA
+per config and the peak RSS are printed, as in run_retrieval_grid.py.
 """
 
 from __future__ import annotations
@@ -16,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 from ragsys.config import resolve_path
@@ -25,6 +29,7 @@ from ragsys.eval.validate import validate_file
 from ragsys.retrieval.config import RetrievalConfig, load_retrieval_settings, parse_config_id
 from ragsys.retrieval.pipeline import RetrievalResources
 from ragsys.utils.console import emit
+from ragsys.utils.memory import fmt_mb, peak_rss_bytes, set_torch_threads
 from ragsys.utils.seed import set_seed
 
 
@@ -38,13 +43,19 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--questions", default=None)
     ap.add_argument("--allow-repeat", action="store_true", help="run although test was accessed")
     ap.add_argument("--min-answerable", type=int, default=None)
+    ap.add_argument(
+        "--no-rerank-cache", action="store_true", help="always rescore with the reranker"
+    )
+    ap.add_argument("--threads", type=int, default=4, help="torch CPU threads (default 4)")
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
 
+    t_start = time.perf_counter()
     settings = load_retrieval_settings(resolve_path(Path(args.config)))
     set_seed(settings.seed)
-    res = RetrievalResources(settings)
+    set_torch_threads(args.threads)
+    res = RetrievalResources(settings, rerank_cache=not args.no_rerank_cache)
     qpath = resolve_path(Path(args.questions) if args.questions else settings.paths.questions)
     rep = validate_file(qpath, res.processed_dir / "structure" / "nodes.jsonl")
     if not rep.ok:
@@ -100,8 +111,11 @@ def main(argv: list[str] | None = None) -> int:
         baseline_id=baseline,
         extra_meta={"split": "test", "selection": str(sel_path)},
     )
+    res.close()
     for p in paths:
         emit(f"wrote {p}")
+    emit(f"peak RSS {fmt_mb(peak_rss_bytes())}")
+    emit(f"total wall time {time.perf_counter() - t_start:.1f} s")
     return 0
 
 

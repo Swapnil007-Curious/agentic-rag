@@ -113,8 +113,13 @@ def test_load_questions_reports_line_errors(tmp_path: Path) -> None:
 def test_repository_examples_are_valid(tmp_path: Path) -> None:
     repo_questions = Path(__file__).resolve().parents[1] / "data" / "eval" / "questions.jsonl"
     qs, errors = load_questions(repo_questions)
-    assert errors == [] and len(qs) == 3
-    assert sorted(x.type for x in qs) == ["cross_reference", "definition", "unanswerable"]
+    assert errors == []
+    examples = [x for x in qs if x.origin == "human"]
+    assert [x.id for x in examples][:3] == ["q001", "q002", "q003"]
+    assert sorted(x.type for x in examples[:3]) == ["cross_reference", "definition", "unanswerable"]
+    for x in qs:
+        if x.origin == "llm_auto_filtered":  # automatic items carry their generation record
+            assert x.gen_meta and x.gen_meta["filters_passed"] and x.author.startswith("auto (")
     nodes = tmp_path / "nodes.jsonl"
     ids = sorted({g for x in qs for g in x.gold_node_ids})
     nodes.write_text("".join(json.dumps({"node_id": i}) + "\n" for i in ids), encoding="utf-8")

@@ -11,10 +11,23 @@ Ranking assembly
   rerank off: each expanded chunk is inserted directly after the chunk that referenced it.
 * The remaining first-stage hits follow in first-stage order. ``results`` is the first
   ``final_k`` of this ranking; ``ranked`` keeps all of it (token-budget metrics use it).
+
+Caching and memory
+------------------
+* Query embeddings are cached in memory per (model, instruction flag, sha256(query)) for the
+  lifetime of a :class:`RetrievalResources`; rerank scores optionally persist in SQLite
+  (:class:`ragsys.retrieval.rerank.RerankCache`). On a hit the latency measured when the value
+  was first computed is reported for that stage (and in ``total``), so cached runs report the
+  same kind of latency as uncached ones.
+* ``single_encoder`` (default) keeps at most one sentence-transformers encoder loaded: asking
+  for a different model releases the others first. :meth:`RetrievalResources.release_encoders`
+  frees them explicitly (the grid runner calls it between dense-model groups).
 """
 
 from __future__ import annotations
 
+import gc
+import hashlib
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -31,7 +44,7 @@ from ragsys.retrieval.corpus import ChunkCorpus, NodeGraph, load_chunks
 from ragsys.retrieval.embed import CacheInfo, Encoder, SentenceTransformerEncoder, corpus_embeddings
 from ragsys.retrieval.fakes import OverlapCrossEncoder, fake_encoder
 from ragsys.retrieval.fusion import ComponentHit, FusedHit, hybrid_linear, rrf, single
-from ragsys.retrieval.rerank import Reranker
+from ragsys.retrieval.rerank import RerankCache, Reranker
 from ragsys.retrieval.store import NumpyStore
 from ragsys.retrieval.xref_expand import Expansion, XrefExpander
 from ragsys.structure.xrefs import XRef
@@ -104,10 +117,22 @@ class RetrievalResources:
         settings: RetrievalSettings,
         processed_dir: Path | None = None,
         emb_dir: Path | None = None,
+        *,
+        rerank_cache: bool = False,
+        rerank_cache_dir: Path | None = None,
+        single_encoder: bool = True,
     ) -> None:
         self.settings = settings
         self.processed_dir = resolve_path(processed_dir or settings.paths.processed_dir)
         self.emb_dir = resolve_path(emb_dir or settings.paths.emb_dir)
+        self.rerank_cache_dir = (
+            resolve_path(rerank_cache_dir or self.processed_dir / "rerank_cache")
+            if rerank_cache
+            else None
+        )
+        self.single_encoder = single_encoder
+        # (model name, query instruction on?, sha256(query)) -> (vector, measured encode ms)
+        self.query_cache: dict[tuple[str, bool, str], tuple[np.ndarray, float]] = {}
         self._corpora: dict[str, ChunkCorpus] = {}
         self._graph: NodeGraph | None = None
         self._xrefs: list[XRef] | None = None
@@ -147,6 +172,8 @@ class RetrievalResources:
             if name.startswith("fake:"):
                 self._encoders[key] = fake_encoder(name)
             else:
+                if self.single_encoder:
+                    self.release_encoders(keep=name)
                 # one loaded model per name: the instruction flag only changes query text
                 twin = next((e for (n, _q), e in self._encoders.items() if n == name), None)
                 enc = SentenceTransformerEncoder(
@@ -159,6 +186,41 @@ class RetrievalResources:
                     enc._model = twin._model
                 self._encoders[key] = enc
         return self._encoders[key]
+
+    def loaded_encoders(self) -> list[str]:
+        """Names of the sentence-transformers encoders currently held."""
+        return sorted(
+            {
+                n
+                for (n, _q), e in self._encoders.items()
+                if isinstance(e, SentenceTransformerEncoder)
+            }
+        )
+
+    def release_encoders(self, keep: str | None = None) -> list[str]:
+        """Drop every sentence-transformers encoder except ``keep`` (and their cached query
+        embeddings) and run the garbage collector; returns the released model names."""
+        drop = [
+            k
+            for k, e in self._encoders.items()
+            if k[0] != keep and isinstance(e, SentenceTransformerEncoder)
+        ]
+        names = sorted({k[0] for k in drop})
+        for k in drop:
+            del self._encoders[k]
+        for qk in [qk for qk in self.query_cache if qk[0] in names]:
+            del self.query_cache[qk]
+        if names:
+            gc.collect()
+        return names
+
+    def close(self) -> None:
+        """Release all models and close the rerank caches."""
+        self.release_encoders()
+        for r in self._rerankers.values():
+            r.close()
+        self._rerankers.clear()
+        gc.collect()
 
     def embeddings(
         self, model: str, chunker: str, force: bool = False
@@ -183,8 +245,17 @@ class RetrievalResources:
         name = self.settings.reranker_name(model)
         if name not in self._rerankers:
             scorer = OverlapCrossEncoder() if name == "fake:overlap" else None
+            cache = (
+                RerankCache.for_model(self.rerank_cache_dir, name)
+                if self.rerank_cache_dir is not None
+                else None
+            )
             self._rerankers[name] = Reranker(
-                name, self.settings.device, self.settings.rerank_batch_size, model=scorer
+                name,
+                self.settings.device,
+                self.settings.rerank_batch_size,
+                model=scorer,
+                cache=cache,
             )
         return self._rerankers[name]
 
@@ -211,6 +282,8 @@ class Retriever:
             self.store: NumpyStore | None = resources.vector_store(cfg.dense_model, cfg.chunker)
         else:
             self.encoder, self.store = None, None
+        self._query_cache = resources.query_cache
+        self._adjust_ms = 0.0  # stored minus actual time of cache hits in the current search
         self.reranker = resources.reranker(cfg.rerank_model) if cfg.rerank else None
         self.expander = resources.expander(cfg.chunker) if cfg.xref_expand else None
 
@@ -229,8 +302,20 @@ class Retriever:
             timings["bm25"] = _ms(t0)
         if self.encoder is not None and self.store is not None:
             t0 = time.perf_counter()
-            qvec = self.encoder.encode([query], is_query=True)[0]
-            timings["dense_encode"] = _ms(t0)
+            qkey = (
+                self.encoder.name,
+                cfg.query_instruction,
+                hashlib.sha256(query.encode("utf-8")).hexdigest(),
+            )
+            cached = self._query_cache.get(qkey)
+            if cached is not None:
+                qvec, stored_ms = cached
+                timings["dense_encode"] = stored_ms
+                self._adjust_ms += stored_ms - _ms(t0)
+            else:
+                qvec = self.encoder.encode([query], is_query=True)[0]
+                timings["dense_encode"] = _ms(t0)
+                self._query_cache[qkey] = (qvec, timings["dense_encode"])
             t0 = time.perf_counter()
             dense = self.store.search(qvec, k)
             timings["dense_search"] = _ms(t0)
@@ -249,6 +334,7 @@ class Retriever:
     def search(self, query: str) -> RetrievalResult:
         cfg = self.cfg
         timings: dict[str, float] = {}
+        self._adjust_ms = 0.0
         t_start = time.perf_counter()
         first = self.first_stage(query, timings)
         by_id = self.corpus.by_id
@@ -291,8 +377,15 @@ class Retriever:
         if self.reranker is not None:
             pool = window + expanded_items
             t0 = time.perf_counter()
-            scores = self.reranker.score(query, [r.chunk.text for r in pool])
-            timings["rerank"] = _ms(t0)
+            scores, cached_ms = self.reranker.score_items(
+                query, [(r.chunk_id, r.chunk.text) for r in pool]
+            )
+            elapsed = _ms(t0)
+            if cached_ms is None:  # no cache: the measured time, exactly as before
+                timings["rerank"] = elapsed
+            else:  # pairs scored now (measured) + stored per-pair latency of cached pairs
+                timings["rerank"] = round(cached_ms, 3)
+                self._adjust_ms += timings["rerank"] - elapsed
             for r, s in zip(pool, scores, strict=True):
                 r.rerank_score = s
             head = [pool[i] for i in sorted(range(len(pool)), key=lambda i: (-scores[i], i))]
@@ -308,7 +401,7 @@ class Retriever:
         ranked = head + [r for r in first_items[window_n:] if r.chunk_id not in head_ids]
         for i, r in enumerate(ranked, start=1):
             r.rank = i
-        timings["total"] = _ms(t_start)
+        timings["total"] = round(_ms(t_start) + self._adjust_ms, 3)
         return RetrievalResult(query, self.config_id, ranked, cfg.final_k, timings, expansions)
 
 

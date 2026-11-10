@@ -1,0 +1,996 @@
+{
+  "model": "qwen2.5:3b",
+  "seed": 0,
+  "prompt_version": "auto-v1",
+  "draft_prompt_version": "draft-v1",
+  "thresholds": {
+    "question_words": [
+      6,
+      40
+    ],
+    "max_answer_words": 40,
+    "copy_overlap": 0.6,
+    "near_duplicate_cosine": 0.9,
+    "dense_model": "BAAI/bge-small-en-v1.5",
+    "retrieval_check_k": 5
+  },
+  "answerable": {
+    "candidates": {
+      "requested": 200,
+      "type_plan": {
+        "definition": 34,
+        "factual": 45,
+        "procedural": 33,
+        "numeric": 33,
+        "cross_reference": 33,
+        "multi_section": 22
+      },
+      "pool_sizes": {
+        "definition": 77,
+        "factual": 772,
+        "procedural": 254,
+        "numeric": 114,
+        "cross_reference": 182,
+        "multi_section": 115
+      },
+      "sampling_shortfall": {
+        "multi_section": 1
+      },
+      "topped_up": {
+        "factual": 1
+      },
+      "sampled": 200,
+      "sampled_by_type": {
+        "multi_section": 21,
+        "cross_reference": 33,
+        "numeric": 33,
+        "procedural": 33,
+        "definition": 34,
+        "factual": 46
+      },
+      "sampled_by_document": {
+        "commissions2020": 46,
+        "cpa2019": 105,
+        "ecom2020": 29,
+        "jurisdiction2021": 6,
+        "mediation2020": 14
+      },
+      "excluded_nodes_of_existing_questions": 4
+    },
+    "drafted": 200,
+    "filters": [
+      {
+        "name": "format",
+        "description": "valid JSON with question and gold_answer; question 6-40 words; answer <= 40 words",
+        "in": 200,
+        "pass": 190,
+        "fail": 10,
+        "pass_rate": 0.95,
+        "fail_reasons": {
+          "question_too_short": 5,
+          "missing_fields": 3,
+          "answer_too_long": 2
+        },
+        "fail_examples": [
+          {
+            "reason": "missing_fields",
+            "draft": "d0027",
+            "nodes": [
+              "commissions2020:r12(8)",
+              "cpa2019:s67"
+            ]
+          },
+          {
+            "reason": "missing_fields",
+            "draft": "d0030",
+            "nodes": [
+              "cpa2019:s73",
+              "cpa2019:s72"
+            ]
+          },
+          {
+            "reason": "missing_fields",
+            "draft": "d0052",
+            "nodes": [
+              "ecom2020:r4(5)",
+              "ecom2020:r4(4)"
+            ]
+          },
+          {
+            "reason": "answer_too_long",
+            "draft": "d0117",
+            "type": "procedural",
+            "nodes": [
+              "ecom2020:r5(3)"
+            ],
+            "question": "How does a marketplace e-commerce entity provide information to a consumer after they make a purchase?",
+            "gold_answer": "A marketplace e-commerce entity shall, on a request in writing made by a consumer after the purchase of any goods or services on its platform by such consumer, provide him with information regarding the seller from which such consumer has made such purchase, including the principal geographic address of its headquarters and all branches, name and details of its website, its email address and any other information necessary for communication with the seller for effective dispute resolution."
+          },
+          {
+            "reason": "question_too_short",
+            "draft": "d0126",
+            "type": "definition",
+            "nodes": [
+              "commissions2020:r2(1)(c)"
+            ],
+            "question": "What is an authorised agent?",
+            "gold_answer": "An authorised agent is a person allowed to represent another in disputes before consumer commissions."
+          },
+          {
+            "reason": "question_too_short",
+            "draft": "d0132",
+            "type": "definition",
+            "nodes": [
+              "cpa2019:s2(43)"
+            ],
+            "question": "What are spurious goods?",
+            "gold_answer": "Spurious goods are fake items that claim to be real ones."
+          },
+          {
+            "reason": "question_too_short",
+            "draft": "d0135",
+            "type": "definition",
+            "nodes": [
+              "cpa2019:s2(29)"
+            ],
+            "question": "What is a National Commission?",
+            "gold_answer": "It's the National Consumer Disputes Redressal Commission created by section 53."
+          },
+          {
+            "reason": "question_too_short",
+            "draft": "d0143",
+            "type": "definition",
+            "nodes": [
+              "ecom2020:r3(1)(h)"
+            ],
+            "question": "What is a PAN?",
+            "gold_answer": "PAN is a number used for tax purposes under the Income Tax Act, 1961."
+          }
+        ]
+      },
+      {
+        "name": "provision_number",
+        "description": "no section/rule/clause number in the question unless type is cross_reference",
+        "in": 190,
+        "pass": 190,
+        "fail": 0,
+        "pass_rate": 1.0,
+        "fail_reasons": {},
+        "fail_examples": []
+      },
+      {
+        "name": "copy",
+        "description": "lexical overlap with the source <= 0.6; one LLM paraphrase attempt otherwise, then re-checked (also length and provision numbers)",
+        "in": 190,
+        "pass": 176,
+        "fail": 14,
+        "pass_rate": 0.9263,
+        "fail_reasons": {
+          "copy_like_after_paraphrase": 13,
+          "paraphrase_bad_length": 1
+        },
+        "fail_examples": [
+          {
+            "reason": "copy_like_after_paraphrase",
+            "draft": "d0070",
+            "type": "numeric",
+            "nodes": [
+              "cpa2019:s106-prov1"
+            ],
+            "question": "How long after the Act's commencement can an order not be made?",
+            "gold_answer": "2 years",
+            "paraphrase": "When can an order not be made after the Act starts?",
+            "overlap_before": 0.667
+          },
+          {
+            "reason": "copy_like_after_paraphrase",
+            "draft": "d0077",
+            "type": "numeric",
+            "nodes": [
+              "cpa2019:s75(3)"
+            ],
+            "question": "How many years is the panel of mediators valid for?",
+            "gold_answer": "5 years",
+            "paraphrase": "How long is the panel of mediators valid for?",
+            "overlap_before": 0.8
+          },
+          {
+            "reason": "copy_like_after_paraphrase",
+            "draft": "d0090",
+            "type": "procedural",
+            "nodes": [
+              "commissions2020:r18"
+            ],
+            "question": "How does the State Commission provide information to the Central Government?",
+            "gold_answer": "State Commissions provide quarterly information to the Central Government in a specified form.",
+            "paraphrase": "What info does the State Commission give to the Central Government?",
+            "overlap_before": 0.833
+          },
+          {
+            "reason": "copy_like_after_paraphrase",
+            "draft": "d0099",
+            "type": "procedural",
+            "nodes": [
+              "cpa2019:s62"
+            ],
+            "question": "How does the National Commission handle cases that need to be transferred to another State Commission?",
+            "gold_answer": "The National Commission can transfer a case from one State Commission to another State Commission at any stage of the proceeding if it deems it in the interest of justice.",
+            "paraphrase": "What happens when cases need to go from one state commission to another in the National Commission?",
+            "overlap_before": 0.667
+          },
+          {
+            "reason": "copy_like_after_paraphrase",
+            "draft": "d0107",
+            "type": "procedural",
+            "nodes": [
+              "cpa2019:s102(2)(o)"
+            ],
+            "question": "How does the State Commission provide information to the State Government?",
+            "gold_answer": "The State Commission provides information to the State Government in the form specified by the Consumer Protection Act, 2019.",
+            "paraphrase": "What info does the State Commission give to the State Government?",
+            "overlap_before": 0.833
+          },
+          {
+            "reason": "copy_like_after_paraphrase",
+            "draft": "d0108",
+            "type": "procedural",
+            "nodes": [
+              "cpa2019:s41-prov2"
+            ],
+            "question": "How should a person deposit fifty percent of an amount ordered by a District Commission to appeal to the State Commission?",
+            "gold_answer": "The person should deposit fifty percent of the amount in the manner as may be prescribed by the law.",
+            "paraphrase": "How do I put half of what a District Commission said into an appeal to the State Commission?",
+            "overlap_before": 0.727
+          },
+          {
+            "reason": "paraphrase_bad_length",
+            "draft": "d0122",
+            "type": "definition",
+            "nodes": [
+              "commissions2020:r2(1)(e)"
+            ],
+            "question": "What is a Consumer Welfare Fund?",
+            "gold_answer": "It's a fund established by the government to help consumers, set up under a tax law.",
+            "paraphrase": "What's a Consumer Welfare Fund?",
+            "overlap_before": 1.0
+          },
+          {
+            "reason": "copy_like_after_paraphrase",
+            "draft": "d0131",
+            "type": "definition",
+            "nodes": [
+              "cpa2019:s2(12)"
+            ],
+            "question": "What does 'design' mean for a product?",
+            "gold_answer": "Design refers to the intended or known physical and material characteristics of a product, including its formulation or content and the usual manufacturing result.",
+            "paraphrase": "What is the purpose of design in a product?",
+            "overlap_before": 0.667
+          }
+        ]
+      },
+      {
+        "name": "numbers",
+        "description": "every number in the gold answer (digits or words) occurs in the source text, headings or document titles (numbers inside provision references may also match the source node ids)",
+        "in": 176,
+        "pass": 175,
+        "fail": 1,
+        "pass_rate": 0.9943,
+        "fail_reasons": {
+          "number_not_in_source": 1
+        },
+        "fail_examples": [
+          {
+            "reason": "number_not_in_source",
+            "draft": "d0129",
+            "type": "definition",
+            "nodes": [
+              "cpa2019:s2(41)"
+            ],
+            "question": "What does 'restrictive trade practice' mean in the Consumer Protection Act, 2019?",
+            "gold_answer": "It's a practice that raises prices or limits supplies unfairly, like delaying delivery or making buying one thing depend on buying another.",
+            "missing": [
+              "one"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "support",
+        "description": "LLM judge on source + question + answer returns {\"supported\": true}; corrected answers are recorded but never applied",
+        "in": 175,
+        "pass": 134,
+        "fail": 41,
+        "pass_rate": 0.7657,
+        "fail_reasons": {
+          "not_supported": 41
+        },
+        "fail_examples": [
+          {
+            "reason": "not_supported",
+            "draft": "d0001",
+            "type": "multi_section",
+            "nodes": [
+              "commissions2020:r7",
+              "cpa2019:s47(1)(a)"
+            ],
+            "question": "How much is the filing fee for a big complaint if the stuff is worth more than a crore but less than ten crores?",
+            "gold_answer": "The fee is Rs.7500 if the Central Government deems it necessary.",
+            "corrected_answer": ""
+          },
+          {
+            "reason": "not_supported",
+            "draft": "d0005",
+            "type": "multi_section",
+            "nodes": [
+              "commissions2020:r3",
+              "cpa2019:s55(1)-prov1"
+            ],
+            "question": "How long can the President and National Commission members work and get reappointed?",
+            "gold_answer": "The President and members can hold office for up to five years and can be reappointed.",
+            "corrected_answer": ""
+          },
+          {
+            "reason": "not_supported",
+            "draft": "d0006",
+            "type": "multi_section",
+            "nodes": [
+              "commissions2020:r7(1)",
+              "cpa2019:s58(1)(a)(i)"
+            ],
+            "question": "What is the maximum value of goods or services for which a complaint needs to be accompanied by a fee under the Rules, and what is the maximum value for which a complaint is exempt from fees under the Act?",
+            "gold_answer": "The maximum value for fees is ₹10 crore and above. The Act allows for higher values if the Central Government decides so.",
+            "corrected_answer": "The maximum value for fees is ₹10 crore and above. The Act allows for higher values if the Central Government decides so."
+          },
+          {
+            "reason": "not_supported",
+            "draft": "d0008",
+            "type": "multi_section",
+            "nodes": [
+              "commissions2020:r12(3)",
+              "cpa2019:s59(1)"
+            ],
+            "question": "What modifications can the National Commission make to the procedures in the Act when dealing with complaints?",
+            "gold_answer": "The National Commission can modify procedures in sections 35, 36, 37, 38, and 39 when handling complaints.",
+            "corrected_answer": ""
+          },
+          {
+            "reason": "not_supported",
+            "draft": "d0009",
+            "type": "multi_section",
+            "nodes": [
+              "commissions2020:r1",
+              "cpa2019:s1"
+            ],
+            "question": "When do the Consumer Act and new rules start applying?",
+            "gold_answer": "Consumer Act 2019 comes into force on appointed date, Rules 2020 on July 20, 2020.",
+            "corrected_answer": "Consumer Act 2019 comes into force on such date as the Central Government may, by notification, appoint and different dates may be appointed for different States and for different provisions of this Act and any reference in any such provision to the commencement of this Act shall be construed as a reference to the coming into force of that provision. Consumer Protection (Consumer Disputes Redressal Commissions) Rules, 2020 come into force on the 20th day of July, 2020."
+          },
+          {
+            "reason": "not_supported",
+            "draft": "d0013",
+            "type": "multi_section",
+            "nodes": [
+              "ecom2020:r5(5)",
+              "cpa2019:s94"
+            ],
+            "question": "What steps can the government use to stop unfair online shopping?",
+            "gold_answer": "The government can take measures in the manner as may be prescribed to prevent unfair trade practices in e-commerce, direct selling, and protect consumer rights.",
+            "corrected_answer": ""
+          },
+          {
+            "reason": "not_supported",
+            "draft": "d0014",
+            "type": "multi_section",
+            "nodes": [
+              "ecom2020:r5(2)",
+              "cpa2019:s65(2)"
+            ],
+            "question": "What rules do e-commerce sites and service providers have to follow when dealing with seller info and notices?",
+            "gold_answer": "A marketplace e-commerce entity must ensure the information is accurate and matches the goods or services. An electronic service provider must designate a person to accept and process notices.",
+            "corrected_answer": ""
+          },
+          {
+            "reason": "not_supported",
+            "draft": "d0015",
+            "type": "multi_section",
+            "nodes": [
+              "ecom2020:r7(5)",
+              "cpa2019:s2(47)(i)(i)"
+            ],
+            "question": "If a company says their products are authentic, what kind of responsibility do they have if someone later claims they are not?",
+            "gold_answer": "They have to prove the products are authentic if someone says they are not.",
+            "corrected_answer": ""
+          }
+        ]
+      },
+      {
+        "name": "answerable_from_source",
+        "description": "the LLM answers from the source text alone; dropped when its answer states other numbers than the gold answer or names a different entity of the same kind (capitalised terms)",
+        "in": 134,
+        "pass": 132,
+        "fail": 2,
+        "pass_rate": 0.9851,
+        "fail_reasons": {
+          "number_conflict": 2
+        },
+        "fail_examples": [
+          {
+            "reason": "number_conflict",
+            "draft": "d0096",
+            "type": "procedural",
+            "nodes": [
+              "cpa2019:s101(2)(u)"
+            ],
+            "question": "How is the fund for consumer complaints handled and used?",
+            "gold_answer": "The fund for consumer complaints is credited to a specific account and the amount obtained from complaints is used as per the guidelines set by the Consumer Protection Act, 2019.",
+            "independent_answer": "the fund where the amount obtained may be credited and the manner of utilisation of such amount under sub-section (2) of section 39",
+            "numbers": {
+              "gold_only": [
+                "2019"
+              ],
+              "llm_only": [
+                "2",
+                "39"
+              ]
+            }
+          },
+          {
+            "reason": "number_conflict",
+            "draft": "d0185",
+            "type": "factual",
+            "nodes": [
+              "cpa2019:s38(7)"
+            ],
+            "question": "What is the maximum time limit for deciding a complaint without needing to test the product?",
+            "gold_answer": "The maximum time limit is three months if the complaint does not require analysis or testing of commodities.",
+            "independent_answer": "...within five months...",
+            "numbers": {
+              "gold_only": [
+                "three"
+              ],
+              "llm_only": [
+                "five"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "near_duplicate",
+        "description": "bge-small cosine <= 0.9 to existing questions and to earlier candidates (keep the first)",
+        "in": 132,
+        "pass": 122,
+        "fail": 10,
+        "pass_rate": 0.9242,
+        "fail_reasons": {
+          "near_duplicate": 10
+        },
+        "fail_examples": [
+          {
+            "reason": "near_duplicate",
+            "draft": "d0018",
+            "type": "multi_section",
+            "nodes": [
+              "jurisdiction2021:r5",
+              "cpa2019:s101(2)(zc)"
+            ],
+            "question": "What is the maximum value of goods or services for which the National Commission can take action under the Consumer Protection Act, 2019, based on the Rules made under it?",
+            "gold_answer": "The National Commission can take action for goods or services worth more than 2 crore rupees.",
+            "similarity": 0.901,
+            "nearest": "What is the maximum value of goods or services for which the State Commission can handle complaints under the Consumer Protection Act, 2019?"
+          },
+          {
+            "reason": "near_duplicate",
+            "draft": "d0069",
+            "type": "numeric",
+            "nodes": [
+              "cpa2019:s38(2)(c)"
+            ],
+            "question": "How long does the lab have to tell us about their test results after we send them the sample?",
+            "gold_answer": "45 days",
+            "similarity": 0.9179,
+            "nearest": "How long does a lab have to send in their report after testing?"
+          },
+          {
+            "reason": "near_duplicate",
+            "draft": "d0072",
+            "type": "numeric",
+            "nodes": [
+              "cpa2019:s47(1)(a)(i)"
+            ],
+            "question": "What is the maximum value of goods or services for complaints under the Consumer Protection Act, 2019?",
+            "gold_answer": "10 crore",
+            "similarity": 0.948,
+            "nearest": "What is the maximum value of goods or services for which complaints can be made against unfair contracts under the Consumer Protection Act, 2019?"
+          },
+          {
+            "reason": "near_duplicate",
+            "draft": "d0078",
+            "type": "numeric",
+            "nodes": [
+              "cpa2019:s58(1)(a)"
+            ],
+            "question": "What is the maximum value of goods or services for which complaints can be entertained under the Consumer Protection Act, 2019?",
+            "gold_answer": "10 crore",
+            "similarity": 0.9347,
+            "nearest": "What is the maximum value of goods or services for which complaints can be made against unfair contracts under the Consumer Protection Act, 2019?"
+          },
+          {
+            "reason": "near_duplicate",
+            "draft": "d0079",
+            "type": "numeric",
+            "nodes": [
+              "cpa2019:s51(1)-prov1"
+            ],
+            "question": "How many days does the National Commission allow for filing an appeal before considering it invalid?",
+            "gold_answer": "30",
+            "similarity": 0.9159,
+            "nearest": "How long does the National Commission have to rule on an appeal?"
+          },
+          {
+            "reason": "near_duplicate",
+            "draft": "d0084",
+            "type": "numeric",
+            "nodes": [
+              "cpa2019:s34"
+            ],
+            "question": "What is the maximum value of goods or services for which a complaint can be filed in a District Commission under the Consumer Protection Act, 2019?",
+            "gold_answer": "1 crore rupees",
+            "similarity": 0.9419,
+            "nearest": "What is the maximum value of goods or services for which the State Commission can handle complaints under the Consumer Protection Act, 2019?"
+          },
+          {
+            "reason": "near_duplicate",
+            "draft": "d0154",
+            "type": "definition",
+            "nodes": [
+              "mediation2020:r2(1)(a)"
+            ],
+            "question": "What does the term 'Act' refer to in the context of consumer protection?",
+            "gold_answer": "The Act refers to the Consumer Protection Act, 2019 (35 of 2019)",
+            "similarity": 0.9019,
+            "nearest": "What does the term 'Act' refer to in the Consumer Protection (E-Commerce) Rules, 2020?"
+          },
+          {
+            "reason": "near_duplicate",
+            "draft": "d0160",
+            "type": "factual",
+            "nodes": [
+              "commissions2020:r14(7)-prov1"
+            ],
+            "question": "Who needs to be able to talk to the National Commission?",
+            "gold_answer": "The party who may be affected by the decision",
+            "similarity": 0.9336,
+            "nearest": "Who needs to be able to talk to the State Commission?"
+          }
+        ]
+      }
+    ],
+    "paraphrase": {
+      "attempted": 82,
+      "passed_copy_check": 68,
+      "in_survivors": 46
+    },
+    "independent_answer_refusals": 15,
+    "survivors": 122,
+    "survivors_by_type": {
+      "multi_section": 11,
+      "cross_reference": 20,
+      "numeric": 17,
+      "procedural": 22,
+      "definition": 21,
+      "factual": 31
+    },
+    "survivors_by_document": {
+      "commissions2020": 30,
+      "cpa2019": 63,
+      "ecom2020": 19,
+      "jurisdiction2021": 1,
+      "mediation2020": 9
+    },
+    "selection": {
+      "target": 90,
+      "available": 122,
+      "selected": 90,
+      "shortfall": 0,
+      "by_type": {
+        "definition": {
+          "mix_target": 15,
+          "available": 21,
+          "quota_after_redistribution": 15,
+          "selected": 15
+        },
+        "factual": {
+          "mix_target": 20,
+          "available": 31,
+          "quota_after_redistribution": 20,
+          "selected": 20
+        },
+        "procedural": {
+          "mix_target": 15,
+          "available": 22,
+          "quota_after_redistribution": 15,
+          "selected": 15
+        },
+        "numeric": {
+          "mix_target": 15,
+          "available": 17,
+          "quota_after_redistribution": 15,
+          "selected": 15
+        },
+        "cross_reference": {
+          "mix_target": 15,
+          "available": 20,
+          "quota_after_redistribution": 15,
+          "selected": 15
+        },
+        "multi_section": {
+          "mix_target": 10,
+          "available": 11,
+          "quota_after_redistribution": 10,
+          "selected": 10
+        }
+      },
+      "by_document": {
+        "commissions2020": 28,
+        "cpa2019": 33,
+        "ecom2020": 19,
+        "jurisdiction2021": 1,
+        "mediation2020": 9
+      }
+    },
+    "mean_lexical_overlap": {
+      "selected": 0.3468,
+      "survivors": 0.3372
+    }
+  },
+  "unanswerable": {
+    "candidates_generated": {
+      "out_of_scope": 45,
+      "perturbation": 45
+    },
+    "candidates_requested": {
+      "out_of_scope": 45,
+      "perturbation": 45
+    },
+    "generation_failures": {},
+    "filters": [
+      {
+        "name": "format",
+        "description": "non-empty question of 6-40 words",
+        "in": 90,
+        "pass": 90,
+        "fail": 0,
+        "pass_rate": 1.0,
+        "fail_reasons": {},
+        "fail_examples": []
+      },
+      {
+        "name": "corpus_provision_number",
+        "description": "the question names no section or rule number that exists in this corpus",
+        "in": 90,
+        "pass": 90,
+        "fail": 0,
+        "pass_rate": 1.0,
+        "fail_reasons": {},
+        "fail_examples": []
+      },
+      {
+        "name": "near_duplicate",
+        "description": "bge-small cosine <= 0.9 to every existing and selected answerable question and to earlier unanswerable candidates (keep the first)",
+        "in": 90,
+        "pass": 85,
+        "fail": 5,
+        "pass_rate": 0.9444,
+        "fail_reasons": {
+          "near_duplicate": 5
+        },
+        "fail_examples": [
+          {
+            "reason": "near_duplicate",
+            "method": "out_of_scope",
+            "group": "case_timelines",
+            "question": "What is the timeline for the XYZ Corporation case so far?",
+            "similarity": 0.9316,
+            "nearest": "When is the next update on the status of the case against XYZ Corporation?"
+          },
+          {
+            "reason": "near_duplicate",
+            "method": "perturbation",
+            "group": "specific_year",
+            "question": "Who was the keynote speaker at the 2022 Consumer Rights Summit in India?",
+            "similarity": 0.9559,
+            "nearest": "Who was the keynote speaker at the 2021 Consumer Rights Summit in India?"
+          },
+          {
+            "reason": "near_duplicate",
+            "method": "perturbation",
+            "group": "specific_state",
+            "question": "What is the state fee for vehicle registration in Maharashtra?",
+            "similarity": 0.9752,
+            "nearest": "How much is the registration fee for a vehicle in Maharashtra?"
+          },
+          {
+            "reason": "near_duplicate",
+            "method": "perturbation",
+            "group": "specific_year",
+            "question": "What significant economic figures were announced in 2023 related to consumer protection laws?",
+            "similarity": 0.9123,
+            "nearest": "What significant economic figure was announced in 2023 related to consumer rights?"
+          },
+          {
+            "reason": "near_duplicate",
+            "method": "perturbation",
+            "group": "specific_state",
+            "question": "What are the specific fees charged only by Punjab for vehicle registration?",
+            "similarity": 0.934,
+            "nearest": "What is the fee structure for vehicle registration in Punjab state?"
+          }
+        ]
+      },
+      {
+        "name": "retrieval_check",
+        "description": "top-5 chunks of structural|hybrid_rrf|bge-small|cfg-b8b28e shown to the LLM, which must return {\"answered\": false}",
+        "in": 85,
+        "pass": 85,
+        "fail": 0,
+        "pass_rate": 1.0,
+        "fail_reasons": {},
+        "fail_examples": []
+      }
+    ],
+    "survivors": 85,
+    "survivors_by_method": {
+      "out_of_scope": 44,
+      "perturbation": 41
+    },
+    "selection": {
+      "target": 30,
+      "available": 85,
+      "selected": 30,
+      "shortfall": 0,
+      "by_method": {
+        "out_of_scope": {
+          "available": 44,
+          "quota": 15,
+          "selected": 15
+        },
+        "perturbation": {
+          "available": 41,
+          "quota": 15,
+          "selected": 15
+        }
+      },
+      "by_group": {
+        "out_of_scope:addresses": 1,
+        "out_of_scope:banking_ombudsman": 1,
+        "out_of_scope:case_timelines": 1,
+        "out_of_scope:contract_act": 1,
+        "out_of_scope:cpa1986_bodies": 1,
+        "out_of_scope:cpa1986_limits": 1,
+        "out_of_scope:income_tax": 1,
+        "out_of_scope:ipc_bns": 1,
+        "out_of_scope:motor_vehicles": 1,
+        "out_of_scope:ncdrc_cases": 1,
+        "out_of_scope:phone_numbers": 1,
+        "out_of_scope:rti": 1,
+        "out_of_scope:state_fees": 1,
+        "out_of_scope:state_procedures": 1,
+        "out_of_scope:supreme_court": 1,
+        "perturbation:another_law": 4,
+        "perturbation:specific_company": 4,
+        "perturbation:specific_state": 4,
+        "perturbation:specific_year": 3
+      }
+    },
+    "mean_lexical_overlap_with_top5": 0.4152
+  },
+  "llm_calls": {
+    "calls": 736,
+    "cached": 326,
+    "latency_s": 4311.8,
+    "completion_tokens": 24860,
+    "by_phase": {
+      "draft": {
+        "calls": 200,
+        "cached": 200,
+        "latency_s": 0.0,
+        "completion_tokens": 13054
+      },
+      "paraphrase": {
+        "calls": 82,
+        "cached": 82,
+        "latency_s": 0.0,
+        "completion_tokens": 1681
+      },
+      "support": {
+        "calls": 175,
+        "cached": 39,
+        "latency_s": 1062.3,
+        "completion_tokens": 3400
+      },
+      "answer_from_source": {
+        "calls": 134,
+        "cached": 1,
+        "latency_s": 1116.7,
+        "completion_tokens": 4404
+      },
+      "out_of_scope": {
+        "calls": 15,
+        "cached": 1,
+        "latency_s": 111.8,
+        "completion_tokens": 739
+      },
+      "perturbation": {
+        "calls": 45,
+        "cached": 0,
+        "latency_s": 269.0,
+        "completion_tokens": 1072
+      },
+      "retrieval_check": {
+        "calls": 85,
+        "cached": 3,
+        "latency_s": 1752.1,
+        "completion_tokens": 510
+      }
+    }
+  },
+  "generation_wall_time_s": 4359.7,
+  "created_utc": "2026-11-10T13:36:28+00:00",
+  "started_utc": "2026-11-10T12:23:43+00:00",
+  "base_url": "http://localhost:11434/v1",
+  "questions_file": "C:\\Users\\Admin\\agentic-rag\\data\\eval\\questions.jsonl",
+  "questions_sha256": "a21c8fad0bcfc4671549d15aba6a2294b37b03cf61dd0289991419b630e257ab",
+  "rebuild": false,
+  "replaced_auto_items": 0,
+  "kept_existing_items": 3,
+  "ids": {
+    "first": "q004",
+    "last": "q123"
+  },
+  "final_counts": {
+    "new_items": {
+      "total": 120,
+      "answerable": 90,
+      "unanswerable": 30,
+      "by_type": {
+        "cross_reference": 15,
+        "definition": 15,
+        "factual": 20,
+        "multi_section": 10,
+        "numeric": 15,
+        "procedural": 15,
+        "unanswerable": 30
+      },
+      "by_document": {
+        "(none)": 30,
+        "commissions2020": 28,
+        "cpa2019": 33,
+        "ecom2020": 19,
+        "jurisdiction2021": 1,
+        "mediation2020": 9
+      },
+      "by_difficulty": {
+        "easy": 71,
+        "hard": 16,
+        "medium": 33
+      },
+      "by_split": {
+        "dev": {
+          "answerable": 24,
+          "unanswerable": 13
+        },
+        "test": {
+          "answerable": 66,
+          "unanswerable": 17
+        }
+      },
+      "by_split_type": {
+        "dev": {
+          "cross_reference": 4,
+          "definition": 3,
+          "factual": 3,
+          "multi_section": 2,
+          "numeric": 8,
+          "procedural": 4,
+          "unanswerable": 13
+        },
+        "test": {
+          "cross_reference": 11,
+          "definition": 12,
+          "factual": 17,
+          "multi_section": 8,
+          "numeric": 7,
+          "procedural": 11,
+          "unanswerable": 17
+        }
+      }
+    },
+    "whole_file": {
+      "total": 123,
+      "answerable": 92,
+      "unanswerable": 31,
+      "by_type": {
+        "cross_reference": 16,
+        "definition": 16,
+        "factual": 20,
+        "multi_section": 10,
+        "numeric": 15,
+        "procedural": 15,
+        "unanswerable": 31
+      },
+      "by_document": {
+        "(none)": 31,
+        "commissions2020": 28,
+        "cpa2019": 34,
+        "ecom2020": 19,
+        "jurisdiction2021": 2,
+        "mediation2020": 9
+      },
+      "by_difficulty": {
+        "easy": 72,
+        "hard": 16,
+        "medium": 35
+      },
+      "by_split": {
+        "dev": {
+          "answerable": 24,
+          "unanswerable": 14
+        },
+        "test": {
+          "answerable": 68,
+          "unanswerable": 17
+        }
+      },
+      "by_split_type": {
+        "dev": {
+          "cross_reference": 4,
+          "definition": 3,
+          "factual": 3,
+          "multi_section": 2,
+          "numeric": 8,
+          "procedural": 4,
+          "unanswerable": 14
+        },
+        "test": {
+          "cross_reference": 12,
+          "definition": 13,
+          "factual": 17,
+          "multi_section": 8,
+          "numeric": 7,
+          "procedural": 11,
+          "unanswerable": 17
+        }
+      }
+    }
+  },
+  "wall_time_s": 4365.1,
+  "peak_rss_mb": 631,
+  "run_info": {
+    "utc_time": "2026-11-10T13:36:28+00:00",
+    "git": {
+      "commit": "0e9f373a2a9c8a16d4865382715442959f7cd657",
+      "dirty": true
+    },
+    "python": "3.11.9",
+    "python_executable": "C:\\Users\\Admin\\agentic-rag\\.venv\\Scripts\\python.exe",
+    "os": "Windows 10 (10.0.26200)",
+    "machine": "AMD64",
+    "cpu_model": "11th Gen Intel(R) Core(TM) i3-1115G4 @ 3.00GHz",
+    "cpu_count_logical": 4,
+    "cpu_count_physical": 2,
+    "ram_total_gb": 19.75,
+    "packages": {
+      "ragsys": "0.1.0",
+      "pymupdf": "2.1",
+      "pydantic": "2.14.3",
+      "PyYAML": "6.0.3",
+      "numpy": "2.4.6",
+      "psutil": "7.2.2",
+      "torch": "2.15.0+cpu",
+      "transformers": "5.22.2",
+      "tokenizers": "0.23.3",
+      "sentence-transformers": "6.2.0"
+    }
+  }
+}

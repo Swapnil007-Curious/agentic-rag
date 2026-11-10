@@ -1,0 +1,11 @@
+config_id,baseline_id,label,metric,n,mean_diff,ci_low,ci_high,n_resamples,seed
+structural|dense|bge-base,fixed_512|dense|bge-base,,recall@5,68,0.0613,-0.0515,0.1789,1000,42
+structural|dense|bge-base,fixed_512|dense|bge-base,,coverage@1024,68,0.2672,0.1299,0.4020,1000,42
+fixed_256|hybrid_linear|bge-base|a0.5|rerank-minilm,fixed_512|dense|bge-base,,recall@5,68,0.1103,0.0221,0.2059,1000,42
+fixed_256|hybrid_linear|bge-base|a0.5|rerank-minilm,fixed_512|dense|bge-base,,coverage@1024,68,0.2574,0.1618,0.3603,1000,42
+fixed_512|dense|bge-small|rerank-minilm,fixed_512|dense|bge-base,,recall@5,68,0.1176,0.0294,0.2132,1000,42
+fixed_512|dense|bge-small|rerank-minilm,fixed_512|dense|bge-base,,coverage@1024,68,0.1471,0.0441,0.2574,1000,42
+semantic|hybrid_linear|bge-base|a0.5|rerank-minilm,fixed_512|dense|bge-base,,recall@5,68,0.0172,-0.1029,0.1324,1000,42
+semantic|hybrid_linear|bge-base|a0.5|rerank-minilm,fixed_512|dense|bge-base,,coverage@1024,68,0.1127,-0.0148,0.2329,1000,42
+fixed_512|bm25,fixed_512|dense|bge-base,,recall@5,68,0.0662,-0.0368,0.1765,1000,42
+fixed_512|bm25,fixed_512|dense|bge-base,,coverage@1024,68,-0.0147,-0.1471,0.1103,1000,42

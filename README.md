@@ -28,6 +28,11 @@ This repository contains three parts of the project.
 ingested with `GenericParser` (font-size / numbering based headings) by adding it to
 `configs/ingest.yaml` with `parser: generic`.
 
+The system serves several **collections** (document sets), each with its own configs, data,
+caches, evaluation set and results: `consumer_law` (the case study above, at its original
+locations) and `cs_ai` (selected chapters of three open-licensed computer science textbooks).
+See [Collections](#collections).
+
 ## Corpus and sources
 
 India's Consumer Protection Act, 2019 and four of its Rules. File hashes, sizes, page counts and
@@ -52,6 +57,139 @@ Notes on the files (all have a text layer; no OCR is needed):
   `enabled: false` so the case-study corpus stays at five documents; set `enabled: true` in
   `configs/ingest.yaml` to include it (its English preamble shares a mostly-Hindi page that is
   dropped, so that document starts at rule 1).
+
+## Collections
+
+A collection is a named document set defined in
+[`configs/collections.yaml`](configs/collections.yaml): its four config files (ingest,
+chunking, retrieval, generation), a domain profile (prompt wording, question-type mix and
+out-of-scope topics, in `src/ragsys/profiles.py`), UI texts and four root directories. Every
+other location (embeddings, the LLM response cache, the rerank-score and NLI caches, result
+tables, the test-access log, the abstention threshold, UI feedback) is derived from those roots,
+so collections never share an output or a cache. The test suite checks that the paths written in
+each collection's config files agree with its roots and that no two collections share a
+location.
+
+| collection | configs | raw / processed / eval / results |
+|---|---|---|
+| `consumer_law` (default) | `configs/{ingest,chunking,retrieval,generation}.yaml` | `data/raw`, `data/processed`, `data/eval`, `results` |
+| `cs_ai` | `configs/collections/cs_ai/*.yaml` | `collections/cs_ai/{raw,processed,eval,results}` |
+
+`consumer_law` maps to the original locations and config files, so every command written
+without `--collection` behaves exactly as before (a test compares the resolved paths with the
+original ones, the consumer-law prompts and system fingerprints with a snapshot taken before
+collections existed, and the files in `results/tables/` with their recorded hashes).
+
+Every script takes `--collection NAME` (default `consumer_law`); explicit `--config` and path
+flags still override the collection's files:
+
+```powershell
+python scripts/ingest.py --collection cs_ai
+python scripts/chunk.py --collection cs_ai --chunker all          # fixed_512 + structural
+python scripts/browse.py --collection cs_ai list --doc d2l
+python scripts/search.py --collection cs_ai "how does git rebase work" --config-id "structural|bm25"
+python scripts/ask.py --collection cs_ai "What problem does the attention mechanism solve in sequence models?" --system G2
+python scripts/serve.py                                           # every collection, selector in the page
+```
+
+### The `cs_ai` corpus
+
+Selected chapters of three open-licensed textbooks; put the PDFs in `collections/cs_ai/raw/`
+(they are not redistributed). Chapters are selected by title in
+[`configs/collections/cs_ai/ingest.yaml`](configs/collections/cs_ai/ingest.yaml); their page
+ranges are resolved from each PDF's outline (bookmarks), or by heading detection when a title is
+not in the outline, and recorded in the structure report and in
+[`collections/cs_ai/raw/SOURCES.csv`](collections/cs_ai/raw/SOURCES.csv), which also holds the
+authors, edition, licence (with where it was read), source URL, SHA-256 and page counts. The web
+UI shows this attribution in its footer.
+
+| doc_id | file | book | chapters | licence |
+|---|---|---|---|---|
+| `d2l` | `d2l.pdf` | Aston Zhang, Zachary C. Lipton, Mu Li, Alexander J. Smola: *Dive into Deep Learning* (PyTorch edition) | Multilayer Perceptrons; Convolutional Neural Networks; Recurrent Neural Networks; Attention Mechanisms and Transformers; Optimization Algorithms | CC BY-SA 4.0 (book text; the sample code is under a modified MIT licence) |
+| `progit` | `progit.pdf` | Scott Chacon, Ben Straub: *Pro Git*, second edition | Getting Started; Git Basics; Git Branching | CC BY-NC-SA 3.0 Unported |
+| `ods` | `ods.pdf` | Pat Morin: *Open Data Structures* (pseudocode edition) | Array-Based Lists; Linked Lists; Hash Tables; Binary Trees; Heaps; Sorting Algorithms; Graphs | CC BY 2.5 Canada |
+
+The licence is read from the PDF's licence page when the PDF states one with a version (Pro
+Git). The d2l PDF has no licence page and the ODS PDF names "a Creative Commons Attribution
+license" without a version; for these two the licence comes from the publishers' own pages
+(the d2l-en repository README; the licence link on opendatastructures.org), and SOURCES.csv says
+so in its `licence_source` column.
+
+Textbooks are ingested with `doc_type: textbook` and `parser: generic`:
+
+* **cleaning** (`src/ragsys/ingest/textbook.py`): running headers and footers are removed by
+  learning the offset between PDF pages and printed page numbers (plus repetition and
+  configured patterns, e.g. ODS's "§2.1 Array-Based Lists"); lines set in a monospace font
+  become code blocks that keep their line breaks and indentation (ODS's pseudocode, set in the
+  text font, is recognised by indentation); math is kept as extracted text, with small raised
+  or lowered characters written as `^2` / `_i`; sections titled Exercises, References,
+  Bibliography, Index, Contents, Solutions or Further Reading are dropped with their
+  subsections, as are exercise lists inside a section ("Exercise 2.1. ..."); front matter and
+  unselected chapters are never extracted;
+* **structure**: headings are lines set larger than the body text or in a heading-only font
+  family with section numbering; levels come from the numbering ("5" chapter, "5.1" section,
+  "5.1.2" subsection), otherwise from the font size. Numbered headings get IDs
+  `<doc>:<number>` (`d2l:11.5`, `ods:5.2.1`), unnumbered ones `<doc>:h-<slug>`
+  (`progit:h-rebasing`; a slug used more than once is qualified by its parent:
+  `progit:h-git-basics-summary`), code blocks `<parent>/code-<k>` inside their section;
+* **cross-references**: "Section 4.2", "Sections 4.2 and 4.3", "Chapter 3" resolve to nodes
+  (`exact`, or `partial` to the nearest existing ancestor); references into chapters that were
+  not ingested are `external`; figure and table references stay `unresolved`; citations of
+  other books ("[46, Section 2.2.2]") are ignored;
+* **chunking**: `fixed_512` and `structural` only, with the consumer-law size rules; structural
+  chunks also cover a chapter's introduction before its first section;
+* **indexes**: `bge-small` and `bge-base` only (bge-large is too slow on a laptop CPU for this
+  corpus); embedding runs in batches with a progress line and an ETA and is resumable;
+* **evaluation set**: `build_auto_eval.py --collection cs_ai` with the `cs_ai` profile: 60
+  answerable questions (definition 15, factual/conceptual 15, procedural 12, numeric 8,
+  multi-section 10; cross-reference questions are added only when enough resolved references
+  between eligible passages exist, and the decision is recorded in `eval_construction.json`) and
+  20 unanswerable ones on realistic topics the selected chapters do not cover (Kubernetes,
+  quantum computing, reinforcement learning, facts about recent models, company practices,
+  chapters that were not ingested), with the same filters and retrieval check as consumer_law;
+* **retrieval grid** (16 configs): chunker {fixed_512, structural} x {bm25, dense bge-small,
+  dense bge-base, hybrid_rrf bm25+bge-base} x rerank {off, MiniLM}, xref expansion off; the same
+  selection rule and baselines (naive RAG = `fixed_512|dense|bge-base`);
+* **generation**: G1 (naive), G2 (`retrieval: "selected:best_overall"`, the best dev retrieval
+  config written by `select_configs.py`), G3 (G2 + guards, derived), G4 (G2 + guards + critic).
+  G5 and G6 are not run for cs_ai (G5 underperformed on consumer_law and the cs_ai dev split is
+  small; G6 is the slowest system); the reason is recorded in the generation config and tables.
+  Before the selection exists, `ask.py` and the web UI use the first built config of
+  `selection_fallback` and say which one; evaluations never fall back.
+
+### Overnight runner
+
+```powershell
+.\scripts\run_collection_pipeline.ps1 -Collection cs_ai          # or:
+python scripts\run_collection_pipeline.py --collection cs_ai
+python scripts\run_collection_pipeline.py --collection cs_ai --dry-run   # plan + time estimate only
+```
+
+Runs, in order: ingest -> chunk -> build_index -> build_auto_eval -> validate_eval (stops on
+failure) -> `ollama stop` (frees the LLM's memory) -> retrieval dev grid -> select_configs ->
+eval_retrieval on test -> run_generation on dev (G2, G4) -> derive_systems on dev (G3) ->
+eval_generation on test (G1-G4, deriving G3) -> `SUMMARY.md` with the key tables in
+`<results_dir>/tables/`. Before starting it prints a time estimate per step, computed from the
+corpus size and the speeds recorded in this repository's own logs (embedding times, LLM latency
+per phase, reranking time and end-to-end latency per question). Each step is skipped when it is
+already complete with unchanged inputs; interrupted steps resume from their own caches, so after
+a crash or a reboot the same command continues. Every step's output, exit code, wall time and
+peak memory go to `<results_dir>/pipeline_log.txt`; the run ends with `PIPELINE COMPLETE` or
+names the failing step and the command to resume. While it runs, Windows is kept from sleeping.
+Ollama must be running for the evaluation-set and generation steps.
+
+### Adding a collection
+
+1. Put the PDFs in `collections/<name>/raw/`.
+2. Copy `configs/collections/cs_ai/` to `configs/collections/<name>/` and edit the documents
+   (file, doc_id, title, authors, chapters to keep, licence fallback) and every
+   `collections/cs_ai/...` path.
+3. Add an entry to `configs/collections.yaml` (roots, UI texts, profile, auto-eval counts,
+   pipeline systems). A new domain gets its own profile in `src/ragsys/profiles.py` (prompt
+   wording, question-type mix, out-of-scope topics); the `cs_ai` profile suits other technical
+   textbooks.
+4. Run `python scripts/run_collection_pipeline.py --collection <name>` (or step by step with
+   `--collection <name>`), and `pytest -q` to check that the configs agree with the roots.
 
 ## Setup (Windows 11, PowerShell)
 
@@ -805,9 +943,16 @@ Outputs:
 ### Web UI
 
 `scripts/serve.py` starts a FastAPI app (`src/ragsys/app/`) bound to 127.0.0.1, port 8000 by
-default:
+default, serving every collection:
 
-* ask box, system selector (G2, G4, G5, G6; default G5) and a plain-language switch;
+* a collection selector (shown first: `cs_ai`, also "Indian Consumer Law"); per collection the
+  heading, the documents with titles, authors, licence and source links (from its
+  `SOURCES.csv`), five example questions from its dev split as clickable chips, its disclaimer
+  (consumer_law: "Not legal advice"; cs_ai: "Answers come only from the listed open
+  textbooks") and its systems (consumer_law: G2, G4, G5, G6, default G5; cs_ai: G2, G4, default
+  G4). A collection's models are loaded on its first question; switching releases the other
+  collection's encoders. A collection that is not built yet is listed as such;
+* ask box, system selector and a plain-language switch;
 * the answer with a superscript citation chip after each sentence; a chip opens a side panel
   with the passage's heading path, section id, pages and text, with the cited sentence's key
   terms highlighted;
@@ -815,11 +960,12 @@ default:
   each opening its passage;
 * a collapsible step trace (retrieval, context, threshold, synthesis, guards, critic, revision)
   with timings and LLM usage;
-* thumbs up / down stored in `data/feedback.jsonl` (git-ignored, stays on this machine);
-* footer: "Information from the Consumer Protection Act, 2019 and four Rules. Not legal advice."
-  and the corpus documents with their versions (file hash and pages from `SOURCES.csv`).
+* thumbs up / down stored in the collection's feedback file (`data/feedback.jsonl`,
+  `collections/cs_ai/feedback.jsonl`; git-ignored, stays on this machine);
+* footer: the collection's disclaimer and documents with their versions (file hash and pages).
 
-Endpoints: `GET /`, `GET /api/meta`, `POST /ask`, `GET /passage?chunk_id=...`,
+Endpoints: `GET /`, `GET /api/collections`, `GET /api/meta?collection=`, `POST /ask`
+(`{"question", "system", "plain", "collection"}`), `GET /passage?chunk_id=...&collection=`,
 `POST /feedback`. The page loads no external resources and has no inline script (strict
 Content-Security-Policy), and all document and model text is inserted as text. Requests are
 answered one at a time, and only loopback host names are accepted. The page is keyboard
@@ -834,8 +980,14 @@ pytest -q -m corpus    # integration test on the real PDFs in data/raw (skipped 
 ruff check . ; ruff format --check . ; mypy --strict src
 ```
 
-Unit tests generate small PDFs with PyMuPDF (an Act-like document, a Rules-like notification and
-a non-legal report). GitHub Actions runs lint, type checks and tests on `ubuntu-latest` and
+Unit tests generate small PDFs with PyMuPDF (an Act-like document, a Rules-like notification, a
+non-legal report and a textbook with an outline, numbered and unnumbered headings, a code block,
+an equation line, running headers, an Exercises section, references and an index). Collection
+tests check the consumer-law paths, prompts, fingerprints and result tables against the state
+before collections existed, the isolation of caches and test-access logs between collections,
+the runner's skip/resume logic with fake steps and collection switching in the web UI.
+`pytest -q -m corpus` also re-ingests and re-chunks the consumer-law PDFs and compares the
+outputs byte for byte with `data/processed/`. GitHub Actions runs lint, type checks and tests on `ubuntu-latest` and
 `windows-latest` with Python 3.11, installs CPU torch from the PyTorch CPU index and caches the
 HuggingFace model directory.
 
@@ -871,6 +1023,16 @@ HuggingFace model directory.
   bootstrap intervals.
 * Sentence splitting is rule-based (legal abbreviations, citations after the full stop); unusual
   formatting can merge or split sentences.
+
+* Textbooks: heading detection relies on font size, a heading-only font family or numbering;
+  bold run-in headings set at body size are not detected. Equations are kept as extracted
+  text (fractions and matrices lose their layout), figures are dropped (their captions are
+  kept), and code that is not set in a monospace font (ODS pseudocode) is recognised only by
+  its indentation. Node page numbers are PDF pages, not the printed page numbers.
+* Pro Git refers to other sections by title rather than by number, so its cross-references are
+  not resolved; d2l and ODS references into chapters that were not ingested are `external`.
+* The `cs_ai` licences of d2l and ODS are not stated (with a version) in the PDFs themselves;
+  they come from the publishers' pages, as recorded in SOURCES.csv.
 
 ## License
 

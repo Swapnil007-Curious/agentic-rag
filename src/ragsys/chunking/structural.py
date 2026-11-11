@@ -8,14 +8,17 @@
 * in a definitions section every definition clause is its own chunk (definitions are never
   merged with each other);
 * chunks never cross a unit boundary. ``text`` (embedded) = heading path + newline +
-  ``display_text``; ``display_text`` is the exact cleaned text slice.
+  ``display_text``; ``display_text`` is the exact cleaned text slice;
+* with ``orphan_text`` (textbooks), text outside every unit (a chapter's introduction before
+  its first section) is chunked as well, split by the same rules, with the enclosing node as
+  primary node; chunks are then emitted in document order.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ragsys.chunking.base import Chunk, DocInput, heading_path, make_chunk
+from ragsys.chunking.base import Chunk, DocInput, deepest_containing, heading_path, make_chunk
 from ragsys.chunking.fixed import token_windows
 from ragsys.chunking.semantic import split_units
 from ragsys.chunking.tokenizer import TokenCounter
@@ -41,11 +44,14 @@ class StructuralChunker:
         max_tokens: int = 384,
         min_tokens: int = 48,
         contextual_header: bool = True,
+        *,
+        orphan_text: bool = False,
     ) -> None:
         self.tok = tokenizer
         self.max_tokens = max_tokens
         self.min_tokens = min_tokens
         self.contextual_header = contextual_header
+        self.orphan_text = orphan_text
 
     # ------------------------------------------------------------------ helpers
 
@@ -164,24 +170,51 @@ class StructuralChunker:
 
     # ------------------------------------------------------------------ public
 
+    def _orphan_pieces(self, doc: DocInput, units: list[Node]) -> list[Piece]:
+        """Pieces of the text that lies outside every unit."""
+        covered = sorted((u.char_start, u.char_end) for u in units)
+        gaps: list[tuple[int, int]] = []
+        cursor = 0
+        for a, b in covered:
+            if a > cursor:
+                gaps.append((cursor, a))
+            cursor = max(cursor, b)
+        gaps.append((cursor, len(doc.text)))
+        pieces: list[Piece] = []
+        for a, b in gaps:
+            a, b = self._trim(doc, a, b)
+            if b <= a:
+                continue
+            owner = deepest_containing(doc, a, b)
+            if owner is None:
+                continue
+            parent = owner.parent_id or owner.node_id
+            pieces.extend(self._merge_tiny(doc, self._split_text(doc, a, b, owner, parent)))
+        return pieces
+
     def chunk_document(self, doc: DocInput) -> list[Chunk]:
         chunks: list[Chunk] = []
-        for unit in (n for n in doc.nodes if n.is_unit):
-            for piece in self._pieces(doc, unit):
-                path = heading_path(doc, piece.node, include_sub=True)
-                display = doc.text[piece.start : piece.end]
-                embed = f"{path}\n{display}" if self.contextual_header else display
-                chunks.append(
-                    make_chunk(
-                        doc,
-                        self.name,
-                        len(chunks),
-                        piece.start,
-                        piece.end,
-                        self.tok.count(embed),
-                        primary=piece.node,
-                        embed_text=embed,
-                        path=path,
-                    )
+        units = [n for n in doc.nodes if n.is_unit]
+        pieces = [p for unit in units for p in self._pieces(doc, unit)]
+        if self.orphan_text:
+            pieces = sorted(
+                pieces + self._orphan_pieces(doc, units), key=lambda p: (p.start, p.end)
+            )
+        for piece in pieces:
+            path = heading_path(doc, piece.node, include_sub=True)
+            display = doc.text[piece.start : piece.end]
+            embed = f"{path}\n{display}" if self.contextual_header else display
+            chunks.append(
+                make_chunk(
+                    doc,
+                    self.name,
+                    len(chunks),
+                    piece.start,
+                    piece.end,
+                    self.tok.count(embed),
+                    primary=piece.node,
+                    embed_text=embed,
+                    path=path,
                 )
+            )
         return chunks

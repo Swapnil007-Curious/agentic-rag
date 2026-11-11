@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>Consumer Law Answers</title>
+  <title>Document Answers</title>
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/app.js" defer></script>
 </head>
@@ -13,27 +13,36 @@
 
   <header class="masthead">
     <div class="wrap">
-      <p class="eyebrow">Consumer Protection Act, 2019 &middot; four Rules</p>
-      <h1>Ask the consumer law documents</h1>
-      <p class="lede">Answers come only from the Act and its Rules. Every sentence links to the passage it rests on, and when the documents do not say, you are told so.</p>
+      <p class="eyebrow" id="eyebrow"></p>
+      <h1 id="heading">Ask the documents</h1>
+      <p class="lede" id="lede">Answers come only from the documents of the selected collection. Every sentence links to the passage it rests on, and when the documents do not say, you are told so.</p>
     </div>
   </header>
 
   <div class="wrap layout">
     <main class="primary" id="main">
       <form id="ask-form" class="card ask" novalidate>
+        <div class="field field-collection">
+          <label for="collection" class="label">Collection</label>
+          <select id="collection" name="collection" aria-describedby="collection-note"></select>
+          <p id="collection-note" class="hint" aria-live="polite"></p>
+        </div>
+
         <label for="question" class="label">Your question</label>
         <textarea id="question" name="question" rows="3" maxlength="1000" required
           aria-describedby="question-hint"
-          placeholder="For example: Within how many days must a complaint be decided if no testing of goods is needed?"></textarea>
+          placeholder=""></textarea>
         <p id="question-hint" class="hint">An answer takes roughly half a minute to two minutes on this computer. Press Ctrl+Enter to ask.</p>
+
+        <div id="examples-block" class="examples-block" hidden>
+          <p class="examples-label" id="examples-label">Try an example</p>
+          <ul id="examples" class="examples" aria-labelledby="examples-label"></ul>
+        </div>
 
         <div class="controls">
           <div class="field field-system">
             <label for="system" class="label">System</label>
-            <select id="system" name="system" aria-describedby="system-desc">
-              <option value="G5">G5</option>
-            </select>
+            <select id="system" name="system" aria-describedby="system-desc"></select>
             <p id="system-desc" class="hint"></p>
           </div>
           <div class="field field-toggle">
@@ -57,7 +66,7 @@
         <div id="answer" class="answer"></div>
 
         <div id="abstained" class="abstained" hidden>
-          <p class="not-found">Not found in these documents</p>
+          <p class="not-found" id="not-found">Not found in these documents</p>
           <p id="abstain-why" class="hint"></p>
           <h3 class="subhead">Closest sections</h3>
           <ul id="closest" class="closest"></ul>
@@ -104,7 +113,7 @@
 
   <footer class="site-footer">
     <div class="wrap">
-      <p class="disclaimer" id="disclaimer">Information from the Consumer Protection Act, 2019 and four Rules. Not legal advice.</p>
+      <p class="disclaimer" id="disclaimer"></p>
       <h2 class="footer-heading">Documents in this collection</h2>
       <ul id="documents" class="documents"></ul>
     </div>

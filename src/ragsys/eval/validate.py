@@ -93,7 +93,12 @@ def suggest_ids(bad: str, node_ids: list[str], n: int = 5) -> list[str]:
     return seen[:n]
 
 
-def validate_questions(questions: list[EvalQuestion], node_ids: list[str]) -> ValidationReport:
+def validate_questions(
+    questions: list[EvalQuestion],
+    node_ids: list[str],
+    targets: tuple[int, int] = (TARGET_ANSWERABLE, TARGET_UNANSWERABLE),
+) -> ValidationReport:
+    t_ans, t_unans = targets
     rep = ValidationReport(questions=questions)
     id_set = set(node_ids)
     dup = sorted(k for k, v in Counter(q.id for q in questions).items() if v > 1)
@@ -150,10 +155,10 @@ def validate_questions(questions: list[EvalQuestion], node_ids: list[str]) -> Va
         "by_type": dict(sorted(Counter(q.type for q in questions).items())),
         "by_difficulty": dict(sorted(Counter(q.difficulty for q in questions).items())),
         "by_document": dict(sorted(docs.items())),
-        "target": {"answerable": TARGET_ANSWERABLE, "unanswerable": TARGET_UNANSWERABLE},
+        "target": {"answerable": t_ans, "unanswerable": t_unans},
         "progress": {
-            "answerable": f"{answerable}/{TARGET_ANSWERABLE}",
-            "unanswerable": f"{unanswerable}/{TARGET_UNANSWERABLE}",
+            "answerable": f"{answerable}/{t_ans}",
+            "unanswerable": f"{unanswerable}/{t_unans}",
         },
         "by_origin": dict(sorted(Counter(q.origin for q in questions).items())),
         "by_origin_detail": dict(sorted(by_origin_detail.items())),
@@ -166,14 +171,18 @@ def validate_questions(questions: list[EvalQuestion], node_ids: list[str]) -> Va
     return rep
 
 
-def validate_file(questions_path: Path, nodes_path: Path) -> ValidationReport:
+def validate_file(
+    questions_path: Path,
+    nodes_path: Path,
+    targets: tuple[int, int] = (TARGET_ANSWERABLE, TARGET_UNANSWERABLE),
+) -> ValidationReport:
     questions, parse_errors = load_questions(questions_path)
     node_ids: list[str] = []
     with nodes_path.open(encoding="utf-8") as fh:
         for line in fh:
             if line.strip():
                 node_ids.append(json.loads(line)["node_id"])
-    rep = validate_questions(questions, node_ids)
+    rep = validate_questions(questions, node_ids, targets)
     rep.errors = parse_errors + rep.errors
     return rep
 

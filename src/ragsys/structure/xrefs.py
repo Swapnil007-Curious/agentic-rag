@@ -30,7 +30,9 @@ class XRef(BaseModel):
     target_node: str | None
     target_doc: str | None
     raw_text: str
-    kind: Literal["section", "rule", "chapter", "schedule", "provision", "document"]
+    kind: Literal[
+        "section", "rule", "chapter", "schedule", "provision", "document", "figure", "table"
+    ]
     resolution: Resolution
     char_start: int
     char_end: int

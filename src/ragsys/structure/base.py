@@ -21,8 +21,9 @@ Level = Literal[
     "proviso",
     "schedule",
     "heading",
+    "code",
 ]
-DocType = Literal["act", "rules", "generic"]
+DocType = Literal["act", "rules", "generic", "textbook"]
 
 # Levels that form the top-level retrieval units of a document ("section-level").
 UNIT_LEVELS: frozenset[str] = frozenset({"section", "rule", "schedule"})

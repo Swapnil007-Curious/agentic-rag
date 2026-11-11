@@ -12,9 +12,9 @@ import json
 import re
 from collections.abc import Sequence
 
-from ragsys.agents import critic, synthesizer
 from ragsys.llm.client import Message
 from ragsys.llm.fake import FakeLLM
+from ragsys.profiles import all_generation_prompts
 from ragsys.retrieval.bm25 import STOPWORDS
 
 _WORD = re.compile(r"[a-z]{3,}")
@@ -28,9 +28,10 @@ def _words(text: str) -> set[str]:
 def agent_responder(messages: Sequence[Message]) -> str:
     system = messages[0].get("content", "") if messages else ""
     user = messages[-1].get("content", "") if messages else ""
-    if system.startswith(critic.SYSTEM_PROMPT[:40]):
+    prompts = all_generation_prompts()
+    if any(system.startswith(p.critic_system[:40]) for p in prompts):
         return json.dumps({"verdict": "accept", "unsupported_sentences": [], "feedback": ""})
-    if system.startswith(synthesizer.SYSTEM_PROMPT[:40]):
+    if any(system.startswith(p.synth_system[:40]) for p in prompts):
         passages = _PASSAGE.findall(user)
         q = re.search(r"^Question: (.*)$", user, re.MULTILINE)
         question = q.group(1) if q else ""

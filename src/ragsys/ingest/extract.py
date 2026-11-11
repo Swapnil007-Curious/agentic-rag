@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 import statistics
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -221,12 +222,55 @@ def _strip_markers(line: Line, max_ratio: float) -> int:
     return removed
 
 
-def extract_pdf(path: str | Path, marker_max_size_ratio: float = 0.8) -> RawDocument:
-    """Extract horizontal text lines with span-level font metadata from a PDF."""
+def _mark_scripts(line: Line, max_ratio: float) -> int:
+    """Textbook mode: keep small raised/lowered spans, written as ``^x`` / ``_x`` (math
+    exponents and indices such as ``tanh^2(x)``, ``W^(1)``, ``x_i``) instead of dropping them."""
+    sizes = [s.size for s in line.spans if s.text.strip()]
+    if len(sizes) < 2:
+        return 0
+    body = statistics.median(sizes)
+    big = [s for s in line.spans if s.text.strip() and s.size > max_ratio * body]
+    if not big:
+        return 0
+    ref = max(s.size for s in big)
+    base = statistics.median(s.y1 for s in big)
+    marked = 0
+    for s in line.spans:
+        t = s.text.strip()
+        if not t or s.size > max_ratio * ref or len(t) > 8:
+            continue
+        if s.y1 < base - 0.2 * ref:
+            s.text = "^" + t
+        elif s.y1 > base + 0.12 * ref:
+            s.text = "_" + t
+        else:
+            continue
+        marked += 1
+    return marked
+
+
+_PUA_ONLY_RE = re.compile("^\\s*[-][\\s-]*$")
+
+
+def extract_pdf(
+    path: str | Path,
+    marker_max_size_ratio: float = 0.8,
+    pages: Collection[int] | None = None,
+    scripts: str = "strip",
+) -> RawDocument:
+    """Extract horizontal text lines with span-level font metadata from a PDF.
+
+    ``pages`` (1-based PDF page numbers) restricts extraction to those pages; page numbers in
+    the result are always the PDF's own. ``scripts``: "strip" removes small superscript
+    footnote markers (statutes); "caret" keeps small raised/lowered spans as ``^x``/``_x`` and
+    drops icon-font glyphs (textbooks)."""
     path = Path(path)
-    pages: list[Page] = []
+    wanted = set(pages) if pages is not None else None
+    out_pages: list[Page] = []
     with pymupdf.open(path) as doc:  # type: ignore[no-untyped-call]
         for index in range(doc.page_count):
+            if wanted is not None and index + 1 not in wanted:
+                continue
             page = doc[index]
             data = page.get_text("dict")
             raw_lines: list[list[Span]] = []
@@ -240,12 +284,17 @@ def extract_pdf(path: str | Path, marker_max_size_ratio: float = 0.8) -> RawDocu
                         rotated += 1  # watermarks / rotated stamps
                         continue
                     spans = [_make_span(s) for s in ln.get("spans", []) if s.get("text")]
+                    if scripts == "caret":  # icon-font glyphs (private use area) carry no text
+                        spans = [s for s in spans if not _PUA_ONLY_RE.match(s.text)]
                     if spans:
                         raw_lines.append(spans)
             lines = _merge_same_baseline(raw_lines, index + 1)
-            markers = sum(_strip_markers(ln, marker_max_size_ratio) for ln in lines)
+            if scripts == "caret":
+                markers = sum(_mark_scripts(ln, marker_max_size_ratio) for ln in lines)
+            else:
+                markers = sum(_strip_markers(ln, marker_max_size_ratio) for ln in lines)
             rect = page.rect
-            pages.append(
+            out_pages.append(
                 Page(
                     number=index + 1,
                     width=float(rect.width),
@@ -255,7 +304,7 @@ def extract_pdf(path: str | Path, marker_max_size_ratio: float = 0.8) -> RawDocu
                     markers_dropped=markers,
                 )
             )
-    return RawDocument(path=path, pages=pages)
+    return RawDocument(path=path, pages=out_pages)
 
 
 def pdf_page_count(path: str | Path) -> int:

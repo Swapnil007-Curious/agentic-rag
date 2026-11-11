@@ -1,0 +1,84 @@
+# Collections: named document sets with their own configs, data, caches and results.
+# Every script takes --collection NAME (default: consumer_law). Locations not listed here are
+# derived from the four roots (see src/ragsys/collections.py), e.g. <processed_dir>/llm_cache,
+# <processed_dir>/rerank_cache, <processed_dir>/nli_cache, <results_dir>/tables,
+# <results_dir>/test_access_log.json. Paths inside each collection's config files must agree
+# with these roots (checked by the test suite).
+#
+# Adding a collection: put the PDFs in collections/<name>/raw/, copy the four YAML files of
+# configs/collections/cs_ai/ to configs/collections/<name>/, adjust the documents and paths,
+# and add an entry below.
+
+default: consumer_law       # used when --collection is not given
+ui_default: cs_ai           # collection shown first in the web UI
+
+collections:
+  consumer_law:
+    title: "Indian Consumer Law"
+    profile: consumer_law
+    configs:
+      ingest: configs/ingest.yaml
+      chunking: configs/chunking.yaml
+      retrieval: configs/retrieval.yaml
+      generation: configs/generation.yaml
+      llm: configs/llm.yaml
+    roots:                    # the original locations: nothing moves
+      raw_dir: data/raw
+      processed_dir: data/processed
+      eval_dir: data/eval
+      results_dir: results
+      feedback_file: data/feedback.jsonl
+    ui:
+      label: "Indian Consumer Law"
+      eyebrow: "Consumer Protection Act, 2019 · four Rules"
+      heading: "Ask the consumer law documents"
+      lede: "Answers come only from the Act and its Rules. Every sentence links to the passage it rests on, and when the documents do not say, you are told so."
+      placeholder: "For example: Within how many days must a complaint be decided if no testing of goods is needed?"
+      disclaimer: "Information from the Consumer Protection Act, 2019 and four Rules. Not legal advice."
+      abstention_message: "Not found in these documents"
+    auto_eval:
+      n_candidates: 200
+      target_answerable: 90
+      n_unanswerable_candidates: 90
+      target_unanswerable: 30
+    pipeline:
+      index_models: [bge-small, bge-base, bge-large]
+      chroma: true
+      dev_systems: [G1, G2, G4, G6]
+      test_systems: [G1, G2, G3, G4, G5, G6]
+
+  cs_ai:
+    title: "CS / AI textbooks"
+    profile: cs_ai
+    configs:
+      ingest: configs/collections/cs_ai/ingest.yaml
+      chunking: configs/collections/cs_ai/chunking.yaml
+      retrieval: configs/collections/cs_ai/retrieval.yaml
+      generation: configs/collections/cs_ai/generation.yaml
+      llm: configs/llm.yaml
+    roots:
+      raw_dir: collections/cs_ai/raw
+      processed_dir: collections/cs_ai/processed
+      eval_dir: collections/cs_ai/eval
+      results_dir: collections/cs_ai/results
+      feedback_file: collections/cs_ai/feedback.jsonl
+    ui:
+      label: "CS / AI textbooks"
+      eyebrow: "Dive into Deep Learning · Pro Git · Open Data Structures"
+      heading: "Ask the open textbooks"
+      lede: "Answers come only from selected chapters of three open-licensed textbooks. Every sentence links to the passage it rests on, and when the books do not say, you are told so."
+      placeholder: "For example: What problem does the attention mechanism solve in sequence models?"
+      disclaimer: "Answers come only from the listed open textbooks."
+      abstention_message: "Not found in these documents"
+    auto_eval:
+      n_candidates: 140
+      target_answerable: 60
+      n_unanswerable_candidates: 60
+      target_unanswerable: 20
+    pipeline:
+      index_models: [bge-small, bge-base]   # bge-large is too slow on this CPU for this corpus
+      chroma: false                          # NumPy exact search is used for retrieval
+      dev_systems: [G2, G4]
+      test_systems: [G1, G2, G3, G4]
+    notes:
+      skipped_systems: "G5 (retrieval-score threshold) underperformed on consumer_law and the cs_ai dev split is small (about 24 questions), so a tuned threshold would be unreliable; G6 (fixed_256 hybrid + reranking, guards + critic) is the slowest system. Both are skipped for cs_ai."

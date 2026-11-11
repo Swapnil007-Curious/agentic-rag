@@ -1,0 +1,10 @@
+system,reference,label,metric,scope,n,mean_diff,ci_low,ci_high,n_resamples,seed
+G2,G1,,overall_accuracy,all questions,56,0.0179,-0.0893,0.1250,1000,42
+G2,G1,,faithfulness,questions answered by both,27,0.2840,0.1235,0.4568,1000,42
+G2,G1,,correct_refusal_rate,unanswerable questions,16,0.0000,0.0000,0.0000,1000,42
+G3,G1,,overall_accuracy,all questions,56,-0.0536,-0.1607,0.0536,1000,42
+G3,G1,,faithfulness,questions answered by both,18,0.4259,0.2037,0.6667,1000,42
+G3,G1,,correct_refusal_rate,unanswerable questions,16,0.0000,0.0000,0.0000,1000,42
+G4,G1,,overall_accuracy,all questions,56,-0.0714,-0.1786,0.0357,1000,42
+G4,G1,,faithfulness,questions answered by both,15,0.4444,0.2000,0.6894,1000,42
+G4,G1,,correct_refusal_rate,unanswerable questions,16,0.0000,0.0000,0.0000,1000,42

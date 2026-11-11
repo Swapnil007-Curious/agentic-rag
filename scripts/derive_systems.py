@@ -1,7 +1,7 @@
 """Compute the derived systems on the DEV split from their base systems' outputs (no LLM calls).
 
 Usage:
-    python scripts/derive_systems.py --split dev [--systems G3 G5]
+    python scripts/derive_systems.py --split dev [--collection NAME] [--systems G3 G5]
 G3 = G2 + deterministic guards (a guard failure becomes an abstention), from
 results/generation/dev/G2/per_question.jsonl. G5 = G4 + the retrieval-score threshold of
 results/tables/abstention_threshold.json (questions below it are abstained with their LLM calls
@@ -22,6 +22,7 @@ from pathlib import Path
 from ragsys.agents.abstention import load_threshold
 from ragsys.agents.derive import derivation_kind
 from ragsys.agents.runtime import load_settings
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import resolve_path
 from ragsys.eval.generation import (
     derive_system,
@@ -42,7 +43,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--split", choices=["dev"], default="dev", help="only dev is allowed")
     ap.add_argument("--systems", nargs="+", default=None, help="default: every derived system")
-    ap.add_argument("--config", default="configs/generation.yaml")
+    ap.add_argument("--config", default=None, help="default: the collection's generation config")
+    add_collection_arguments(ap)
     ap.add_argument("--retrieval-config", default=None)
     ap.add_argument("--questions", default=None)
     ap.add_argument("--no-eval", action="store_true", help="skip the evaluation and tables")
@@ -51,7 +53,10 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(errors="replace")
 
     t_start = time.perf_counter()
-    settings, rsettings = load_settings(args.config, args.retrieval_config)
+    coll = collection_from_args(args)
+    settings, rsettings = load_settings(
+        config_path(args.config, coll.generation_config), args.retrieval_config
+    )
     names = args.systems or [s for s in settings.systems if settings.is_derived(s)]
     systems = ordered_systems(settings, names)
     not_derived = [s for s in systems if not settings.is_derived(s)]

@@ -35,7 +35,7 @@ class DocumentConfig(StrictModel):
     doc_id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     title: str
     short_title: str | None = None
-    doc_type: Literal["act", "rules", "generic"]
+    doc_type: Literal["act", "rules", "generic", "textbook"]
     parser: Literal["statute", "generic"] = "statute"
     parent_act: str | None = None
     source_url: str = ""
@@ -43,15 +43,35 @@ class DocumentConfig(StrictModel):
     end_marker: str | None = None
     back_matter_markers: list[str] = Field(default_factory=list)
     enabled: bool = True
+    # ---- textbook documents (doc_type "textbook", parser "generic")
+    authors: str = ""
+    edition: str = ""
+    downloaded_on: str = ""
+    # chapters to keep, by title; page ranges come from the PDF outline (or heading detection)
+    chapters: list[str] = Field(default_factory=list)
+    # licence used when the PDF does not state one with a version (with where it comes from)
+    licence: str = ""
+    licence_url: str = ""
+    licence_note: str = ""
+    # extra running-header/footer patterns for this document only
+    header_footer_patterns: list[str] = Field(default_factory=list)
+    # pseudocode set in the text font: short lines indented past the text margin are code lines
+    pseudocode_by_indent: bool = False
 
     _v_start = field_validator("start_marker", "end_marker")(_check_regex)
 
-    @field_validator("back_matter_markers")
+    @field_validator("back_matter_markers", "header_footer_patterns")
     @classmethod
     def _v_back(cls, value: list[str]) -> list[str]:
         for v in value:
             re.compile(v)
         return value
+
+    @model_validator(mode="after")
+    def _textbook_parser(self) -> DocumentConfig:
+        if self.doc_type == "textbook" and self.parser != "generic":
+            raise ValueError("textbook documents use parser: generic")
+        return self
 
     @property
     def display_title(self) -> str:
@@ -94,11 +114,67 @@ class StructureConfig(StrictModel):
     _v_def = field_validator("definitions_heading_pattern")(_check_regex)
 
 
+class TextbookConfig(StrictModel):
+    """Layout rules for textbook PDFs (doc_type "textbook")."""
+
+    # a line is code when at least this fraction of its characters is set in a monospace font
+    monospace_font_patterns: list[str] = Field(
+        default_factory=lambda: [
+            "mono",
+            "courier",
+            "cour",
+            "consol",
+            "inconsolata",
+            "mplus1mn",
+            "menlo",
+            "typewriter",
+            "cmtt",
+            "sfmono",
+            "code",
+        ]
+    )
+    code_min_mono_fraction: float = Field(default=0.8, gt=0, le=1)
+    # headings: font size >= body + delta, or set in a heading-only font family, or bold
+    heading_size_delta: float = Field(default=0.8, gt=0)
+    max_heading_chars: int = Field(default=160, gt=10)
+    # sections dropped with all their subsections (matched against the heading title)
+    drop_sections: list[str] = Field(
+        default_factory=lambda: [
+            r"(?i)^exercises?$",
+            r"(?i)^problems?$",
+            r"(?i)^(?:exercise\s+)?solutions?(?:\s+to\s+(?:the\s+)?exercises)?$",
+            r"(?i)^references?$",
+            r"(?i)^bibliography$",
+            r"(?i)^index$",
+            r"(?i)^further\s+reading$",
+            r"(?i)^(?:table\s+of\s+)?contents$",
+        ]
+    )
+    # paragraphs dropped from the first match to the next heading (exercise lists inside a
+    # "Discussion and Exercises" section)
+    drop_from_patterns: list[str] = Field(
+        default_factory=lambda: [r"^Exercise\s+\d+(?:\.\d+)*\.?(?:\s|$)"]
+    )
+    # standalone numbers in a font smaller than this fraction of the body size are margin markers
+    small_number_ratio: float = Field(default=0.85, gt=0, le=1)
+
+    @field_validator("drop_sections", "drop_from_patterns")
+    @classmethod
+    def _v_patterns(cls, value: list[str]) -> list[str]:
+        for v in value:
+            re.compile(v)
+        return value
+
+
 class IngestConfig(StrictModel):
     paths: IngestPaths = Field(default_factory=IngestPaths)
     documents: list[DocumentConfig]
     cleaning: CleaningConfig = Field(default_factory=CleaningConfig)
     structure: StructureConfig = Field(default_factory=StructureConfig)
+    textbook: TextbookConfig = Field(default_factory=TextbookConfig)
+    # SOURCES.csv columns: "statute" (the original eight) or "textbook" (adds authors, edition,
+    # licence, licence source, pages kept and chapters)
+    sources_format: Literal["statute", "textbook"] = "statute"
 
     @model_validator(mode="after")
     def _unique_doc_ids(self) -> IngestConfig:
@@ -151,6 +227,9 @@ class StructuralChunkerConfig(StrictModel):
     max_tokens: int = Field(default=384, gt=0)
     min_tokens: int = Field(default=48, ge=0)
     contextual_header: bool = True
+    # also chunk text that lies outside every unit (a textbook chapter's introduction before its
+    # first section); off for statutes, whose chapters hold only their headings
+    orphan_text: bool = False
 
 
 class ChunkingConfig(StrictModel):
@@ -165,6 +244,8 @@ class ChunkingConfig(StrictModel):
     )
     semantic: SemanticChunkerConfig = Field(default_factory=SemanticChunkerConfig)
     structural: StructuralChunkerConfig = Field(default_factory=StructuralChunkerConfig)
+    # chunkers run by "--chunker all" (null: every fixed chunker, semantic and structural)
+    chunkers: list[str] | None = None
 
 
 # --------------------------------------------------------------------------- loading

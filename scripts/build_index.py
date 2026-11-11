@@ -2,7 +2,10 @@
 
 Usage:
     python scripts/build_index.py --chunker all --models bge-small bge-base bge-large
-                                  [--config configs/retrieval.yaml] [--force] [--no-chroma]
+                                  [--collection NAME] [--config FILE] [--force] [--no-chroma]
+Defaults come from the collection (cs_ai: chunkers fixed_512 + structural, models bge-small +
+bge-base). Embeddings are computed in batches with a progress line and an ETA; a partial result
+is saved after every batch, so an interrupted run resumes where it stopped.
 For every chunker: builds the BM25 index; for every model: computes or loads the corpus
 embeddings (data/processed/emb/<model>/<chunker>.npy, rebuilt automatically when the chunks
 changed) and builds a chromadb collection with the same vectors, then checks that Chroma's
@@ -16,10 +19,10 @@ import argparse
 import json
 import sys
 import time
-from pathlib import Path
 from typing import Any
 
 from ragsys.chunking.pipeline import chunker_names
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import load_chunking_config, resolve_path
 from ragsys.retrieval.config import load_retrieval_settings
 from ragsys.retrieval.pipeline import RetrievalResources
@@ -49,22 +52,29 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("--chunker", nargs="+", default=["all"], help="chunker name(s) or 'all'")
-    ap.add_argument("--models", nargs="+", default=["bge-small", "bge-base", "bge-large"])
-    ap.add_argument("--config", default="configs/retrieval.yaml")
-    ap.add_argument("--chunking-config", default="configs/chunking.yaml")
+    ap.add_argument("--models", nargs="+", default=None, help="default: the collection's")
+    ap.add_argument("--config", default=None, help="default: the collection's retrieval config")
+    ap.add_argument("--chunking-config", default=None)
+    add_collection_arguments(ap)
     ap.add_argument("--force", action="store_true", help="recompute embeddings even if cached")
     ap.add_argument("--no-chroma", action="store_true", help="skip the Chroma build/parity check")
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
 
-    settings = load_retrieval_settings(resolve_path(Path(args.config)))
+    coll = collection_from_args(args)
+    settings = load_retrieval_settings(
+        resolve_path(config_path(args.config, coll.retrieval_config))
+    )
     set_seed(settings.seed)
     if args.chunker == ["all"]:
-        chunkers = chunker_names(load_chunking_config(resolve_path(Path(args.chunking_config))))
+        ccfg = config_path(args.chunking_config, coll.chunking_config)
+        chunkers = chunker_names(load_chunking_config(resolve_path(ccfg)))
     else:
         chunkers = args.chunker
+    models = args.models or list(coll.spec.pipeline.index_models)
     res = RetrievalResources(settings)
+    res.embed_progress = emit
     report: dict[str, Any] = {"chunkers": {}, "models": {}}
     t_all = time.perf_counter()
     for chunker in chunkers:
@@ -81,7 +91,7 @@ def main(argv: list[str] | None = None) -> int:
             "bm25": {"seconds": round(bm_s, 4), "vocab": bm.vocab_size, "avg_len": bm.avg_doc_len},
             "embeddings": {},
         }
-        for model in args.models:
+        for model in models:
             name = settings.dense_model_name(model)
             emb, info = res.embeddings(model, chunker, force=args.force)
             status = f"computed ({info.reason})" if info.rebuilt else "cached"

@@ -2,7 +2,8 @@
 
 Usage:
     python scripts/chunk.py --chunker {fixed_256,fixed_512,semantic,structural,all}
-                            [--config configs/chunking.yaml] [--processed-dir DIR]
+                            [--collection NAME] [--config FILE] [--processed-dir DIR]
+"all" runs the chunkers of the collection's chunking config (cs_ai: fixed_512, structural).
 Writes processed_dir/chunks/<chunker>.jsonl and processed_dir/chunks/chunk_report.json.
 Run scripts/ingest.py first.
 """
@@ -14,6 +15,7 @@ import sys
 from pathlib import Path
 
 from ragsys.chunking.pipeline import chunker_names, load_corpus, run_chunker, update_report
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import load_chunking_config, resolve_path
 from ragsys.utils.seed import set_seed
 
@@ -25,14 +27,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--chunker", required=True, help="fixed_256 | fixed_512 | semantic | structural | all"
     )
-    ap.add_argument("--config", default="configs/chunking.yaml")
+    ap.add_argument("--config", default=None, help="default: the collection's chunking config")
+    add_collection_arguments(ap)
     ap.add_argument("--processed-dir", default=None, help="override paths.processed_dir")
     ap.add_argument("--cache-dir", default=None, help="override paths.cache_dir")
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
 
-    cfg = load_chunking_config(resolve_path(Path(args.config)))
+    coll = collection_from_args(args)
+    cfg = load_chunking_config(resolve_path(config_path(args.config, coll.chunking_config)))
     if args.processed_dir:
         cfg.paths.processed_dir = Path(args.processed_dir)
     if args.cache_dir:

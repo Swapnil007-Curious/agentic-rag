@@ -1,0 +1,7 @@
+config_id,baseline_id,label,metric,n,mean_diff,ci_low,ci_high,n_resamples,seed
+structural|dense|bge-small,fixed_512|dense|bge-base,,recall@5,40,-0.0250,-0.1500,0.1000,1000,42
+structural|dense|bge-small,fixed_512|dense|bge-base,,coverage@1024,40,0.0750,-0.0378,0.2000,1000,42
+fixed_512|dense|bge-small,fixed_512|dense|bge-base,,recall@5,40,-0.0250,-0.1500,0.0875,1000,42
+fixed_512|dense|bge-small,fixed_512|dense|bge-base,,coverage@1024,40,0.0125,-0.1000,0.1375,1000,42
+fixed_512|bm25,fixed_512|dense|bge-base,,recall@5,40,-0.0250,-0.1625,0.0875,1000,42
+fixed_512|bm25,fixed_512|dense|bge-base,,coverage@1024,40,-0.0125,-0.1500,0.1250,1000,42

@@ -1,7 +1,7 @@
 """Select the configs to evaluate on the test split, from DEV results only.
 
 Usage:
-    python scripts/select_configs.py [--config configs/retrieval.yaml] [--smoke]
+    python scripts/select_configs.py [--collection NAME] [--config FILE] [--smoke]
 Reads results/tables/retrieval_dev.csv and picks, by DEV token-budget coverage@1024 (ties:
 higher Recall@5, then lower median total latency, then config id), the best config overall and
 the best config per chunker. The baselines of configs/retrieval.yaml (naive RAG
@@ -16,9 +16,9 @@ import csv
 import datetime as _dt
 import json
 import sys
-from pathlib import Path
 from typing import Any
 
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import resolve_path
 from ragsys.eval.harness import SMOKE_LABEL
 from ragsys.retrieval.config import config_dir_name, load_retrieval_settings, parse_config_id
@@ -65,13 +65,17 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("--config", default="configs/retrieval.yaml")
+    ap.add_argument("--config", default=None, help="default: the collection's retrieval config")
     ap.add_argument("--smoke", action="store_true", help="read/write under results/smoke")
+    add_collection_arguments(ap)
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
 
-    settings = load_retrieval_settings(resolve_path(Path(args.config)))
+    coll = collection_from_args(args)
+    settings = load_retrieval_settings(
+        resolve_path(config_path(args.config, coll.retrieval_config))
+    )
     root = resolve_path(settings.paths.results_dir) / ("smoke" if args.smoke else "")
     table = root / "tables" / "retrieval_dev.csv"
     if not table.exists():

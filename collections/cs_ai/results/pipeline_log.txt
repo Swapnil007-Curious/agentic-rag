@@ -1,0 +1,954 @@
+[2026-11-11 06:32:50] === pipeline for collection cs_ai started; estimate 3h49m
+[2026-11-11 06:32:50] START ingest (estimate 20s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\ingest.py --collection cs_ai --collections-file configs\collections.yaml
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\raw\SOURCES.csv (3 rows)
+    d2l      pages kept 257 of 1151  nodes= 675 (chapters 5, sections 40, subsections 177, headings 73, code 380)  xrefs node/doc/ext/unres=90/0/52/117
+        chapter 'Multilayer Perceptrons': pp. 207-246 (40 pages, outline)
+        chapter 'Convolutional Neural Networks': pp. 273-307 (35 pages, outline)
+        chapter 'Recurrent Neural Networks': pp. 365-408 (44 pages, outline)
+        chapter 'Attention Mechanisms and Transformers': pp. 449-507 (59 pages, outline)
+        chapter 'Optimization Algorithms': pp. 508-586 (79 pages, outline)
+        licence: CC BY-SA 4.0 International  [not stated with a version in the PDF; book text licence from the d2l-en repository README (https://github.com/d2l-ai/d2l-en); its sample cod]
+        dropped sections: 40 (e.g. 5.1.4 Exercises (p.215), 5.2.4 Exercises (p.219), 5.3.6 Exercises (p.223))
+    progit   pages kept  95 of  501  nodes= 263 (chapters 3, sections 23, subsections 63, headings 0, code 174)  xrefs node/doc/ext/unres=0/0/0/51
+        chapter 'Getting Started': pp. 16-31 (16 pages, outline)
+        chapter 'Git Basics': pp. 32-68 (37 pages, outline)
+        chapter 'Git Branching': pp. 69-110 (42 pages, outline)
+        licence: CC BY-NC-SA 3.0 Unported  [PDF p.7: "License This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License."]
+    ods      pages kept 150 of  326  nodes= 320 (chapters 7, sections 28, subsections 45, headings 0, code 240)  xrefs node/doc/ext/unres=28/0/6/77
+        chapter 'Array-Based Lists': pp. 43-72 (30 pages, outline)
+        chapter 'Linked Lists': pp. 73-94 (22 pages, outline)
+        chapter 'Hash Tables': pp. 113-138 (26 pages, outline)
+        chapter 'Binary Trees': pp. 139-156 (18 pages, outline)
+        chapter 'Heaps': pp. 215-228 (14 pages, outline)
+        chapter 'Sorting Algorithms': pp. 229-250 (22 pages, outline)
+        chapter 'Graphs': pp. 251-268 (18 pages, outline)
+        licence: CC BY 2.5 Canada  [not stated with a version in the PDF; the PDF only says p.11: "...eliable source code management site.2 The source code available there is r]
+    pages kept in total: 502
+    total nodes=1258 xrefs=421 footnotes=21 in 7.5s
+    outputs in C:\Users\Admin\agentic-rag\collections\cs_ai\processed
+[2026-11-11 06:33:04] DONE  ingest in 13s (exit 0, peak RSS 633 MB)
+[2026-11-11 06:33:04] START chunk (estimate 20s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\chunk.py --chunker all --collection cs_ai --collections-file configs\collections.yaml
+    fixed_512   chunks= 492 tokens min/med/p95/max=253/512/512/512 crossing_sections= 86 sections_split=0.934 time=0.97s
+    structural  chunks=1123 tokens min/med/p95/max=30/196/405/426 crossing_sections=  0 sections_split=0.901 time=3.27s
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\processed\chunks
+[2026-11-11 06:33:17] DONE  chunk in 13s (exit 0, peak RSS 392 MB)
+[2026-11-11 06:33:17] START build_index (estimate 31m48s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\build_index.py --chunker all --models bge-small bge-base --no-chroma --collection cs_ai --collections-file configs\collections.yaml
+    fixed_512   chunks= 492  BM25 built in 209 ms (vocab 7564, avg 210 tokens/chunk)
+          BAAI/bge-small-en-v1.5 / fixed_512: 64/492 chunks (3.10 chunks/s, ETA 2.3 min)
+          BAAI/bge-small-en-v1.5 / fixed_512: 128/492 chunks (3.57 chunks/s, ETA 1.7 min)
+          BAAI/bge-small-en-v1.5 / fixed_512: 192/492 chunks (3.80 chunks/s, ETA 1.3 min)
+          BAAI/bge-small-en-v1.5 / fixed_512: 256/492 chunks (3.86 chunks/s, ETA 1.0 min)
+          BAAI/bge-small-en-v1.5 / fixed_512: 320/492 chunks (3.93 chunks/s, ETA 0.7 min)
+          BAAI/bge-small-en-v1.5 / fixed_512: 384/492 chunks (3.97 chunks/s, ETA 0.5 min)
+          BAAI/bge-small-en-v1.5 / fixed_512: 448/492 chunks (3.99 chunks/s, ETA 0.2 min)
+          BAAI/bge-small-en-v1.5 / fixed_512: 492/492 chunks (4.00 chunks/s, ETA 0.0 min)
+        bge-small  computed (missing)             122.9 s  dim= 384    0.76 MB  BAAI_bge-small-en-v1.5/fixed_512.npy
+    Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+          BAAI/bge-base-en-v1.5 / fixed_512: 64/492 chunks (1.33 chunks/s, ETA 5.4 min)
+          BAAI/bge-base-en-v1.5 / fixed_512: 128/492 chunks (1.34 chunks/s, ETA 4.5 min)
+          BAAI/bge-base-en-v1.5 / fixed_512: 192/492 chunks (1.33 chunks/s, ETA 3.8 min)
+          BAAI/bge-base-en-v1.5 / fixed_512: 256/492 chunks (1.34 chunks/s, ETA 2.9 min)
+          BAAI/bge-base-en-v1.5 / fixed_512: 320/492 chunks (1.34 chunks/s, ETA 2.1 min)
+          BAAI/bge-base-en-v1.5 / fixed_512: 384/492 chunks (1.34 chunks/s, ETA 1.3 min)
+          BAAI/bge-base-en-v1.5 / fixed_512: 448/492 chunks (1.34 chunks/s, ETA 0.5 min)
+          BAAI/bge-base-en-v1.5 / fixed_512: 492/492 chunks (1.34 chunks/s, ETA 0.0 min)
+        bge-base   computed (missing)             367.7 s  dim= 768    1.51 MB  BAAI_bge-base-en-v1.5/fixed_512.npy
+    structural  chunks=1123  BM25 built in 285 ms (vocab 7566, avg 96 tokens/chunk)
+        bge-small  cached                           0.0 s  dim= 384    1.73 MB  BAAI_bge-small-en-v1.5/structural.npy
+          BAAI/bge-base-en-v1.5 / structural: 64/1123 chunks (1.68 chunks/s, ETA 10.5 min)
+          BAAI/bge-base-en-v1.5 / structural: 128/1123 chunks (1.80 chunks/s, ETA 9.2 min)
+          BAAI/bge-base-en-v1.5 / structural: 192/1123 chunks (1.88 chunks/s, ETA 8.3 min)
+          BAAI/bge-base-en-v1.5 / structural: 256/1123 chunks (2.03 chunks/s, ETA 7.1 min)
+          BAAI/bge-base-en-v1.5 / structural: 320/1123 chunks (1.99 chunks/s, ETA 6.7 min)
+          BAAI/bge-base-en-v1.5 / structural: 384/1123 chunks (2.01 chunks/s, ETA 6.1 min)
+          BAAI/bge-base-en-v1.5 / structural: 448/1123 chunks (2.04 chunks/s, ETA 5.5 min)
+          BAAI/bge-base-en-v1.5 / structural: 512/1123 chunks (2.06 chunks/s, ETA 4.9 min)
+          BAAI/bge-base-en-v1.5 / structural: 576/1123 chunks (2.06 chunks/s, ETA 4.4 min)
+          BAAI/bge-base-en-v1.5 / structural: 640/1123 chunks (2.09 chunks/s, ETA 3.9 min)
+          BAAI/bge-base-en-v1.5 / structural: 704/1123 chunks (2.14 chunks/s, ETA 3.3 min)
+          BAAI/bge-base-en-v1.5 / structural: 768/1123 chunks (2.16 chunks/s, ETA 2.7 min)
+          BAAI/bge-base-en-v1.5 / structural: 832/1123 chunks (2.21 chunks/s, ETA 2.2 min)
+          BAAI/bge-base-en-v1.5 / structural: 896/1123 chunks (2.21 chunks/s, ETA 1.7 min)
+          BAAI/bge-base-en-v1.5 / structural: 960/1123 chunks (2.23 chunks/s, ETA 1.2 min)
+          BAAI/bge-base-en-v1.5 / structural: 1024/1123 chunks (2.24 chunks/s, ETA 0.7 min)
+          BAAI/bge-base-en-v1.5 / structural: 1088/1123 chunks (2.25 chunks/s, ETA 0.3 min)
+          BAAI/bge-base-en-v1.5 / structural: 1123/1123 chunks (2.25 chunks/s, ETA 0.0 min)
+        bge-base   computed (missing)             499.4 s  dim= 768    3.45 MB  BAAI_bge-base-en-v1.5/structural.npy
+    total 990.9 s
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\processed\emb\index_report.json
+[2026-11-11 06:49:54] DONE  build_index in 16m37s (exit 0, peak RSS 1,245 MB)
+[2026-11-11 06:49:54] START build_auto_eval (estimate 1h13m): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\build_auto_eval.py --collection cs_ai --collections-file configs\collections.yaml
+    using qwen2.5:3b at http://localhost:11434/v1; LLM cache: C:\Users\Admin\agentic-rag\collections\cs_ai\processed\llm_cache
+    C:\Users\Admin\agentic-rag\collections\cs_ai\eval\questions.jsonl: 0 existing non-automatic item(s) kept
+    collection cs_ai: profile cs_ai
+    == answerable: sampling 140 candidate target(s) (seed 0)
+       sampled 140: multi_section=23, numeric=19, procedural=28, definition=30, factual=40
+      [draft 1/140] multi_section d2l:h-defining-the-model: ok  (elapsed 39s, ETA 1h29m)
+      [draft 2/140] multi_section d2l:11.6.1: answer_too_long  (elapsed 1m17s, ETA 1h29m)
+      [draft 3/140] multi_section d2l:h-convergence-analysis: ok  (elapsed 2m12s, ETA 1h40m)
+      [draft 4/140] multi_section d2l:9.6.1: ok  (elapsed 2m35s, ETA 1h28m)
+      [draft 5/140] multi_section d2l:h-5.2.1-training: ok  (elapsed 2m52s, ETA 1h17m)
+      [draft 6/140] multi_section d2l:11.2.1: ok  (elapsed 3m24s, ETA 1h15m)
+      [draft 7/140] multi_section d2l:h-convexity-and-second-derivatives: answer_too_long  (elapsed 4m26s, ETA 1h24m)
+      [draft 8/140] multi_section d2l:9.4.3: ok  (elapsed 4m58s, ETA 1h22m)
+      [draft 9/140] multi_section d2l:h-randomized-truncation: ok  (elapsed 5m27s, ETA 1h19m)
+      [draft 10/140] multi_section ods:3.4: ok  (elapsed 5m59s, ETA 1h17m)
+      [draft 11/140] multi_section ods:2.6.1: ok  (elapsed 6m17s, ETA 1h13m)
+      [draft 12/140] multi_section ods:6.2.4: ok  (elapsed 6m36s, ETA 1h10m)
+      [draft 13/140] multi_section ods:6.1.1: ok  (elapsed 7m09s, ETA 1h09m)
+      [draft 14/140] multi_section ods:3.3.2: answer_too_long  (elapsed 7m47s, ETA 1h10m)
+      [draft 15/140] multi_section ods:5.2.3: answer_too_long  (elapsed 8m50s, ETA 1h13m)
+      [draft 16/140] multi_section progit:h-git-branching-summary: ok  (elapsed 9m15s, ETA 1h11m)
+      [draft 17/140] multi_section progit:h-deleting-tags: answer_too_long  (elapsed 9m37s, ETA 1h09m)
+      [draft 18/140] multi_section progit:h-getting-started-summary: ok  (elapsed 9m56s, ETA 1h07m)
+      [draft 19/140] multi_section progit:h-the-three-states: ok  (elapsed 10m32s, ETA 1h07m)
+      [draft 20/140] multi_section progit:h-rebase-when-you-rebase: ok  (elapsed 11m09s, ETA 1h06m)
+      [draft 21/140] multi_section progit:h-your-editor: ok  (elapsed 11m41s, ETA 1h06m)
+      [draft 22/140] multi_section progit:h-your-identity: answer_too_long  (elapsed 12m11s, ETA 1h05m)
+      [draft 23/140] multi_section progit:h-checking-out-tags: ok  (elapsed 12m37s, ETA 1h04m)
+      [draft 24/140] numeric d2l:h-incorporating-hidden-layers: ok  (elapsed 12m50s, ETA 1h02m)
+      [draft 25/140] numeric d2l:9.1.3: ok  (elapsed 13m09s, ETA 1h00m)
+      [draft 26/140] numeric d2l:h-warmup: missing_fields  (elapsed 13m23s, ETA 58m39s)
+      [draft 27/140] numeric d2l:12.10.3: ok  (elapsed 13m41s, ETA 57m17s)
+      [draft 28/140] numeric d2l:h-learning-rate: ok  (elapsed 13m52s, ETA 55m29s)
+      [draft 29/140] numeric d2l:12.8.2: ok  (elapsed 14m12s, ETA 54m22s)
+      [draft 30/140] numeric d2l:h-implementation-from-scratch: ok  (elapsed 14m28s, ETA 53m02s)
+      [draft 31/140] numeric d2l:5.2.2: ok  (elapsed 14m41s, ETA 51m38s)
+      [draft 32/140] numeric d2l:h-scalar-functions: ok  (elapsed 15m00s, ETA 50m38s)
+      [draft 33/140] numeric d2l:7.4.4: ok  (elapsed 15m14s, ETA 49m23s)
+      [draft 34/140] numeric ods:2.7: ok  (elapsed 15m27s, ETA 48m09s)
+      [draft 35/140] numeric ods:2.1.1: ok  (elapsed 15m48s, ETA 47m24s)
+      [draft 36/140] numeric ods:10.3: ok  (elapsed 16m01s, ETA 46m15s)
+      [draft 37/140] numeric ods:2.3.1: ok  (elapsed 16m09s, ETA 44m56s)
+      [draft 38/140] numeric ods:11.3: ok  (elapsed 16m28s, ETA 44m12s)
+      [draft 39/140] numeric ods:2.1.3: ok  (elapsed 16m38s, ETA 43m04s)
+      [draft 40/140] numeric progit:h-undoing-things-with-git-restore: ok  (elapsed 16m58s, ETA 42m24s)
+      [draft 41/140] numeric progit:h-annotated-tags: ok  (elapsed 17m09s, ETA 41m25s)
+      [draft 42/140] numeric progit:h-sharing-tags: ok  (elapsed 17m25s, ETA 40m38s)
+      [draft 43/140] procedural d2l:h-concise-implementation: ok  (elapsed 17m39s, ETA 39m49s)
+      [draft 44/140] procedural d2l:11.6.2: ok  (elapsed 18m01s, ETA 39m18s)
+      [draft 45/140] procedural d2l:h-xavier-initialization: ok  (elapsed 18m23s, ETA 38m48s)
+      [draft 46/140] procedural d2l:12.5.5: ok  (elapsed 18m39s, ETA 38m07s)
+      [draft 47/140] procedural d2l:h-markov-models: ok  (elapsed 18m57s, ETA 37m29s)
+      [draft 48/140] procedural d2l:12.4.5: ok  (elapsed 19m07s, ETA 36m38s)
+      [draft 49/140] procedural d2l:h-one-hot-encoding: ok  (elapsed 19m28s, ETA 36m09s)
+      [draft 50/140] procedural d2l:11.7.3: ok  (elapsed 19m50s, ETA 35m42s)
+      [draft 51/140] procedural d2l:h-the-momentum-method: ok  (elapsed 20m09s, ETA 35m10s)
+      [draft 52/140] procedural d2l:12.5.2: ok  (elapsed 20m31s, ETA 34m44s)
+      [draft 53/140] procedural d2l:h-sigmoid-function: ok  (elapsed 20m54s, ETA 34m19s)
+      [draft 54/140] procedural d2l:5.7.2: ok  (elapsed 21m06s, ETA 33m36s)
+      [draft 55/140] procedural d2l:h-pretraining-bert: ok  (elapsed 21m20s, ETA 32m58s)
+      [draft 56/140] procedural d2l:7.2.4: ok  (elapsed 21m43s, ETA 32m34s)
+      [draft 57/140] procedural d2l:h-initializing-model-parameters: ok  (elapsed 22m00s, ETA 32m03s)
+      [draft 58/140] procedural d2l:12.10.1: ok  (elapsed 22m25s, ETA 31m41s)
+      [draft 59/140] procedural ods:12.4: ok  (elapsed 22m44s, ETA 31m13s)
+      [draft 60/140] procedural ods:3.1.2: ok  (elapsed 22m55s, ETA 30m33s)
+      [draft 61/140] procedural ods:3.3.1: ok  (elapsed 23m06s, ETA 29m55s)
+      [draft 62/140] procedural ods:3.3.6: ok  (elapsed 23m20s, ETA 29m21s)
+      [draft 63/140] procedural progit:h-getting-help: ok  (elapsed 23m37s, ETA 28m52s)
+      [draft 64/140] procedural progit:h-local-version-control-systems: ok  (elapsed 23m49s, ETA 28m16s)
+      [draft 65/140] procedural progit:h-the-command-line: ok  (elapsed 23m59s, ETA 27m41s)
+      [draft 66/140] procedural progit:h-git-generally-only-adds-data: ok  (elapsed 24m09s, ETA 27m05s)
+      [draft 67/140] procedural progit:h-git-basics-summary: ok  (elapsed 24m16s, ETA 26m26s)
+      [draft 68/140] procedural progit:h-long-running-branches: ok  (elapsed 24m32s, ETA 25m59s)
+      [draft 69/140] procedural progit:h-a-short-history-of-git: ok  (elapsed 24m46s, ETA 25m29s)
+      [draft 70/140] procedural progit:h-tracking-new-files: ok  (elapsed 24m58s, ETA 24m58s)
+      [draft 71/140] definition d2l:h-locality: ok  (elapsed 25m22s, ETA 24m39s)
+      [draft 72/140] definition d2l:7.3.3: ok  (elapsed 25m39s, ETA 24m13s)
+      [draft 73/140] definition d2l:h-gpt-3-and-beyond: ok  (elapsed 25m59s, ETA 23m51s)
+      [draft 74/140] definition d2l:11.3.1: ok  (elapsed 26m18s, ETA 23m27s)
+      [draft 75/140] definition d2l:h-projections: ok  (elapsed 26m31s, ETA 22m59s)
+      [draft 76/140] definition d2l:12.8.1: ok  (elapsed 26m48s, ETA 22m34s)
+      [draft 77/140] definition d2l:h-relu-function: ok  (elapsed 27m08s, ETA 22m12s)
+      [draft 78/140] definition d2l:7.1.1: ok  (elapsed 27m26s, ETA 21m48s)
+      [draft 79/140] definition d2l:h-translation-invariance: ok  (elapsed 27m42s, ETA 21m23s)
+      [draft 80/140] definition d2l:11.7.2: ok  (elapsed 28m01s, ETA 21m01s)
+      [draft 81/140] definition d2l:h-jensen-s-inequality: ok  (elapsed 28m16s, ETA 20m35s)
+      [draft 82/140] definition d2l:5.3.1: ok  (elapsed 28m35s, ETA 20m13s)
+      [draft 83/140] definition d2l:h-local-minima-are-global-minima: ok  (elapsed 28m55s, ETA 19m51s)
+      [draft 84/140] definition d2l:7.3.2: ok  (elapsed 29m17s, ETA 19m31s)
+      [draft 85/140] definition d2l:h-leaky-averages: ok  (elapsed 29m40s, ETA 19m12s)
+      [draft 86/140] definition d2l:7.1.3: ok  (elapsed 29m56s, ETA 18m48s)
+      [draft 87/140] definition d2l:h-convex-sets: ok  (elapsed 30m16s, ETA 18m27s)
+      [draft 88/140] definition d2l:12.1.1: ok  (elapsed 30m37s, ETA 18m05s)
+      [draft 89/140] definition d2l:h-below-sets-of-convex-functions-are-convex: ok  (elapsed 30m48s, ETA 17m39s)
+      [draft 90/140] definition d2l:5.2.1: ok  (elapsed 31m09s, ETA 17m18s)
+      [draft 91/140] definition d2l:h-5.2.2-model: ok  (elapsed 31m21s, ETA 16m53s)
+      [draft 92/140] definition d2l:9.5.5: ok  (elapsed 31m43s, ETA 16m33s)
+      [draft 93/140] definition d2l:9.4.4: ok  (elapsed 31m53s, ETA 16m07s)
+      [draft 94/140] definition d2l:7.2.6: ok  (elapsed 32m16s, ETA 15m47s)
+      [draft 95/140] definition d2l:12.6.2: ok  (elapsed 32m40s, ETA 15m28s)
+      [draft 96/140] definition ods:2.6.2: ok  (elapsed 33m00s, ETA 15m07s)
+      [draft 97/140] definition ods:2.5.1: ok  (elapsed 33m28s, ETA 14m50s)
+      [draft 98/140] definition progit:h-basic-merging: ok  (elapsed 33m44s, ETA 14m27s)
+      [draft 99/140] definition progit:h-git-has-integrity: ok  (elapsed 33m56s, ETA 14m03s)
+      [draft 100/140] definition progit:h-cloning-an-existing-repository: ok  (elapsed 34m14s, ETA 13m42s)
+      [draft 101/140] factual d2l:h-default-initialization: ok  (elapsed 34m25s, ETA 13m18s)
+      [draft 102/140] factual d2l:12.10.4: ok  (elapsed 34m34s, ETA 12m53s)
+      [draft 103/140] factual d2l:h-fine-tuning-t5: missing_fields  (elapsed 34m50s, ETA 12m31s)
+      [draft 104/140] factual d2l:12.11.2: ok  (elapsed 35m10s, ETA 12m10s)
+      [draft 105/140] factual d2l:h-word-frequency: ok  (elapsed 35m25s, ETA 11m48s)
+      [draft 106/140] factual d2l:5.2.3: ok  (elapsed 35m36s, ETA 11m25s)
+      [draft 107/140] factual d2l:h-cosine-scheduler: ok  (elapsed 35m58s, ETA 11m06s)
+      [draft 108/140] factual d2l:11.5.1: ok  (elapsed 36m12s, ETA 10m44s)
+      [draft 109/140] factual d2l:h-saddle-points: ok  (elapsed 36m37s, ETA 10m25s)
+      [draft 110/140] factual d2l:7.4.3: ok  (elapsed 37m01s, ETA 10m06s)
+      [draft 111/140] factual d2l:h-5.4.1-vanishing-gradients: ok  (elapsed 37m20s, ETA 9m45s)
+      [draft 112/140] factual d2l:5.6.1: ok  (elapsed 37m32s, ETA 9m23s)
+      [draft 113/140] factual d2l:h-gradient-descent-with-line-search: ok  (elapsed 37m44s, ETA 9m01s)
+      [draft 114/140] factual d2l:9.2.4: ok  (elapsed 37m55s, ETA 8m39s)
+      [draft 115/140] factual d2l:h-laplace-smoothing: ok  (elapsed 38m13s, ETA 8m19s)
+      [draft 116/140] factual d2l:5.3.2: ok  (elapsed 38m21s, ETA 7m56s)
+      [draft 117/140] factual d2l:h-absolute-positional-information: ok  (elapsed 38m38s, ETA 7m36s)
+      [draft 118/140] factual d2l:9.5.4: ok  (elapsed 38m47s, ETA 7m14s)
+      [draft 119/140] factual d2l:h-exploding-gradients: ok  (elapsed 39m08s, ETA 6m54s)
+      [draft 120/140] factual d2l:5.7.6: ok  (elapsed 39m25s, ETA 6m34s)
+      [draft 121/140] factual d2l:h-full-computation: ok  (elapsed 39m33s, ETA 6m13s)
+      [draft 122/140] factual d2l:12.5.3: ok  (elapsed 39m45s, ETA 5m52s)
+      [draft 123/140] factual d2l:h-preconditioning: ok  (elapsed 39m57s, ETA 5m31s)
+      [draft 124/140] factual ods:2.2: ok  (elapsed 40m10s, ETA 5m11s)
+      [draft 125/140] factual ods:11.2.1: ok  (elapsed 40m42s, ETA 4m53s)
+      [draft 126/140] factual ods:2.5.2: ok  (elapsed 40m53s, ETA 4m33s)
+      [draft 127/140] factual ods:5.2.2: ok  (elapsed 41m02s, ETA 4m12s)
+      [draft 128/140] factual ods:3.2.1: ok  (elapsed 41m17s, ETA 3m52s)
+      [draft 129/140] factual ods:2.6.3: ok  (elapsed 41m30s, ETA 3m32s)
+      [draft 130/140] factual ods:3.2.2: ok  (elapsed 41m42s, ETA 3m12s)
+      [draft 131/140] factual progit:h-snapshots-not-differences: ok  (elapsed 41m56s, ETA 2m53s)
+      [draft 132/140] factual progit:h-checking-the-status-of-your-files: ok  (elapsed 42m16s, ETA 2m34s)
+      [draft 133/140] factual progit:h-unmodifying-a-modified-file: ok  (elapsed 42m30s, ETA 2m14s)
+      [draft 134/140] factual progit:h-short-status: ok  (elapsed 42m40s, ETA 1m55s)
+      [draft 135/140] factual progit:h-your-default-branch-name: ok  (elapsed 42m47s, ETA 1m35s)
+      [draft 136/140] factual progit:h-checking-your-settings: ok  (elapsed 43m00s, ETA 1m16s)
+      [draft 137/140] factual progit:h-centralized-version-control-systems: ok  (elapsed 43m16s, ETA 57s)
+      [draft 138/140] factual progit:h-installing-on-linux: ok  (elapsed 43m24s, ETA 38s)
+      [draft 139/140] factual progit:h-installing-on-macos: ok  (elapsed 43m34s, ETA 19s)
+      [draft 140/140] factual progit:h-installing-on-windows: ok  (elapsed 43m42s, ETA 0s)
+       format: 132/140 pass
+    == answerable: provision numbers (132 candidate(s))
+       provision numbers: 132/132 pass
+    == answerable: copy check (132 candidate(s))
+      [paraphrase 1/93] multi_section d2l:h-defining-the-model: paraphrased  (elapsed 6s, ETA 9m18s)
+      [paraphrase 2/93] multi_section d2l:h-convergence-analysis: copy_like_after_paraphrase  (elapsed 11s, ETA 8m40s)
+      [paraphrase 3/93] multi_section d2l:9.6.1: paraphrased  (elapsed 16s, ETA 7m59s)
+      [paraphrase 4/93] multi_section d2l:h-5.2.1-training: paraphrased  (elapsed 21s, ETA 7m45s)
+      [paraphrase 5/93] multi_section d2l:9.4.3: copy_like_after_paraphrase  (elapsed 25s, ETA 7m28s)
+      [paraphrase 6/93] multi_section ods:3.4: paraphrased  (elapsed 30s, ETA 7m20s)
+      [paraphrase 7/93] multi_section ods:2.6.1: copy_like_after_paraphrase  (elapsed 36s, ETA 7m22s)
+      [paraphrase 8/93] multi_section ods:6.2.4: copy_like_after_paraphrase  (elapsed 41s, ETA 7m17s)
+      [paraphrase 9/93] multi_section ods:6.1.1: copy_like_after_paraphrase  (elapsed 47s, ETA 7m15s)
+      [paraphrase 10/93] multi_section progit:h-git-branching-summary: paraphrased  (elapsed 52s, ETA 7m14s)
+      [paraphrase 11/93] multi_section progit:h-the-three-states: paraphrased  (elapsed 57s, ETA 7m07s)
+      [paraphrase 12/93] multi_section progit:h-rebase-when-you-rebase: paraphrased  (elapsed 1m02s, ETA 7m01s)
+      [paraphrase 13/93] multi_section progit:h-checking-out-tags: copy_like_after_paraphrase  (elapsed 1m07s, ETA 6m53s)
+      [paraphrase 14/93] numeric d2l:12.8.2: copy_like_after_paraphrase  (elapsed 1m11s, ETA 6m41s)
+      [paraphrase 15/93] numeric d2l:h-implementation-from-scratch: copy_like_after_paraphrase  (elapsed 1m16s, ETA 6m33s)
+      [paraphrase 16/93] numeric d2l:5.2.2: copy_like_after_paraphrase  (elapsed 1m20s, ETA 6m23s)
+      [paraphrase 17/93] numeric d2l:7.4.4: paraphrased  (elapsed 1m26s, ETA 6m24s)
+      [paraphrase 18/93] numeric ods:2.7: copy_like_after_paraphrase  (elapsed 1m31s, ETA 6m21s)
+      [paraphrase 19/93] numeric ods:10.3: copy_like_after_paraphrase  (elapsed 1m36s, ETA 6m12s)
+      [paraphrase 20/93] numeric ods:2.3.1: copy_like_after_paraphrase  (elapsed 1m40s, ETA 6m05s)
+      [paraphrase 21/93] numeric ods:2.1.3: paraphrased  (elapsed 1m44s, ETA 5m58s)
+      [paraphrase 22/93] numeric progit:h-undoing-things-with-git-restore: copy_like_after_paraphrase  (elapsed 1m49s, ETA 5m50s)
+      [paraphrase 23/93] numeric progit:h-annotated-tags: paraphrased  (elapsed 1m53s, ETA 5m43s)
+      [paraphrase 24/93] procedural d2l:11.6.2: paraphrased  (elapsed 1m57s, ETA 5m36s)
+      [paraphrase 25/93] procedural d2l:h-markov-models: copy_like_after_paraphrase  (elapsed 2m01s, ETA 5m30s)
+      [paraphrase 26/93] procedural d2l:12.4.5: paraphrased  (elapsed 2m05s, ETA 5m23s)
+      [paraphrase 27/93] procedural d2l:11.7.3: copy_like_after_paraphrase  (elapsed 2m09s, ETA 5m16s)
+      [paraphrase 28/93] procedural d2l:h-the-momentum-method: paraphrased  (elapsed 2m13s, ETA 5m09s)
+      [paraphrase 29/93] procedural d2l:12.5.2: copy_like_after_paraphrase  (elapsed 2m18s, ETA 5m04s)
+      [paraphrase 30/93] procedural d2l:h-sigmoid-function: copy_like_after_paraphrase  (elapsed 2m22s, ETA 4m57s)
+      [paraphrase 31/93] procedural d2l:5.7.2: copy_like_after_paraphrase  (elapsed 2m25s, ETA 4m50s)
+      [paraphrase 32/93] procedural d2l:h-pretraining-bert: copy_like_after_paraphrase  (elapsed 2m29s, ETA 4m45s)
+      [paraphrase 33/93] procedural d2l:7.2.4: paraphrased  (elapsed 2m34s, ETA 4m40s)
+      [paraphrase 34/93] procedural d2l:12.10.1: copy_like_after_paraphrase  (elapsed 2m38s, ETA 4m34s)
+      [paraphrase 35/93] procedural ods:12.4: paraphrased  (elapsed 2m43s, ETA 4m30s)
+      [paraphrase 36/93] procedural ods:3.1.2: paraphrased  (elapsed 2m47s, ETA 4m24s)
+      [paraphrase 37/93] procedural ods:3.3.1: copy_like_after_paraphrase  (elapsed 2m51s, ETA 4m19s)
+      [paraphrase 38/93] procedural ods:3.3.6: copy_like_after_paraphrase  (elapsed 2m55s, ETA 4m13s)
+      [paraphrase 39/93] procedural progit:h-getting-help: paraphrased  (elapsed 2m59s, ETA 4m08s)
+      [paraphrase 40/93] procedural progit:h-the-command-line: copy_like_after_paraphrase  (elapsed 3m03s, ETA 4m02s)
+      [paraphrase 41/93] procedural progit:h-git-generally-only-adds-data: copy_like_after_paraphrase  (elapsed 3m06s, ETA 3m56s)
+      [paraphrase 42/93] procedural progit:h-long-running-branches: paraphrased  (elapsed 3m10s, ETA 3m51s)
+      [paraphrase 43/93] procedural progit:h-tracking-new-files: copy_like_after_paraphrase  (elapsed 3m15s, ETA 3m46s)
+      [paraphrase 44/93] definition d2l:h-gpt-3-and-beyond: copy_like_after_paraphrase  (elapsed 3m19s, ETA 3m41s)
+      [paraphrase 45/93] definition d2l:11.3.1: copy_like_after_paraphrase  (elapsed 3m23s, ETA 3m36s)
+      [paraphrase 46/93] definition d2l:h-projections: paraphrased  (elapsed 3m26s, ETA 3m31s)
+      [paraphrase 47/93] definition d2l:h-relu-function: copy_like_after_paraphrase  (elapsed 3m30s, ETA 3m26s)
+      [paraphrase 48/93] definition d2l:h-translation-invariance: paraphrased  (elapsed 3m34s, ETA 3m21s)
+      [paraphrase 49/93] definition d2l:h-jensen-s-inequality: paraphrased  (elapsed 3m39s, ETA 3m17s)
+      [paraphrase 50/93] definition d2l:5.3.1: copy_like_after_paraphrase  (elapsed 3m43s, ETA 3m12s)
+      [paraphrase 51/93] definition d2l:h-local-minima-are-global-minima: copy_like_after_paraphrase  (elapsed 3m48s, ETA 3m07s)
+      [paraphrase 52/93] definition d2l:h-leaky-averages: paraphrased  (elapsed 3m52s, ETA 3m03s)
+      [paraphrase 53/93] definition d2l:h-convex-sets: paraphrase_bad_length  (elapsed 3m56s, ETA 2m58s)
+      [paraphrase 54/93] definition d2l:12.1.1: copy_like_after_paraphrase  (elapsed 4m01s, ETA 2m54s)
+      [paraphrase 55/93] definition d2l:h-5.2.2-model: copy_like_after_paraphrase  (elapsed 4m05s, ETA 2m49s)
+      [paraphrase 56/93] definition d2l:9.5.5: paraphrased  (elapsed 4m10s, ETA 2m45s)
+      [paraphrase 57/93] definition d2l:9.4.4: paraphrased  (elapsed 4m14s, ETA 2m40s)
+      [paraphrase 58/93] definition d2l:7.2.6: copy_like_after_paraphrase  (elapsed 4m18s, ETA 2m36s)
+      [paraphrase 59/93] definition d2l:12.6.2: copy_like_after_paraphrase  (elapsed 4m23s, ETA 2m31s)
+      [paraphrase 60/93] definition progit:h-basic-merging: paraphrased  (elapsed 4m27s, ETA 2m27s)
+      [paraphrase 61/93] definition progit:h-git-has-integrity: paraphrased  (elapsed 4m31s, ETA 2m22s)
+      [paraphrase 62/93] factual d2l:h-default-initialization: copy_like_after_paraphrase  (elapsed 4m35s, ETA 2m17s)
+      [paraphrase 63/93] factual d2l:12.10.4: paraphrased  (elapsed 4m39s, ETA 2m13s)
+      [paraphrase 64/93] factual d2l:5.2.3: paraphrased  (elapsed 4m43s, ETA 2m08s)
+      [paraphrase 65/93] factual d2l:h-cosine-scheduler: paraphrased  (elapsed 4m48s, ETA 2m04s)
+      [paraphrase 66/93] factual d2l:11.5.1: paraphrased  (elapsed 4m53s, ETA 2m00s)
+      [paraphrase 67/93] factual d2l:h-saddle-points: copy_like_after_paraphrase  (elapsed 4m59s, ETA 1m56s)
+      [paraphrase 68/93] factual d2l:7.4.3: copy_like_after_paraphrase  (elapsed 5m04s, ETA 1m52s)
+      [paraphrase 69/93] factual d2l:h-5.4.1-vanishing-gradients: copy_like_after_paraphrase  (elapsed 5m08s, ETA 1m47s)
+      [paraphrase 70/93] factual d2l:5.6.1: copy_like_after_paraphrase  (elapsed 5m12s, ETA 1m42s)
+      [paraphrase 71/93] factual d2l:h-gradient-descent-with-line-search: copy_like_after_paraphrase  (elapsed 5m16s, ETA 1m38s)
+      [paraphrase 72/93] factual d2l:9.2.4: copy_like_after_paraphrase  (elapsed 5m19s, ETA 1m33s)
+      [paraphrase 73/93] factual d2l:h-laplace-smoothing: copy_like_after_paraphrase  (elapsed 5m24s, ETA 1m29s)
+      [paraphrase 74/93] factual d2l:5.3.2: copy_like_after_paraphrase  (elapsed 5m28s, ETA 1m24s)
+      [paraphrase 75/93] factual d2l:h-absolute-positional-information: paraphrased  (elapsed 5m33s, ETA 1m20s)
+      [paraphrase 76/93] factual d2l:5.7.6: copy_like_after_paraphrase  (elapsed 5m37s, ETA 1m15s)
+      [paraphrase 77/93] factual d2l:h-full-computation: paraphrased  (elapsed 5m41s, ETA 1m11s)
+      [paraphrase 78/93] factual ods:2.2: copy_like_after_paraphrase  (elapsed 5m46s, ETA 1m06s)
+      [paraphrase 79/93] factual ods:11.2.1: copy_like_after_paraphrase  (elapsed 5m49s, ETA 1m02s)
+      [paraphrase 80/93] factual ods:2.5.2: copy_like_after_paraphrase  (elapsed 5m54s, ETA 58s)
+      [paraphrase 81/93] factual ods:5.2.2: copy_like_after_paraphrase  (elapsed 5m58s, ETA 53s)
+      [paraphrase 82/93] factual ods:3.2.1: paraphrased  (elapsed 6m02s, ETA 49s)
+      [paraphrase 83/93] factual ods:2.6.3: copy_like_after_paraphrase  (elapsed 6m07s, ETA 44s)
+      [paraphrase 84/93] factual ods:3.2.2: copy_like_after_paraphrase  (elapsed 6m11s, ETA 40s)
+      [paraphrase 85/93] factual progit:h-snapshots-not-differences: paraphrased  (elapsed 6m15s, ETA 35s)
+      [paraphrase 86/93] factual progit:h-checking-the-status-of-your-files: paraphrased  (elapsed 6m20s, ETA 31s)
+      [paraphrase 87/93] factual progit:h-unmodifying-a-modified-file: copy_like_after_paraphrase  (elapsed 6m24s, ETA 26s)
+      [paraphrase 88/93] factual progit:h-your-default-branch-name: copy_like_after_paraphrase  (elapsed 6m28s, ETA 22s)
+      [paraphrase 89/93] factual progit:h-checking-your-settings: copy_like_after_paraphrase  (elapsed 6m33s, ETA 18s)
+      [paraphrase 90/93] factual progit:h-centralized-version-control-systems: copy_like_after_paraphrase  (elapsed 6m38s, ETA 13s)
+      [paraphrase 91/93] factual progit:h-installing-on-linux: copy_like_after_paraphrase  (elapsed 6m42s, ETA 9s)
+      [paraphrase 92/93] factual progit:h-installing-on-macos: copy_like_after_paraphrase  (elapsed 6m46s, ETA 4s)
+      [paraphrase 93/93] factual progit:h-installing-on-windows: paraphrased  (elapsed 6m51s, ETA 0s)
+       copy check: 75/132 pass
+    == answerable: number check (75 candidate(s))
+       number check: 74/75 pass
+    == answerable: support check (74 candidate(s))
+      [support 1/74] multi_section d2l:h-defining-the-model: supported  (elapsed 29s, ETA 35m35s)
+      [support 2/74] multi_section d2l:9.6.1: supported  (elapsed 47s, ETA 27m58s)
+      [support 3/74] multi_section d2l:h-5.2.1-training: not_supported  (elapsed 59s, ETA 23m28s)
+      [support 4/74] multi_section d2l:11.2.1: supported  (elapsed 1m26s, ETA 25m07s)
+      [support 5/74] multi_section d2l:h-randomized-truncation: supported  (elapsed 1m48s, ETA 24m52s)
+      [support 6/74] multi_section ods:3.4: supported  (elapsed 2m15s, ETA 25m27s)
+      [support 7/74] multi_section progit:h-git-branching-summary: supported  (elapsed 2m35s, ETA 24m45s)
+      [support 8/74] multi_section progit:h-getting-started-summary: not_supported  (elapsed 2m55s, ETA 24m04s)
+      [support 9/74] multi_section progit:h-the-three-states: supported  (elapsed 3m26s, ETA 24m44s)
+      [support 10/74] multi_section progit:h-rebase-when-you-rebase: supported  (elapsed 3m56s, ETA 25m13s)
+      [support 11/74] multi_section progit:h-your-editor: supported  (elapsed 4m25s, ETA 25m17s)
+      [support 12/74] numeric d2l:h-incorporating-hidden-layers: supported  (elapsed 4m35s, ETA 23m42s)
+      [support 13/74] numeric d2l:9.1.3: supported  (elapsed 4m53s, ETA 22m55s)
+      [support 14/74] numeric d2l:12.10.3: supported  (elapsed 5m11s, ETA 22m12s)
+      [support 15/74] numeric d2l:h-learning-rate: supported  (elapsed 5m22s, ETA 21m07s)
+      [support 16/74] numeric d2l:h-scalar-functions: supported  (elapsed 5m40s, ETA 20m32s)
+      [support 17/74] numeric d2l:7.4.4: supported  (elapsed 5m52s, ETA 19m39s)
+      [support 18/74] numeric ods:2.1.1: supported  (elapsed 6m12s, ETA 19m18s)
+      [support 19/74] numeric ods:11.3: supported  (elapsed 6m31s, ETA 18m51s)
+      [support 20/74] numeric ods:2.1.3: supported  (elapsed 6m40s, ETA 18m00s)
+      [support 21/74] numeric progit:h-annotated-tags: supported  (elapsed 6m52s, ETA 17m19s)
+      [support 22/74] numeric progit:h-sharing-tags: supported  (elapsed 7m07s, ETA 16m48s)
+      [support 23/74] procedural d2l:h-concise-implementation: supported  (elapsed 7m15s, ETA 16m04s)
+      [support 24/74] procedural d2l:11.6.2: supported  (elapsed 7m34s, ETA 15m45s)
+      [support 25/74] procedural d2l:h-xavier-initialization: supported  (elapsed 7m54s, ETA 15m29s)
+      [support 26/74] procedural d2l:12.5.5: supported  (elapsed 8m10s, ETA 15m04s)
+      [support 27/74] procedural d2l:12.4.5: supported  (elapsed 8m19s, ETA 14m28s)
+      [support 28/74] procedural d2l:h-one-hot-encoding: supported  (elapsed 8m36s, ETA 14m07s)
+      [support 29/74] procedural d2l:h-the-momentum-method: supported  (elapsed 8m54s, ETA 13m48s)
+      [support 30/74] procedural d2l:7.2.4: supported  (elapsed 9m13s, ETA 13m32s)
+      [support 31/74] procedural d2l:h-initializing-model-parameters: supported  (elapsed 9m28s, ETA 13m08s)
+      [support 32/74] procedural ods:12.4: not_supported  (elapsed 9m44s, ETA 12m46s)
+      [support 33/74] procedural ods:3.1.2: not_supported  (elapsed 9m54s, ETA 12m18s)
+      [support 34/74] procedural progit:h-getting-help: supported  (elapsed 10m12s, ETA 12m00s)
+      [support 35/74] procedural progit:h-local-version-control-systems: supported  (elapsed 10m21s, ETA 11m32s)
+      [support 36/74] procedural progit:h-git-basics-summary: supported  (elapsed 10m28s, ETA 11m02s)
+      [support 37/74] procedural progit:h-long-running-branches: supported  (elapsed 10m42s, ETA 10m42s)
+      [support 38/74] definition d2l:h-locality: supported  (elapsed 11m00s, ETA 10m25s)
+      [support 39/74] definition d2l:7.3.3: supported  (elapsed 11m13s, ETA 10m04s)
+      [support 40/74] definition d2l:h-projections: supported  (elapsed 11m26s, ETA 9m43s)
+      [support 41/74] definition d2l:12.8.1: not_supported  (elapsed 11m41s, ETA 9m24s)
+      [support 42/74] definition d2l:7.1.1: supported  (elapsed 11m58s, ETA 9m07s)
+      [support 43/74] definition d2l:h-translation-invariance: supported  (elapsed 12m11s, ETA 8m47s)
+      [support 44/74] definition d2l:11.7.2: supported  (elapsed 12m29s, ETA 8m31s)
+      [support 45/74] definition d2l:h-jensen-s-inequality: supported  (elapsed 12m43s, ETA 8m12s)
+      [support 46/74] definition d2l:7.3.2: supported  (elapsed 13m05s, ETA 7m58s)
+      [support 47/74] definition d2l:h-leaky-averages: supported  (elapsed 13m26s, ETA 7m43s)
+      [support 48/74] definition d2l:7.1.3: supported  (elapsed 13m40s, ETA 7m24s)
+      [support 49/74] definition d2l:h-below-sets-of-convex-functions-are-convex: supported  (elapsed 13m50s, ETA 7m03s)
+      [support 50/74] definition d2l:5.2.1: supported  (elapsed 14m10s, ETA 6m48s)
+      [support 51/74] definition d2l:9.5.5: supported  (elapsed 14m27s, ETA 6m31s)
+      [support 52/74] definition d2l:9.4.4: supported  (elapsed 14m35s, ETA 6m10s)
+      [support 53/74] definition ods:2.6.2: supported  (elapsed 14m53s, ETA 5m54s)
+      [support 54/74] definition ods:2.5.1: supported  (elapsed 15m16s, ETA 5m39s)
+      [support 55/74] definition progit:h-basic-merging: supported  (elapsed 15m29s, ETA 5m21s)
+      [support 56/74] definition progit:h-git-has-integrity: supported  (elapsed 15m40s, ETA 5m02s)
+      [support 57/74] definition progit:h-cloning-an-existing-repository: supported  (elapsed 15m56s, ETA 4m45s)
+      [support 58/74] factual d2l:12.10.4: supported  (elapsed 16m04s, ETA 4m26s)
+      [support 59/74] factual d2l:12.11.2: supported  (elapsed 16m21s, ETA 4m09s)
+      [support 60/74] factual d2l:h-word-frequency: supported  (elapsed 16m34s, ETA 3m52s)
+      [support 61/74] factual d2l:5.2.3: supported  (elapsed 16m45s, ETA 3m34s)
+      [support 62/74] factual d2l:h-cosine-scheduler: not_supported  (elapsed 17m08s, ETA 3m19s)
+      [support 63/74] factual d2l:11.5.1: supported  (elapsed 17m20s, ETA 3m02s)
+      [support 64/74] factual d2l:h-absolute-positional-information: supported  (elapsed 17m33s, ETA 2m44s)
+      [support 65/74] factual d2l:9.5.4: supported  (elapsed 17m41s, ETA 2m27s)
+      [support 66/74] factual d2l:h-exploding-gradients: supported  (elapsed 17m59s, ETA 2m11s)
+      [support 67/74] factual d2l:h-full-computation: supported  (elapsed 18m07s, ETA 1m54s)
+      [support 68/74] factual d2l:12.5.3: supported  (elapsed 18m18s, ETA 1m37s)
+      [support 69/74] factual d2l:h-preconditioning: supported  (elapsed 18m29s, ETA 1m20s)
+      [support 70/74] factual ods:3.2.1: supported  (elapsed 18m44s, ETA 1m04s)
+      [support 71/74] factual progit:h-snapshots-not-differences: supported  (elapsed 18m58s, ETA 48s)
+      [support 72/74] factual progit:h-checking-the-status-of-your-files: supported  (elapsed 19m15s, ETA 32s)
+      [support 73/74] factual progit:h-short-status: supported  (elapsed 19m26s, ETA 16s)
+      [support 74/74] factual progit:h-installing-on-windows: not_supported  (elapsed 19m33s, ETA 0s)
+       support check: 67/74 pass
+    == answerable: answerability from source (67 candidate(s))
+      [answer 1/67] multi_section d2l:h-defining-the-model: consistent  (elapsed 30s, ETA 32m51s)
+      [answer 2/67] multi_section d2l:9.6.1: consistent  (elapsed 47s, ETA 25m42s)
+      [answer 3/67] multi_section d2l:11.2.1: consistent  (elapsed 1m16s, ETA 27m08s)
+      [answer 4/67] multi_section d2l:h-randomized-truncation: consistent  (elapsed 1m40s, ETA 26m20s)
+      [answer 5/67] multi_section ods:3.4: consistent  (elapsed 2m09s, ETA 26m37s)
+      [answer 6/67] multi_section progit:h-git-branching-summary: consistent  (elapsed 2m30s, ETA 25m21s)
+      [answer 7/67] multi_section progit:h-the-three-states: consistent  (elapsed 3m04s, ETA 26m13s)
+      [answer 8/67] multi_section progit:h-rebase-when-you-rebase: consistent  (elapsed 3m36s, ETA 26m35s)
+      [answer 9/67] multi_section progit:h-your-editor: consistent  (elapsed 4m06s, ETA 26m26s)
+      [answer 10/67] numeric d2l:h-incorporating-hidden-layers: consistent  (elapsed 4m15s, ETA 24m16s)
+      [answer 11/67] numeric d2l:9.1.3: consistent  (elapsed 4m32s, ETA 23m03s)
+      [answer 12/67] numeric d2l:12.10.3: consistent  (elapsed 4m47s, ETA 21m57s)
+      [answer 13/67] numeric d2l:h-learning-rate: consistent  (elapsed 4m57s, ETA 20m35s)
+      [answer 14/67] numeric d2l:h-scalar-functions: consistent  (elapsed 5m13s, ETA 19m45s)
+      [answer 15/67] numeric d2l:7.4.4: consistent  (elapsed 5m23s, ETA 18m40s)
+      [answer 16/67] numeric ods:2.1.1: consistent  (elapsed 5m42s, ETA 18m10s)
+      [answer 17/67] numeric ods:11.3: consistent  (elapsed 5m59s, ETA 17m37s)
+      [answer 18/67] numeric ods:2.1.3: consistent  (elapsed 6m07s, ETA 16m40s)
+      [answer 19/67] numeric progit:h-annotated-tags: number_conflict  (elapsed 6m18s, ETA 15m56s)
+      [answer 20/67] numeric progit:h-sharing-tags: consistent  (elapsed 6m35s, ETA 15m28s)
+      [answer 21/67] procedural d2l:h-concise-implementation: consistent  (elapsed 6m41s, ETA 14m39s)
+      [answer 22/67] procedural d2l:11.6.2: consistent  (elapsed 7m01s, ETA 14m22s)
+      [answer 23/67] procedural d2l:h-xavier-initialization: consistent  (elapsed 7m22s, ETA 14m06s)
+      [answer 24/67] procedural d2l:12.5.5: consistent  (elapsed 7m37s, ETA 13m39s)
+      [answer 25/67] procedural d2l:12.4.5: consistent  (elapsed 7m47s, ETA 13m05s)
+      [answer 26/67] procedural d2l:h-one-hot-encoding: consistent  (elapsed 8m08s, ETA 12m49s)
+      [answer 27/67] procedural d2l:h-the-momentum-method: consistent  (elapsed 8m25s, ETA 12m28s)
+      [answer 28/67] procedural d2l:7.2.4: consistent  (elapsed 8m45s, ETA 12m11s)
+      [answer 29/67] procedural d2l:h-initializing-model-parameters: consistent  (elapsed 9m00s, ETA 11m48s)
+      [answer 30/67] procedural progit:h-getting-help: consistent  (elapsed 9m19s, ETA 11m29s)
+      [answer 31/67] procedural progit:h-local-version-control-systems: consistent  (elapsed 9m32s, ETA 11m04s)
+      [answer 32/67] procedural progit:h-git-basics-summary: consistent  (elapsed 9m40s, ETA 10m34s)
+      [answer 33/67] procedural progit:h-long-running-branches: consistent  (elapsed 9m57s, ETA 10m15s)
+      [answer 34/67] definition d2l:h-locality: consistent  (elapsed 10m15s, ETA 9m57s)
+      [answer 35/67] definition d2l:7.3.3: consistent  (elapsed 10m32s, ETA 9m37s)
+      [answer 36/67] definition d2l:h-projections: consistent  (elapsed 10m45s, ETA 9m16s)
+      [answer 37/67] definition d2l:7.1.1: consistent  (elapsed 11m02s, ETA 8m57s)
+      [answer 38/67] definition d2l:h-translation-invariance: consistent  (elapsed 11m17s, ETA 8m37s)
+      [answer 39/67] definition d2l:11.7.2: consistent  (elapsed 11m34s, ETA 8m18s)
+      [answer 40/67] definition d2l:h-jensen-s-inequality: consistent  (elapsed 11m47s, ETA 7m57s)
+      [answer 41/67] definition d2l:7.3.2: consistent  (elapsed 12m09s, ETA 7m42s)
+      [answer 42/67] definition d2l:h-leaky-averages: consistent  (elapsed 12m32s, ETA 7m28s)
+      [answer 43/67] definition d2l:7.1.3: consistent  (elapsed 12m46s, ETA 7m07s)
+      [answer 44/67] definition d2l:h-below-sets-of-convex-functions-are-convex: consistent  (elapsed 12m56s, ETA 6m45s)
+      [answer 45/67] definition d2l:5.2.1: consistent  (elapsed 13m15s, ETA 6m29s)
+      [answer 46/67] definition d2l:9.5.5: consistent  (elapsed 13m33s, ETA 6m11s)
+      [answer 47/67] definition d2l:9.4.4: consistent  (elapsed 13m40s, ETA 5m49s)
+      [answer 48/67] definition ods:2.6.2: consistent  (elapsed 13m58s, ETA 5m32s)
+      [answer 49/67] definition ods:2.5.1: consistent  (elapsed 14m24s, ETA 5m17s)
+      [answer 50/67] definition progit:h-basic-merging: consistent  (elapsed 14m39s, ETA 4m59s)
+      [answer 51/67] definition progit:h-git-has-integrity: consistent  (elapsed 14m49s, ETA 4m39s)
+      [answer 52/67] definition progit:h-cloning-an-existing-repository: consistent  (elapsed 15m07s, ETA 4m22s)
+      [answer 53/67] factual d2l:12.10.4: consistent  (elapsed 15m14s, ETA 4m01s)
+      [answer 54/67] factual d2l:12.11.2: consistent  (elapsed 15m30s, ETA 3m44s)
+      [answer 55/67] factual d2l:h-word-frequency: consistent  (elapsed 15m43s, ETA 3m26s)
+      [answer 56/67] factual d2l:5.2.3: consistent  (elapsed 15m55s, ETA 3m08s)
+      [answer 57/67] factual d2l:11.5.1: consistent  (elapsed 16m08s, ETA 2m50s)
+      [answer 58/67] factual d2l:h-absolute-positional-information: consistent  (elapsed 16m18s, ETA 2m32s)
+      [answer 59/67] factual d2l:9.5.4: consistent  (elapsed 16m25s, ETA 2m14s)
+      [answer 60/67] factual d2l:h-exploding-gradients: consistent  (elapsed 16m45s, ETA 1m57s)
+      [answer 61/67] factual d2l:h-full-computation: consistent  (elapsed 16m51s, ETA 1m39s)
+      [answer 62/67] factual d2l:12.5.3: consistent  (elapsed 17m02s, ETA 1m22s)
+      [answer 63/67] factual d2l:h-preconditioning: consistent  (elapsed 17m12s, ETA 1m06s)
+      [answer 64/67] factual ods:3.2.1: consistent  (elapsed 17m27s, ETA 49s)
+      [answer 65/67] factual progit:h-snapshots-not-differences: consistent  (elapsed 17m40s, ETA 33s)
+      [answer 66/67] factual progit:h-checking-the-status-of-your-files: consistent  (elapsed 17m59s, ETA 16s)
+      [answer 67/67] factual progit:h-short-status: consistent  (elapsed 18m08s, ETA 0s)
+       answerability from source: 66/67 pass
+    == answerable: near duplicates (66 candidate(s))
+    Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+       near duplicates: 64/66 pass
+    == unanswerable: generating 30 out-of-scope + 30 perturbation candidates
+      [out-of-scope 1/10] kubernetes: 3 question(s)  (elapsed 10s, ETA 1m33s)
+      [out-of-scope 2/10] quantum: 3 question(s)  (elapsed 28s, ETA 1m53s)
+      [out-of-scope 3/10] reinforcement_learning: 3 question(s)  (elapsed 36s, ETA 1m23s)
+      [out-of-scope 4/10] llm_facts: 3 question(s)  (elapsed 43s, ETA 1m04s)
+      [out-of-scope 5/10] company_practices: 3 question(s)  (elapsed 51s, ETA 51s)
+      [out-of-scope 6/10] git_hosting: 3 question(s)  (elapsed 59s, ETA 39s)
+      [out-of-scope 7/10] git_internals: 3 question(s)  (elapsed 1m13s, ETA 31s)
+      [out-of-scope 8/10] balanced_trees: 3 question(s)  (elapsed 1m21s, ETA 20s)
+      [out-of-scope 9/10] vision_gans: 3 question(s)  (elapsed 1m29s, ETA 10s)
+      [out-of-scope 10/10] recsys_gp: 3 question(s)  (elapsed 1m37s, ETA 0s)
+      [perturbation 1/30] another_tool (JAX) from q027: ok  (elapsed 6s, ETA 3m04s)
+      [perturbation 2/30] specific_version (Git 2.45) from q058: ok  (elapsed 12s, ETA 2m50s)
+      [perturbation 3/30] specific_company (Google) from q042: ok  (elapsed 18s, ETA 2m41s)
+      [perturbation 4/30] specific_year (2019) from q031: ok  (elapsed 23s, ETA 2m33s)
+      [perturbation 5/30] another_tool (TensorFlow's Keras API) from q046: ok  (elapsed 28s, ETA 2m21s)
+      [perturbation 6/30] specific_version (PyTorch 2.3) from q030: ok  (elapsed 34s, ETA 2m16s)
+      [perturbation 7/30] specific_company (Meta) from q026: ok  (elapsed 39s, ETA 2m09s)
+      [perturbation 8/30] specific_year (2021) from q018: ok  (elapsed 45s, ETA 2m03s)
+      [perturbation 9/30] another_tool (Mercurial) from q025: ok  (elapsed 50s, ETA 1m56s)
+      [perturbation 10/30] specific_version (Python 3.12) from q047: ok  (elapsed 55s, ETA 1m50s)
+      [perturbation 11/30] specific_company (Microsoft) from q016: ok  (elapsed 60s, ETA 1m43s)
+      [perturbation 12/30] specific_year (2022) from q009: ok  (elapsed 1m06s, ETA 1m39s)
+      [perturbation 13/30] another_tool (the Rust standard library) from q029: ok  (elapsed 1m11s, ETA 1m33s)
+      [perturbation 14/30] specific_version (CUDA 12) from q017: ok  (elapsed 1m16s, ETA 1m27s)
+      [perturbation 15/30] specific_company (OpenAI) from q008: ok  (elapsed 1m21s, ETA 1m21s)
+      [perturbation 16/30] specific_year (2023) from q050: ok  (elapsed 1m27s, ETA 1m16s)
+      [perturbation 17/30] another_tool (Apache Spark) from q003: ok  (elapsed 1m33s, ETA 1m11s)
+      [perturbation 18/30] specific_version (Java 21) from q036: ok  (elapsed 1m38s, ETA 1m06s)
+      [perturbation 19/30] specific_company (Netflix) from q038: ok  (elapsed 1m44s, ETA 1m00s)
+      [perturbation 20/30] specific_year (2024) from q020: ok  (elapsed 1m49s, ETA 55s)
+      [perturbation 21/30] another_tool (scikit-learn) from q034: ok  (elapsed 1m54s, ETA 49s)
+      [perturbation 22/30] specific_version (TensorFlow 2.16) from q001: ok  (elapsed 2m01s, ETA 44s)
+      [perturbation 23/30] specific_company (Amazon) from q045: ok  (elapsed 2m06s, ETA 38s)
+      [perturbation 24/30] specific_year (2025) from q056: ok  (elapsed 2m11s, ETA 33s)
+      [perturbation 25/30] another_tool (Docker) from q037: ok  (elapsed 2m16s, ETA 27s)
+      [perturbation 26/30] specific_version (Git 2.45) from q032: ok  (elapsed 2m22s, ETA 22s)
+      [perturbation 27/30] specific_company (NVIDIA) from q028: ok  (elapsed 2m27s, ETA 16s)
+      [perturbation 28/30] specific_year (2019) from q004: ok  (elapsed 2m33s, ETA 11s)
+      [perturbation 29/30] another_tool (the Java Collections Framework) from q033: ok  (elapsed 2m38s, ETA 5s)
+      [perturbation 30/30] specific_version (PyTorch 2.3) from q051: ok  (elapsed 2m44s, ETA 0s)
+    == unanswerable: filters (60 candidate(s))
+      [retrieval check 1/54] out_of_scope:kubernetes: not answered  (elapsed 34s, ETA 29m47s)
+      [retrieval check 2/54] out_of_scope:kubernetes: not answered  (elapsed 52s, ETA 22m30s)
+      [retrieval check 3/54] out_of_scope:kubernetes: not answered  (elapsed 1m22s, ETA 23m17s)
+      [retrieval check 4/54] out_of_scope:quantum: not answered  (elapsed 2m00s, ETA 25m03s)
+      [retrieval check 5/54] out_of_scope:quantum: not answered  (elapsed 2m30s, ETA 24m30s)
+      [retrieval check 6/54] out_of_scope:quantum: not answered  (elapsed 3m06s, ETA 24m49s)
+      [retrieval check 7/54] out_of_scope:reinforcement_learning: not answered  (elapsed 3m47s, ETA 25m26s)
+      [retrieval check 8/54] out_of_scope:reinforcement_learning: not answered  (elapsed 4m15s, ETA 24m29s)
+      [retrieval check 9/54] out_of_scope:reinforcement_learning: not answered  (elapsed 4m54s, ETA 24m31s)
+      [retrieval check 10/54] out_of_scope:llm_facts: not answered  (elapsed 5m29s, ETA 24m07s)
+      [retrieval check 11/54] out_of_scope:llm_facts: not answered  (elapsed 6m08s, ETA 23m58s)
+      [retrieval check 12/54] out_of_scope:llm_facts: not answered  (elapsed 6m46s, ETA 23m41s)
+      [retrieval check 13/54] out_of_scope:company_practices: not answered  (elapsed 7m16s, ETA 22m55s)
+      [retrieval check 14/54] out_of_scope:company_practices: not answered  (elapsed 7m54s, ETA 22m34s)
+      [retrieval check 15/54] out_of_scope:company_practices: not answered  (elapsed 8m31s, ETA 22m09s)
+      [retrieval check 16/54] out_of_scope:git_hosting: not answered  (elapsed 8m56s, ETA 21m12s)
+      [retrieval check 17/54] out_of_scope:git_hosting: not answered  (elapsed 9m22s, ETA 20m24s)
+      [retrieval check 18/54] out_of_scope:git_hosting: not answered  (elapsed 9m57s, ETA 19m55s)
+      [retrieval check 19/54] out_of_scope:git_internals: not answered  (elapsed 10m30s, ETA 19m21s)
+      [retrieval check 20/54] out_of_scope:git_internals: not answered  (elapsed 11m07s, ETA 18m53s)
+      [retrieval check 21/54] out_of_scope:git_internals: not answered  (elapsed 11m35s, ETA 18m12s)
+      [retrieval check 22/54] out_of_scope:balanced_trees: not answered  (elapsed 12m14s, ETA 17m48s)
+      [retrieval check 23/54] out_of_scope:balanced_trees: not answered  (elapsed 12m46s, ETA 17m12s)
+      [retrieval check 24/54] out_of_scope:balanced_trees: not answered  (elapsed 13m26s, ETA 16m48s)
+      [retrieval check 25/54] out_of_scope:vision_gans: not answered  (elapsed 13m56s, ETA 16m10s)
+      [retrieval check 26/54] out_of_scope:vision_gans: not answered  (elapsed 14m20s, ETA 15m26s)
+      [retrieval check 27/54] out_of_scope:vision_gans: not answered  (elapsed 14m46s, ETA 14m46s)
+      [retrieval check 28/54] out_of_scope:recsys_gp: not answered  (elapsed 15m28s, ETA 14m22s)
+      [retrieval check 29/54] out_of_scope:recsys_gp: not answered  (elapsed 16m03s, ETA 13m50s)
+      [retrieval check 30/54] out_of_scope:recsys_gp: not answered  (elapsed 16m39s, ETA 13m19s)
+      [retrieval check 31/54] perturbation:another_tool: not answered  (elapsed 17m16s, ETA 12m48s)
+      [retrieval check 32/54] perturbation:specific_version: not answered  (elapsed 17m34s, ETA 12m05s)
+      [retrieval check 33/54] perturbation:specific_company: not answered  (elapsed 18m10s, ETA 11m34s)
+      [retrieval check 34/54] perturbation:specific_year: not answered  (elapsed 18m40s, ETA 10m59s)
+      [retrieval check 35/54] perturbation:another_tool: not answered  (elapsed 19m08s, ETA 10m23s)
+      [retrieval check 36/54] perturbation:specific_version: not answered  (elapsed 19m35s, ETA 9m48s)
+      [retrieval check 37/54] perturbation:specific_company: not answered  (elapsed 20m14s, ETA 9m18s)
+      [retrieval check 38/54] perturbation:specific_year: not answered  (elapsed 20m35s, ETA 8m40s)
+      [retrieval check 39/54] perturbation:another_tool: not answered  (elapsed 21m04s, ETA 8m06s)
+      [retrieval check 40/54] perturbation:specific_version: not answered  (elapsed 21m38s, ETA 7m34s)
+      [retrieval check 41/54] perturbation:specific_year: not answered  (elapsed 22m12s, ETA 7m02s)
+      [retrieval check 42/54] perturbation:another_tool: not answered  (elapsed 22m48s, ETA 6m31s)
+      [retrieval check 43/54] perturbation:specific_version: not answered  (elapsed 23m11s, ETA 5m56s)
+      [retrieval check 44/54] perturbation:another_tool: not answered  (elapsed 23m43s, ETA 5m23s)
+      [retrieval check 45/54] perturbation:specific_version: not answered  (elapsed 24m14s, ETA 4m51s)
+      [retrieval check 46/54] perturbation:specific_company: not answered  (elapsed 24m55s, ETA 4m20s)
+      [retrieval check 47/54] perturbation:another_tool: not answered  (elapsed 25m32s, ETA 3m48s)
+      [retrieval check 48/54] perturbation:specific_version: not answered  (elapsed 26m00s, ETA 3m15s)
+      [retrieval check 49/54] perturbation:another_tool: not answered  (elapsed 26m20s, ETA 2m41s)
+      [retrieval check 50/54] perturbation:specific_version: not answered  (elapsed 26m39s, ETA 2m08s)
+      [retrieval check 51/54] perturbation:specific_company: not answered  (elapsed 27m04s, ETA 1m36s)
+      [retrieval check 52/54] perturbation:specific_year: not answered  (elapsed 27m34s, ETA 1m04s)
+      [retrieval check 53/54] perturbation:another_tool: not answered  (elapsed 28m05s, ETA 32s)
+      [retrieval check 54/54] perturbation:specific_version: not answered  (elapsed 28m33s, ETA 0s)
+    released encoder(s) BAAI/bge-small-en-v1.5 | RSS 497 MB
+    == filters (in order): pass / in
+      a:format                    132 /  140  answer_too_long=6, missing_fields=2
+      a:provision_number          132 /  132  
+      a:copy                       75 /  132  copy_like_after_paraphrase=56, paraphrase_bad_length=1
+      a:numbers                    74 /   75  number_not_in_source=1
+      a:support                    67 /   74  not_supported=7
+      a:answerable_from_source     66 /   67  number_conflict=1
+      a:near_duplicate             64 /   66  near_duplicate=2
+      u:format                     60 /   60  
+      u:corpus_provision_number    60 /   60  
+      u:near_duplicate             54 /   60  near_duplicate=6
+      u:retrieval_check            54 /   54  
+    appended 80 item(s) to C:\Users\Admin\agentic-rag\collections\cs_ai\eval\questions.jsonl: 60 answerable (target 60) + 20 unanswerable (target 20)
+      by type: definition=16, factual=14, multi_section=9, numeric=8, procedural=13, unanswerable=20
+      by split: dev 20+4, test 40+16
+    LLM calls: 468 (0 from cache), 2h00m of model time
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\eval_construction.json
+    total wall time 2h01m
+    Next: python scripts/validate_eval.py --collection cs_ai   (optional: python scripts/spot_check.py --collection cs_ai --n 20 --seed 0)
+[2026-11-11 08:51:27] DONE  build_auto_eval in 2h01m (exit 0, peak RSS 644 MB)
+[2026-11-11 08:51:27] START validate_eval (estimate 5s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\validate_eval.py --collection cs_ai --collections-file configs\collections.yaml
+    questions: 80  (answerable 60, unanswerable 20)
+    by type: definition=16, factual=14, multi_section=9, numeric=8, procedural=13, unanswerable=20
+    by difficulty: easy=29, hard=12, medium=39
+    by document: (none)=20, d2l=39, ods=6, progit=15
+    by origin: llm_auto_filtered=80
+    progress: answerable 60/60, unanswerable 20/20
+      origin                     total answerable unanswerable dev answerable
+      llm_auto_filtered             80         60           20             20
+    split (hash of id, ~30% dev): dev 24 (20 answerable), test 56 (40 answerable)
+      split  type             origin                     count
+      dev    definition       llm_auto_filtered              8
+      dev    factual          llm_auto_filtered              4
+      dev    multi_section    llm_auto_filtered              2
+      dev    numeric          llm_auto_filtered              2
+      dev    procedural       llm_auto_filtered              4
+      dev    unanswerable     llm_auto_filtered              4
+      test   definition       llm_auto_filtered              8
+      test   factual          llm_auto_filtered             10
+      test   multi_section    llm_auto_filtered              7
+      test   numeric          llm_auto_filtered              6
+      test   procedural       llm_auto_filtered              9
+      test   unanswerable     llm_auto_filtered             16
+    RESULT: OK
+[2026-11-11 08:51:28] DONE  validate_eval in 1s (exit 0, peak RSS 30 MB)
+[2026-11-11 08:51:28] START ollama_stop (estimate 3s): ollama stop qwen2.5:3b
+[2026-11-11 08:51:28]     could not start: [WinError 2] The system cannot find the file specified
+[2026-11-11 08:51:28] WARN  ollama_stop failed (exit 127); continuing (not required)
+[2026-11-11 08:51:28] START retrieval_dev_grid (estimate 5m49s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\run_retrieval_grid.py --split dev --collection cs_ai --collections-file configs\collections.yaml
+    dev split: 20 answerable + 4 unanswerable question(s)
+    16 config(s); torch threads 4; rerank cache C:\Users\Admin\agentic-rag\collections\cs_ai\processed\rerank_cache
+    == group: no dense encoder: 4 config(s), 4 to evaluate | RSS 306 MB
+    [  1/16] ran  fixed_512|bm25  n=24 R@5=0.850 cov@1024=0.650 p50=0.6ms (0.53s)  ETA 8s
+    Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+    [  2/16] ran  fixed_512|bm25|rerank-minilm  n=24 R@5=0.875 cov@1024=0.700 p50=2519.2ms (73.0s)  ETA 8m35s
+    [  3/16] ran  structural|bm25  n=24 R@5=0.750 cov@1024=0.700 p50=1.3ms (0.48s)  ETA 5m21s
+    [  4/16] ran  structural|bm25|rerank-minilm  n=24 R@5=0.825 cov@1024=0.725 p50=1803.7ms (44.86s)  ETA 5m57s
+    == group: dense encoder BAAI/bge-small-en-v1.5: 4 config(s), 4 to evaluate | RSS 696 MB
+    [  5/16] ran  fixed_512|dense|bge-small  n=24 R@5=0.900 cov@1024=0.800 p50=28.7ms (2.25s)  ETA 4m26s
+    [  6/16] ran  fixed_512|dense|bge-small|rerank-minilm  n=24 R@5=0.925 cov@1024=0.750 p50=2557.1ms (38.66s)  ETA 4m26s
+    [  7/16] ran  structural|dense|bge-small  n=24 R@5=0.825 cov@1024=0.825 p50=28.6ms (0.18s)  ETA 3m26s
+    [  8/16] ran  structural|dense|bge-small|rerank-minilm  n=24 R@5=0.875 cov@1024=0.775 p50=1935.2ms (31.52s)  ETA 3m11s
+       released BAAI/bge-small-en-v1.5 | RSS 714 MB
+    == group: dense encoder BAAI/bge-base-en-v1.5: 8 config(s), 8 to evaluate | RSS 714 MB
+    [  9/16] ran  fixed_512|dense|bge-base  n=24 R@5=0.875 cov@1024=0.800 p50=85.8ms (4.07s)  ETA 2m32s
+    [ 10/16] ran  fixed_512|dense|bge-base|rerank-minilm  n=24 R@5=0.925 cov@1024=0.775 p50=2597.1ms (19.78s)  ETA 2m09s
+    [ 11/16] ran  fixed_512|hybrid_rrf|bge-base  n=24 R@5=0.875 cov@1024=0.800 p50=86.7ms (0.16s)  ETA 1m38s
+    [ 12/16] ran  fixed_512|hybrid_rrf|bge-base|rerank-minilm  n=24 R@5=0.925 cov@1024=0.700 p50=2627.1ms (6.45s)  ETA 1m14s
+    [ 13/16] ran  structural|dense|bge-base  n=24 R@5=0.825 cov@1024=0.775 p50=85.6ms (0.16s)  ETA 51s
+    [ 14/16] ran  structural|dense|bge-base|rerank-minilm  n=24 R@5=0.825 cov@1024=0.725 p50=2008.4ms (15.95s)  ETA 34s
+    [ 15/16] ran  structural|hybrid_rrf|bge-base  n=24 R@5=0.875 cov@1024=0.725 p50=87.8ms (0.2s)  ETA 16s
+    [ 16/16] ran  structural|hybrid_rrf|bge-base|rerank-minilm  n=24 R@5=0.825 cov@1024=0.725 p50=1927.2ms (4.8s)  ETA 0s
+       released BAAI/bge-base-en-v1.5 | RSS 643 MB
+    tables cover 16/16 grid config(s)
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\retrieval_dev.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\retrieval_dev_by_type.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\retrieval_dev_by_document.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\retrieval_dev_by_origin.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\retrieval_dev_bootstrap.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\retrieval_dev.meta.json
+    peak RSS 1,241 MB
+    total wall time 249.8 s
+[2026-11-11 08:55:40] DONE  retrieval_dev_grid in 4m12s (exit 0, peak RSS 1,189 MB)
+[2026-11-11 08:55:40] START select_configs (estimate 3s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\select_configs.py --collection cs_ai --collections-file configs\collections.yaml
+    rule: maximise DEV coverage@1024 (token-budget coverage); ties: higher DEV recall@5, then lower median total latency, then config_id; best overall + best per chunker; baselines always included
+      structural|dense|bge-small                              best_overall,best_structural             cov@1024=0.825 R@5=0.825
+      fixed_512|dense|bge-small                               best_fixed_512                           cov@1024=0.800 R@5=0.900
+      fixed_512|dense|bge-base                                baseline_naive_rag                       cov@1024=0.800 R@5=0.875
+      fixed_512|bm25                                          baseline_bm25                            cov@1024=0.650 R@5=0.850
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\selected_configs.json
+[2026-11-11 08:55:41] DONE  select_configs in 1s (exit 0, peak RSS 75 MB)
+[2026-11-11 08:55:41] START eval_retrieval_test (estimate 8m11s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\eval_retrieval.py --split test --collection cs_ai --collections-file configs\collections.yaml
+    TEST split opened (56 questions); access logged to C:\Users\Admin\agentic-rag\collections\cs_ai\results\test_access_log.json
+    == group: no dense encoder: 1 config(s), 1 to evaluate | RSS 306 MB
+    [  1/4] ran  fixed_512|bm25  n=56 R@5=0.775 cov@1024=0.625 p50=0.8ms (0.57s)  ETA 2s
+    == group: dense encoder BAAI/bge-small-en-v1.5: 2 config(s), 2 to evaluate | RSS 329 MB
+    Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+    [  2/4] ran  structural|dense|bge-small  n=56 R@5=0.775 cov@1024=0.713 p50=28.3ms (9.4s)  ETA 10s
+    [  3/4] ran  fixed_512|dense|bge-small  n=56 R@5=0.775 cov@1024=0.650 p50=28.0ms (0.15s)  ETA 3s
+       released BAAI/bge-small-en-v1.5 | RSS 479 MB
+    == group: dense encoder BAAI/bge-base-en-v1.5: 1 config(s), 1 to evaluate | RSS 479 MB
+    [  4/4] ran  fixed_512|dense|bge-base  n=56 R@5=0.800 cov@1024=0.637 p50=85.3ms (6.59s)  ETA 0s
+       released BAAI/bge-base-en-v1.5 | RSS 490 MB
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\retrieval_test.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\retrieval_test_by_type.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\retrieval_test_by_document.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\retrieval_test_by_origin.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\retrieval_test_bootstrap.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\retrieval_test.meta.json
+    peak RSS 917 MB
+    total wall time 22.9 s
+[2026-11-11 08:56:06] DONE  eval_retrieval_test in 24s (exit 0, peak RSS 922 MB)
+[2026-11-11 08:56:06] START generation_dev (estimate 24m38s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\run_generation.py --split dev --systems G2 G4 --collection cs_ai --collections-file configs\collections.yaml
+    dev split: 20 answerable + 4 unanswerable question(s)
+    LLM qwen2.5:3b (temperature 0.0, seed 0); systems: G2, G4
+    == G2: 24 question(s), 0 done, 24 to run | RSS 334 MB
+    [G2   1/24] q003 abstained (synth_abstain) calls=1 cached=0 e2e=39.5s wall=46.0s ETA 17m38s
+    [G2   2/24] q004 answered  calls=1 cached=0 e2e=34.9s wall=34.9s ETA 14m50s
+    [G2   3/24] q010 answered  calls=1 cached=0 e2e=25.6s wall=25.6s ETA 12m25s
+    [G2   4/24] q015 answered  calls=1 cached=0 e2e=27.4s wall=27.4s ETA 11m09s
+    [G2   5/24] q018 answered  calls=1 cached=0 e2e=34.8s wall=34.8s ETA 10m41s
+    [G2   6/24] q022 answered  calls=1 cached=0 e2e=35.2s wall=35.2s ETA 10m12s
+    [G2   7/24] q023 answered  calls=1 cached=0 e2e=36.3s wall=36.3s ETA 9m43s
+    [G2   8/24] q029 answered  calls=1 cached=0 e2e=30.8s wall=30.8s ETA 9m02s
+    [G2   9/24] q031 answered  calls=1 cached=0 e2e=24.2s wall=24.2s ETA 8m12s
+    [G2  10/24] q032 answered  calls=1 cached=0 e2e=27.8s wall=27.8s ETA 7m32s
+    [G2  11/24] q033 answered  calls=1 cached=0 e2e=32.1s wall=32.1s ETA 7m00s
+    [G2  12/24] q034 answered  calls=1 cached=0 e2e=34.8s wall=34.8s ETA 6m30s
+    [G2  13/24] q037 answered  calls=1 cached=0 e2e=22.3s wall=22.3s ETA 5m49s
+    [G2  14/24] q038 answered  calls=1 cached=0 e2e=28.0s wall=28.0s ETA 5m14s
+    [G2  15/24] q043 answered  calls=1 cached=0 e2e=35.2s wall=35.2s ETA 4m45s
+    [G2  16/24] q045 answered  calls=1 cached=0 e2e=31.7s wall=31.7s ETA 4m14s
+    [G2  17/24] q049 answered  calls=1 cached=0 e2e=25.9s wall=25.9s ETA 3m40s
+    [G2  18/24] q052 answered  calls=1 cached=0 e2e=32.3s wall=32.3s ETA 3m08s
+    [G2  19/24] q054 answered  calls=1 cached=0 e2e=33.8s wall=33.8s ETA 2m38s
+    [G2  20/24] q060 answered  calls=1 cached=0 e2e=33.6s wall=33.6s ETA 2m07s
+    [G2  21/24] q067 abstained (synth_abstain) calls=1 cached=0 e2e=28.8s wall=28.8s ETA 1m35s
+    [G2  22/24] q069 abstained (synth_abstain) calls=1 cached=0 e2e=25.3s wall=25.4s ETA 1m02s
+    [G2  23/24] q075 abstained (synth_abstain) calls=1 cached=0 e2e=28.6s wall=28.6s ETA 31s
+    [G2  24/24] q079 abstained (synth_abstain) calls=1 cached=0 e2e=26.2s wall=26.2s ETA 0s
+    == G4: 24 question(s), 0 done, 24 to run | RSS 608 MB
+    [G4   1/24] q003 abstained (synth_abstain) calls=1 cached=1 e2e=39.5s wall=0.0s ETA 1s
+    [G4   2/24] q004 abstained (critic_abstain) calls=4 cached=1 e2e=145.6s wall=110.7s ETA 20m18s
+    [G4   3/24] q010 answered  calls=2 cached=1 e2e=36.5s wall=10.9s ETA 14m12s
+    [G4   4/24] q015 answered  calls=2 cached=1 e2e=39.9s wall=12.5s ETA 11m11s
+    [G4   5/24] q018 abstained (critic_abstain) calls=4 cached=2 e2e=102.6s wall=55.4s ETA 12m01s
+    [G4   6/24] q022 abstained (guard_fail) calls=2 cached=1 e2e=95.2s wall=60.1s ETA 12m29s
+    [G4   7/24] q023 answered  calls=2 cached=1 e2e=55.3s wall=19.0s ETA 10m53s
+    [G4   8/24] q029 answered  calls=2 cached=1 e2e=48.3s wall=17.5s ETA 9m33s
+    [G4   9/24] q031 abstained (critic_abstain) calls=3 cached=1 e2e=112.6s wall=88.4s ETA 10m24s
+    [G4  10/24] q032 abstained (guard_fail) calls=2 cached=1 e2e=78.0s wall=50.2s ETA 9m55s
+    [G4  11/24] q033 answered  calls=2 cached=1 e2e=51.0s wall=19.0s ETA 8m44s
+    [G4  12/24] q034 answered  calls=2 cached=1 e2e=49.2s wall=14.4s ETA 7m38s
+    [G4  13/24] q037 answered  calls=2 cached=1 e2e=35.0s wall=12.7s ETA 6m38s
+    [G4  14/24] q038 abstained (guard_fail) calls=2 cached=1 e2e=81.2s wall=53.1s ETA 6m14s
+    [G4  15/24] q043 answered  calls=2 cached=1 e2e=49.6s wall=14.3s ETA 5m23s
+    [G4  16/24] q045 abstained (critic_abstain) calls=4 cached=2 e2e=96.3s wall=51.0s ETA 4m55s
+    [G4  17/24] q049 answered  calls=2 cached=1 e2e=39.1s wall=13.3s ETA 4m08s
+    [G4  18/24] q052 answered  calls=3 cached=1 e2e=86.7s wall=54.3s ETA 3m39s
+    [G4  19/24] q054 answered  calls=4 cached=1 e2e=99.8s wall=66.1s ETA 3m10s
+    [G4  20/24] q060 answered  calls=2 cached=1 e2e=44.1s wall=10.6s ETA 2m27s
+    [G4  21/24] q067 abstained (synth_abstain) calls=1 cached=1 e2e=28.8s wall=0.0s ETA 1m45s
+    [G4  22/24] q069 abstained (synth_abstain) calls=1 cached=1 e2e=25.3s wall=0.0s ETA 1m07s
+    [G4  23/24] q075 abstained (synth_abstain) calls=1 cached=1 e2e=28.6s wall=0.0s ETA 32s
+    [G4  24/24] q079 abstained (synth_abstain) calls=1 cached=1 e2e=26.2s wall=0.0s ETA 0s
+    released BAAI/bge-small-en-v1.5 before the NLI evaluation | RSS 608 MB
+    evaluating G2, G4 with cross-encoder/nli-deberta-v3-base
+    Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+    C:\Users\Admin\agentic-rag\.venv\Lib\site-packages\torch\jit\_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+      warnings.warn(
+       evaluated G2: 24 question(s) in 28.1s (NLI pairs computed so far: 40) | RSS 992 MB
+       evaluated G4: 24 question(s) in 2.7s (NLI pairs computed so far: 43) | RSS 996 MB
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\generation_dev.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\generation_dev_by_type.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\generation_dev.meta.json
+    peak RSS 1,825 MB
+    total wall time 1515.0 s
+[2026-11-11 09:21:24] DONE  generation_dev in 25m19s (exit 0, peak RSS 1,807 MB)
+[2026-11-11 09:21:24] START derive_dev (estimate 1m00s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\derive_systems.py --split dev --systems G3 --collection cs_ai --collections-file configs\collections.yaml
+    G3 <- G2: 10/24 abstained
+    evaluating G2, G3, G4
+       evaluated G2: 24 question(s) in 0.1s (NLI pairs computed so far: 0) | RSS 114 MB
+       evaluated G3: 24 question(s) in 0.0s (NLI pairs computed so far: 0) | RSS 114 MB
+       evaluated G4: 24 question(s) in 0.0s (NLI pairs computed so far: 0) | RSS 114 MB
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\generation_dev.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\generation_dev_by_type.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\generation_dev.meta.json
+    peak RSS 117 MB
+    total wall time 0.4 s
+[2026-11-11 09:21:27] DONE  derive_dev in 3s (exit 0, peak RSS 104 MB)
+[2026-11-11 09:21:27] START generation_test (estimate 1h23m): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\eval_generation.py --split test --systems G1 G2 G3 G4 --collection cs_ai --collections-file configs\collections.yaml
+    TEST split opened (56 questions); access logged to C:\Users\Admin\agentic-rag\collections\cs_ai\results\test_access_log.json
+    == G1: 56 question(s), 0 done, 56 to run | RSS 335 MB
+    [G1   1/56] q001 answered  calls=1 cached=0 e2e=39.8s wall=48.0s ETA 44m01s
+    [G1   2/56] q002 abstained (synth_abstain) calls=1 cached=0 e2e=15.2s wall=15.2s ETA 28m27s
+    [G1   3/56] q005 answered  calls=1 cached=0 e2e=42.8s wall=42.8s ETA 31m14s
+    [G1   4/56] q006 abstained (synth_abstain) calls=1 cached=0 e2e=29.9s wall=29.9s ETA 29m28s
+    [G1   5/56] q007 answered  calls=1 cached=0 e2e=41.6s wall=41.6s ETA 30m12s
+    [G1   6/56] q008 answered  calls=1 cached=0 e2e=37.0s wall=37.0s ETA 29m48s
+    [G1   7/56] q009 answered  calls=1 cached=0 e2e=36.6s wall=36.6s ETA 29m18s
+    [G1   8/56] q011 abstained (synth_abstain) calls=1 cached=0 e2e=31.1s wall=31.1s ETA 28m14s
+    [G1   9/56] q012 abstained (synth_abstain) calls=1 cached=0 e2e=16.8s wall=16.8s ETA 26m02s
+    [G1  10/56] q013 answered  calls=1 cached=0 e2e=32.2s wall=32.2s ETA 25m24s
+    [G1  11/56] q014 answered  calls=1 cached=0 e2e=32.6s wall=32.7s ETA 24m49s
+    [G1  12/56] q016 answered  calls=1 cached=0 e2e=31.2s wall=31.2s ETA 24m09s
+    [G1  13/56] q017 abstained (synth_abstain) calls=1 cached=0 e2e=30.4s wall=30.4s ETA 23m28s
+    [G1  14/56] q019 answered  calls=1 cached=0 e2e=32.0s wall=32.0s ETA 22m53s
+    [G1  15/56] q020 answered  calls=1 cached=0 e2e=33.3s wall=33.3s ETA 22m22s
+    [G1  16/56] q021 abstained (synth_abstain) calls=1 cached=0 e2e=30.0s wall=30.0s ETA 21m42s
+    [G1  17/56] q024 answered  calls=1 cached=0 e2e=40.2s wall=40.2s ETA 21m27s
+    [G1  18/56] q025 answered  calls=1 cached=0 e2e=41.1s wall=41.1s ETA 21m11s
+    [G1  19/56] q026 answered  calls=1 cached=0 e2e=34.1s wall=34.1s ETA 20m39s
+    [G1  20/56] q027 abstained (synth_abstain) calls=1 cached=0 e2e=28.6s wall=28.6s ETA 19m57s
+    [G1  21/56] q028 answered  calls=1 cached=0 e2e=37.3s wall=37.3s ETA 19m30s
+    [G1  22/56] q030 answered  calls=1 cached=0 e2e=35.2s wall=35.2s ETA 19m00s
+    [G1  23/56] q035 answered  calls=1 cached=0 e2e=32.9s wall=32.9s ETA 18m25s
+    [G1  24/56] q036 answered  calls=1 cached=0 e2e=36.4s wall=36.4s ETA 17m56s
+    [G1  25/56] q039 answered  calls=1 cached=0 e2e=36.4s wall=36.4s ETA 17m25s
+    [G1  26/56] q040 abstained (synth_abstain) calls=1 cached=0 e2e=32.4s wall=32.4s ETA 16m50s
+    [G1  27/56] q041 answered  calls=1 cached=0 e2e=31.5s wall=31.6s ETA 16m14s
+    [G1  28/56] q042 answered  calls=1 cached=0 e2e=34.2s wall=34.2s ETA 15m41s
+    [G1  29/56] q044 abstained (synth_abstain) calls=1 cached=0 e2e=32.2s wall=32.2s ETA 15m06s
+    [G1  30/56] q046 answered  calls=1 cached=0 e2e=37.0s wall=37.0s ETA 14m36s
+    [G1  31/56] q047 answered  calls=1 cached=0 e2e=34.0s wall=34.0s ETA 14m02s
+    [G1  32/56] q048 abstained (synth_abstain) calls=1 cached=0 e2e=29.9s wall=29.9s ETA 13m26s
+    [G1  33/56] q050 answered  calls=1 cached=0 e2e=34.6s wall=34.6s ETA 12m53s
+    [G1  34/56] q051 answered  calls=1 cached=0 e2e=35.3s wall=35.3s ETA 12m20s
+    [G1  35/56] q053 answered  calls=1 cached=0 e2e=15.3s wall=15.3s ETA 11m36s
+    [G1  36/56] q055 answered  calls=1 cached=0 e2e=31.2s wall=31.3s ETA 11m02s
+    [G1  37/56] q056 answered  calls=1 cached=0 e2e=31.7s wall=31.7s ETA 10m28s
+    [G1  38/56] q057 answered  calls=1 cached=0 e2e=33.5s wall=33.5s ETA 9m55s
+    [G1  39/56] q058 answered  calls=1 cached=0 e2e=24.4s wall=24.4s ETA 9m18s
+    [G1  40/56] q059 answered  calls=1 cached=0 e2e=30.8s wall=30.8s ETA 8m45s
+    [G1  41/56] q061 abstained (synth_abstain) calls=1 cached=0 e2e=25.2s wall=25.2s ETA 8m09s
+    [G1  42/56] q062 abstained (synth_abstain) calls=1 cached=0 e2e=31.9s wall=31.9s ETA 7m36s
+    [G1  43/56] q063 abstained (synth_abstain) calls=1 cached=0 e2e=30.5s wall=30.5s ETA 7m03s
+    [G1  44/56] q064 abstained (synth_abstain) calls=1 cached=0 e2e=32.5s wall=32.5s ETA 6m30s
+    [G1  45/56] q065 abstained (synth_abstain) calls=1 cached=0 e2e=29.7s wall=29.7s ETA 5m57s
+    [G1  46/56] q066 abstained (synth_abstain) calls=1 cached=0 e2e=28.6s wall=28.6s ETA 5m24s
+    [G1  47/56] q068 abstained (synth_abstain) calls=1 cached=0 e2e=18.4s wall=18.4s ETA 4m49s
+    [G1  48/56] q070 abstained (synth_abstain) calls=1 cached=0 e2e=31.3s wall=31.3s ETA 4m17s
+    [G1  49/56] q071 abstained (synth_abstain) calls=1 cached=0 e2e=29.8s wall=29.8s ETA 3m44s
+    [G1  50/56] q072 abstained (synth_abstain) calls=1 cached=0 e2e=27.8s wall=27.8s ETA 3m12s
+    [G1  51/56] q073 abstained (synth_abstain) calls=1 cached=0 e2e=4.5s wall=4.5s ETA 2m37s
+    [G1  52/56] q074 abstained (synth_abstain) calls=1 cached=0 e2e=31.4s wall=31.5s ETA 2m06s
+    [G1  53/56] q076 abstained (synth_abstain) calls=1 cached=0 e2e=29.9s wall=29.9s ETA 1m34s
+    [G1  54/56] q077 abstained (synth_abstain) calls=1 cached=0 e2e=30.0s wall=30.0s ETA 1m03s
+    [G1  55/56] q078 abstained (synth_abstain) calls=1 cached=0 e2e=30.8s wall=30.8s ETA 31s
+    [G1  56/56] q080 abstained (synth_abstain) calls=1 cached=0 e2e=31.6s wall=31.6s ETA 0s
+    == G2: 56 question(s), 0 done, 56 to run | RSS 897 MB
+    Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+    [G2   1/56] q001 abstained (synth_abstain) calls=1 cached=0 e2e=22.4s wall=24.0s ETA 22m03s
+    [G2   2/56] q002 abstained (synth_abstain) calls=1 cached=0 e2e=21.8s wall=21.8s ETA 20m38s
+    [G2   3/56] q005 answered  calls=1 cached=0 e2e=44.8s wall=44.8s ETA 26m41s
+    [G2   4/56] q006 answered  calls=1 cached=0 e2e=36.6s wall=36.6s ETA 27m34s
+    [G2   5/56] q007 answered  calls=1 cached=0 e2e=36.8s wall=36.8s ETA 27m53s
+    [G2   6/56] q008 answered  calls=1 cached=0 e2e=31.5s wall=31.5s ETA 27m09s
+    [G2   7/56] q009 answered  calls=1 cached=0 e2e=37.3s wall=37.3s ETA 27m10s
+    [G2   8/56] q011 abstained (synth_abstain) calls=1 cached=0 e2e=30.0s wall=30.0s ETA 26m17s
+    [G2   9/56] q012 abstained (synth_abstain) calls=1 cached=0 e2e=30.1s wall=30.1s ETA 25m30s
+    [G2  10/56] q013 answered  calls=1 cached=0 e2e=31.7s wall=31.7s ETA 24m53s
+    [G2  11/56] q014 answered  calls=1 cached=0 e2e=30.5s wall=30.5s ETA 24m13s
+    [G2  12/56] q016 answered  calls=1 cached=0 e2e=31.4s wall=31.4s ETA 23m37s
+    [G2  13/56] q017 answered  calls=1 cached=0 e2e=32.6s wall=32.7s ETA 23m06s
+    [G2  14/56] q019 abstained (synth_abstain) calls=1 cached=0 e2e=25.6s wall=25.6s ETA 22m14s
+    [G2  15/56] q020 answered  calls=1 cached=0 e2e=31.9s wall=31.9s ETA 21m43s
+    [G2  16/56] q021 abstained (synth_abstain) calls=1 cached=0 e2e=26.0s wall=26.0s ETA 20m57s
+    [G2  17/56] q024 answered  calls=1 cached=0 e2e=31.0s wall=31.0s ETA 20m24s
+    [G2  18/56] q025 answered  calls=1 cached=0 e2e=31.1s wall=31.1s ETA 19m52s
+    [G2  19/56] q026 answered  calls=1 cached=0 e2e=31.4s wall=31.4s ETA 19m21s
+    [G2  20/56] q027 answered  calls=1 cached=0 e2e=29.8s wall=29.8s ETA 18m47s
+    [G2  21/56] q028 answered  calls=1 cached=0 e2e=30.0s wall=30.0s ETA 18m13s
+    [G2  22/56] q030 answered  calls=1 cached=0 e2e=35.4s wall=35.4s ETA 17m48s
+    [G2  23/56] q035 answered  calls=1 cached=0 e2e=32.7s wall=32.7s ETA 17m19s
+    [G2  24/56] q036 answered  calls=1 cached=0 e2e=34.0s wall=34.0s ETA 16m51s
+    [G2  25/56] q039 answered  calls=1 cached=0 e2e=35.7s wall=35.7s ETA 16m24s
+    [G2  26/56] q040 answered  calls=1 cached=0 e2e=27.9s wall=27.9s ETA 15m48s
+    [G2  27/56] q041 answered  calls=1 cached=0 e2e=31.1s wall=31.1s ETA 15m16s
+    [G2  28/56] q042 answered  calls=1 cached=0 e2e=30.1s wall=30.1s ETA 14m43s
+    [G2  29/56] q044 abstained (synth_abstain) calls=1 cached=0 e2e=29.2s wall=29.2s ETA 14m09s
+    [G2  30/56] q046 answered  calls=1 cached=0 e2e=36.7s wall=36.7s ETA 13m42s
+    [G2  31/56] q047 answered  calls=1 cached=0 e2e=35.8s wall=35.8s ETA 13m14s
+    [G2  32/56] q048 answered  calls=1 cached=0 e2e=33.3s wall=33.3s ETA 12m43s
+    [G2  33/56] q050 answered  calls=1 cached=0 e2e=36.9s wall=36.9s ETA 12m15s
+    [G2  34/56] q051 answered  calls=1 cached=0 e2e=33.0s wall=33.0s ETA 11m44s
+    [G2  35/56] q053 answered  calls=1 cached=0 e2e=30.6s wall=30.6s ETA 11m11s
+    [G2  36/56] q055 answered  calls=1 cached=0 e2e=33.4s wall=33.4s ETA 10m40s
+    [G2  37/56] q056 answered  calls=1 cached=0 e2e=33.0s wall=33.1s ETA 10m08s
+    [G2  38/56] q057 answered  calls=1 cached=0 e2e=32.4s wall=32.4s ETA 9m37s
+    [G2  39/56] q058 answered  calls=1 cached=0 e2e=26.0s wall=26.0s ETA 9m02s
+    [G2  40/56] q059 abstained (synth_abstain) calls=1 cached=0 e2e=21.0s wall=21.0s ETA 8m26s
+    [G2  41/56] q061 abstained (synth_abstain) calls=1 cached=0 e2e=31.5s wall=31.5s ETA 7m54s
+    [G2  42/56] q062 abstained (synth_abstain) calls=1 cached=0 e2e=22.9s wall=23.0s ETA 7m20s
+    [G2  43/56] q063 abstained (synth_abstain) calls=1 cached=0 e2e=26.0s wall=26.0s ETA 6m47s
+    [G2  44/56] q064 abstained (synth_abstain) calls=1 cached=0 e2e=22.0s wall=22.0s ETA 6m13s
+    [G2  45/56] q065 abstained (synth_abstain) calls=1 cached=0 e2e=20.6s wall=20.6s ETA 5m39s
+    [G2  46/56] q066 abstained (synth_abstain) calls=1 cached=0 e2e=26.2s wall=26.2s ETA 5m07s
+    [G2  47/56] q068 abstained (synth_abstain) calls=1 cached=0 e2e=21.4s wall=21.4s ETA 4m35s
+    [G2  48/56] q070 abstained (synth_abstain) calls=1 cached=0 e2e=29.4s wall=29.4s ETA 4m04s
+    [G2  49/56] q071 abstained (synth_abstain) calls=1 cached=0 e2e=32.2s wall=32.2s ETA 3m34s
+    [G2  50/56] q072 abstained (synth_abstain) calls=1 cached=0 e2e=31.4s wall=31.4s ETA 3m03s
+    [G2  51/56] q073 abstained (synth_abstain) calls=1 cached=0 e2e=31.2s wall=31.2s ETA 2m33s
+    [G2  52/56] q074 abstained (synth_abstain) calls=1 cached=0 e2e=30.5s wall=30.5s ETA 2m02s
+    [G2  53/56] q076 abstained (synth_abstain) calls=1 cached=0 e2e=22.0s wall=22.0s ETA 1m31s
+    [G2  54/56] q077 abstained (synth_abstain) calls=1 cached=0 e2e=21.2s wall=21.2s ETA 1m00s
+    [G2  55/56] q078 abstained (synth_abstain) calls=1 cached=0 e2e=32.0s wall=32.0s ETA 30s
+    [G2  56/56] q080 abstained (synth_abstain) calls=1 cached=0 e2e=5.4s wall=5.4s ETA 0s
+    == G4: 56 question(s), 0 done, 56 to run | RSS 1,045 MB
+    [G4   1/56] q001 abstained (synth_abstain) calls=1 cached=1 e2e=22.4s wall=0.0s ETA 1s
+    [G4   2/56] q002 abstained (synth_abstain) calls=1 cached=1 e2e=21.8s wall=0.0s ETA 2s
+    [G4   3/56] q005 abstained (guard_fail) calls=2 cached=1 e2e=109.6s wall=64.9s ETA 19m07s
+    [G4   4/56] q006 abstained (guard_fail) calls=2 cached=1 e2e=92.5s wall=56.0s ETA 26m12s
+    [G4   5/56] q007 abstained (guard_fail) calls=2 cached=1 e2e=84.4s wall=47.6s ETA 28m39s
+    [G4   6/56] q008 abstained (critic_abstain) calls=4 cached=1 e2e=132.7s wall=101.2s ETA 37m27s
+    [G4   7/56] q009 abstained (guard_fail) calls=2 cached=1 e2e=90.6s wall=53.4s ETA 37m41s
+    [G4   8/56] q011 abstained (synth_abstain) calls=1 cached=1 e2e=30.0s wall=0.0s ETA 32m19s
+    [G4   9/56] q012 abstained (synth_abstain) calls=1 cached=1 e2e=30.1s wall=0.0s ETA 28m07s
+    [G4  10/56] q013 abstained (critic_abstain) calls=4 cached=2 e2e=108.8s wall=57.4s ETA 29m10s
+    [G4  11/56] q014 answered  calls=2 cached=1 e2e=51.3s wall=20.9s ETA 27m22s
+    [G4  12/56] q016 answered  calls=2 cached=1 e2e=41.3s wall=9.9s ETA 25m08s
+    [G4  13/56] q017 abstained (guard_fail) calls=3 cached=1 e2e=117.3s wall=84.7s ETA 27m20s
+    [G4  14/56] q019 abstained (synth_abstain) calls=1 cached=1 e2e=25.6s wall=0.0s ETA 24m48s
+    [G4  15/56] q020 abstained (guard_fail) calls=2 cached=1 e2e=75.2s wall=43.4s ETA 24m34s
+    [G4  16/56] q021 abstained (synth_abstain) calls=1 cached=1 e2e=26.0s wall=0.0s ETA 22m28s
+    [G4  17/56] q024 answered  calls=2 cached=1 e2e=38.3s wall=7.4s ETA 20m54s
+    [G4  18/56] q025 answered  calls=2 cached=1 e2e=43.3s wall=12.2s ETA 19m40s
+    [G4  19/56] q026 answered  calls=2 cached=1 e2e=40.6s wall=9.3s ETA 18m27s
+    [G4  20/56] q027 answered  calls=2 cached=1 e2e=37.3s wall=7.5s ETA 17m16s
+    [G4  21/56] q028 abstained (guard_fail) calls=2 cached=1 e2e=79.6s wall=49.7s ETA 17m22s
+    [G4  22/56] q030 abstained (guard_fail) calls=2 cached=1 e2e=86.6s wall=51.2s ETA 17m26s
+    [G4  23/56] q035 abstained (guard_fail) calls=2 cached=1 e2e=74.5s wall=41.8s ETA 17m11s
+    [G4  24/56] q036 abstained (critic_abstain) calls=4 cached=1 e2e=123.8s wall=89.9s ETA 17m58s
+    [G4  25/56] q039 abstained (guard_fail) calls=2 cached=1 e2e=82.5s wall=46.8s ETA 17m40s
+    [G4  26/56] q040 answered  calls=2 cached=1 e2e=38.4s wall=10.5s ETA 16m39s
+    [G4  27/56] q041 answered  calls=2 cached=1 e2e=44.4s wall=13.3s ETA 15m44s
+    [G4  28/56] q042 answered  calls=2 cached=1 e2e=50.4s wall=20.3s ETA 14m59s
+    [G4  29/56] q044 abstained (synth_abstain) calls=1 cached=1 e2e=29.2s wall=0.0s ETA 13m57s
+    [G4  30/56] q046 answered  calls=4 cached=1 e2e=105.8s wall=69.1s ETA 13m59s
+    [G4  31/56] q047 answered  calls=4 cached=1 e2e=157.6s wall=121.9s ETA 14m39s
+    [G4  32/56] q048 answered  calls=2 cached=1 e2e=41.9s wall=8.6s ETA 13m44s
+    [G4  33/56] q050 abstained (guard_fail) calls=2 cached=1 e2e=90.2s wall=53.3s ETA 13m23s
+    [G4  34/56] q051 answered  calls=2 cached=1 e2e=46.5s wall=13.5s ETA 12m34s
+    [G4  35/56] q053 answered  calls=2 cached=1 e2e=38.2s wall=7.6s ETA 11m44s
+    [G4  36/56] q055 answered  calls=2 cached=1 e2e=41.9s wall=8.5s ETA 10m57s
+    [G4  37/56] q056 answered  calls=2 cached=1 e2e=46.0s wall=13.0s ETA 10m14s
+    [G4  38/56] q057 answered  calls=2 cached=1 e2e=43.5s wall=11.2s ETA 9m31s
+    [G4  39/56] q058 answered  calls=2 cached=1 e2e=54.7s wall=28.7s ETA 8m58s
+    [G4  40/56] q059 abstained (synth_abstain) calls=1 cached=1 e2e=21.0s wall=0.0s ETA 8m14s
+    [G4  41/56] q061 abstained (synth_abstain) calls=1 cached=1 e2e=31.5s wall=0.0s ETA 7m32s
+    [G4  42/56] q062 abstained (synth_abstain) calls=1 cached=1 e2e=22.9s wall=0.0s ETA 6m52s
+    [G4  43/56] q063 abstained (synth_abstain) calls=1 cached=1 e2e=26.0s wall=0.0s ETA 6m13s
+    [G4  44/56] q064 abstained (synth_abstain) calls=1 cached=1 e2e=22.0s wall=0.0s ETA 5m37s
+    [G4  45/56] q065 abstained (synth_abstain) calls=1 cached=1 e2e=20.6s wall=0.0s ETA 5m02s
+    [G4  46/56] q066 abstained (synth_abstain) calls=1 cached=1 e2e=26.2s wall=0.0s ETA 4m28s
+    [G4  47/56] q068 abstained (synth_abstain) calls=1 cached=1 e2e=21.4s wall=0.0s ETA 3m56s
+    [G4  48/56] q070 abstained (synth_abstain) calls=1 cached=1 e2e=29.4s wall=0.0s ETA 3m26s
+    [G4  49/56] q071 abstained (synth_abstain) calls=1 cached=1 e2e=32.2s wall=0.0s ETA 2m56s
+    [G4  50/56] q072 abstained (synth_abstain) calls=1 cached=1 e2e=31.4s wall=0.0s ETA 2m28s
+    [G4  51/56] q073 abstained (synth_abstain) calls=1 cached=1 e2e=31.2s wall=0.0s ETA 2m01s
+    [G4  52/56] q074 abstained (synth_abstain) calls=1 cached=1 e2e=30.5s wall=0.0s ETA 1m35s
+    [G4  53/56] q076 abstained (synth_abstain) calls=1 cached=1 e2e=22.0s wall=0.0s ETA 1m10s
+    [G4  54/56] q077 abstained (synth_abstain) calls=1 cached=1 e2e=21.2s wall=0.0s ETA 46s
+    [G4  55/56] q078 abstained (synth_abstain) calls=1 cached=1 e2e=32.0s wall=0.0s ETA 22s
+    [G4  56/56] q080 abstained (synth_abstain) calls=1 cached=1 e2e=5.4s wall=0.0s ETA 0s
+    G3 <- G2: 34/56 abstained
+    released BAAI/bge-small-en-v1.5 before the NLI evaluation | RSS 1,045 MB
+    C:\Users\Admin\agentic-rag\.venv\Lib\site-packages\torch\jit\_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+      warnings.warn(
+       evaluated G1: 56 question(s) in 72.8s (NLI pairs computed so far: 82) | RSS 1,079 MB
+       evaluated G2: 56 question(s) in 40.1s (NLI pairs computed so far: 149) | RSS 1,047 MB
+       evaluated G3: 56 question(s) in 0.0s (NLI pairs computed so far: 149) | RSS 1,048 MB
+       evaluated G4: 56 question(s) in 7.1s (NLI pairs computed so far: 155) | RSS 1,143 MB
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\generation_test.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\generation_test_by_type.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\generation_test_bootstrap.csv
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\generation_test.meta.json
+    peak RSS 1,801 MB
+    total wall time 4790.2 s
+[2026-11-11 10:41:22] DONE  generation_test in 1h19m (exit 0, peak RSS 1,803 MB)
+[2026-11-11 10:41:22] START summary (estimate 5s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\run_collection_pipeline.py --summary-only --collection cs_ai --collections-file configs\collections.yaml
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\results\tables\SUMMARY.md
+[2026-11-11 10:41:23] DONE  summary in 1s (exit 0, peak RSS 32 MB)
+[2026-11-11 10:41:23] PIPELINE COMPLETE in 4h08m
+[2026-11-11 10:41:23] === total wall time 4h08m

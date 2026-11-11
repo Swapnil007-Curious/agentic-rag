@@ -37,6 +37,7 @@ from ragsys.agents.llmcall import LLMCall
 from ragsys.agents.synthesizer import Revision, Synthesizer, SynthOutput
 from ragsys.agents.text import split_sentences
 from ragsys.llm.client import ChatModel
+from ragsys.profiles import GenerationPrompts
 from ragsys.retrieval.config import RetrievalConfig
 from ragsys.retrieval.pipeline import RetrievalResult, Retriever
 
@@ -54,12 +55,16 @@ class PipelineSpec:
 
     @classmethod
     def from_settings(
-        cls, settings: GenerationSettings, system: str, threshold: float | None = None
+        cls,
+        settings: GenerationSettings,
+        system: str,
+        threshold: float | None = None,
+        retrieval: RetrievalConfig | None = None,
     ) -> PipelineSpec:
         spec = settings.system(system)
         return cls(
             system=system,
-            retrieval=settings.retrieval_cfg(system),
+            retrieval=retrieval or settings.retrieval_cfg(system),
             guards=spec.guards,
             critic=spec.critic,
             threshold=threshold if spec.threshold else None,
@@ -264,6 +269,7 @@ class Orchestrator:
         *,
         context_window: int | None = None,
         max_output_tokens: int = 512,
+        prompts: GenerationPrompts | None = None,
     ) -> None:
         self.spec = spec
         self.retriever = retriever
@@ -272,6 +278,7 @@ class Orchestrator:
         self.loop = loop or LoopSettings()
         self.context_window = context_window  # warn when a prompt nears it (None = off)
         self.max_output_tokens = max_output_tokens
+        self.prompts = prompts  # domain profile prompts (None: consumer_law)
 
     def answer(self, question: str, plain: bool = False) -> AnswerResult:
         spec, loop = self.spec, self.loop
@@ -361,8 +368,8 @@ class Orchestrator:
                     f"abstention threshold {spec.threshold:.4f}",
                 )
 
-        synthesizer = Synthesizer(self.llm, plain=plain)
-        critic = Critic(self.llm) if spec.critic else None
+        synthesizer = Synthesizer(self.llm, plain=plain, prompts=self.prompts)
+        critic = Critic(self.llm, prompts=self.prompts) if spec.critic else None
         revision: Revision | None = None
         critic_calls = 0
         n_rounds = loop.max_synth_calls if spec.critic else 1

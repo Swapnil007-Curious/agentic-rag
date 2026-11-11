@@ -1,7 +1,8 @@
 """Run answer-generation systems on the DEV split and evaluate them.
 
 Usage:
-    python scripts/run_generation.py --split dev --systems G1 G2 G4 G6
+    python scripts/run_generation.py --split dev [--collection NAME] --systems G1 G2 G4 G6
+--systems defaults to the collection's dev systems (consumer_law: G1 G2 G4 G6; cs_ai: G2 G4).
 Resumable per question: results/generation/dev/<system>/per_question.jsonl gets one record per
 answered question; rerunning the command continues where it stopped (records whose question or
 system definition changed are recomputed; unchanged LLM calls come from the response cache).
@@ -22,6 +23,7 @@ import time
 from pathlib import Path
 
 from ragsys.agents.runtime import build_engine, llm_unreachable_message, load_settings, make_llm
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import resolve_path
 from ragsys.eval.generation import (
     evaluate_systems,
@@ -42,8 +44,9 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("--split", choices=["dev"], default="dev", help="only dev is allowed")
-    ap.add_argument("--systems", nargs="+", default=["G1", "G2", "G4", "G6"])
-    ap.add_argument("--config", default="configs/generation.yaml")
+    ap.add_argument("--systems", nargs="+", default=None, help="default: the collection's")
+    ap.add_argument("--config", default=None, help="default: the collection's generation config")
+    add_collection_arguments(ap)
     ap.add_argument("--retrieval-config", default=None, help="override retrieval_config")
     ap.add_argument("--questions", default=None, help="override the question file")
     ap.add_argument("--overwrite", action="store_true", help="recompute existing records")
@@ -55,8 +58,11 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(errors="replace")
 
     t_start = time.perf_counter()
-    settings, rsettings = load_settings(args.config, args.retrieval_config)
-    systems = ordered_systems(settings, args.systems)
+    coll = collection_from_args(args)
+    settings, rsettings = load_settings(
+        config_path(args.config, coll.generation_config), args.retrieval_config
+    )
+    systems = ordered_systems(settings, args.systems or coll.spec.pipeline.dev_systems)
     derived = [s for s in systems if settings.is_derived(s)]
     if derived:
         emit(f"derived system(s) {', '.join(derived)} are computed by scripts/derive_systems.py")

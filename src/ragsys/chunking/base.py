@@ -106,8 +106,27 @@ _SUB_LABEL = {
 }
 
 
+def textbook_label(node: Node) -> str:
+    """'Chapter 5 — Multilayer Perceptrons', '5.1.2 Activation Functions', 'Git Basics'."""
+    if node.level == "code":
+        return "Code"
+    if node.level == "chapter":
+        if node.number:
+            return (
+                f"Chapter {node.number} — {node.heading}"
+                if node.heading
+                else f"Chapter {node.number}"
+            )
+        return node.heading or node.node_id
+    if node.number:
+        return f"{node.number} {node.heading}" if node.heading else node.number
+    return node.heading or node.node_id
+
+
 def node_label(node: Node, doc_type: str) -> str:
     """Human-readable label for one node, e.g. 'Section 35 — Manner in which ...'."""
+    if doc_type == "textbook":
+        return textbook_label(node)
     lvl = node.level
     if lvl in ("section", "rule"):
         base = f"{'Section' if lvl == 'section' else 'Rule'} {node.number}"
@@ -133,6 +152,8 @@ def heading_path(doc: DocInput, node: Node | None, include_sub: bool = True) -> 
     if node is None:
         return parts[0]
     chain = list(reversed(doc.ancestors(node)))
+    if doc.doc_type == "textbook":  # code blocks are not part of a heading path
+        chain = [n for n in chain if n.level != "code"]
     unit_seen = False
     for n in chain:
         if n.level == "chapter":

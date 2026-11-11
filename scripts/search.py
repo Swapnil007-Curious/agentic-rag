@@ -18,6 +18,7 @@ import textwrap
 from pathlib import Path
 from typing import Any
 
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import resolve_path
 from ragsys.retrieval.config import (
     RETRIEVER_TYPES,
@@ -74,7 +75,8 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("query", nargs="+")
-    ap.add_argument("--config", default="configs/retrieval.yaml")
+    ap.add_argument("--config", default=None, help="default: the collection's retrieval config")
+    add_collection_arguments(ap)
     ap.add_argument("--config-id", default=None, help='e.g. "fixed_512|dense|bge-base"')
     ap.add_argument("--chunker", default=None)
     ap.add_argument("--retriever", choices=RETRIEVER_TYPES, default=None)
@@ -94,7 +96,10 @@ def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
 
-    settings = load_retrieval_settings(resolve_path(Path(args.config)))
+    coll = collection_from_args(args)
+    settings = load_retrieval_settings(
+        resolve_path(config_path(args.config, coll.retrieval_config))
+    )
     set_seed(settings.seed)
     cfg = build_config(args, settings.defaults)
     res = RetrievalResources(

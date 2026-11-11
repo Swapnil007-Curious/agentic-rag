@@ -42,3 +42,16 @@ results/generation/
 
 # Local UI feedback (stays on this machine)
 data/feedback.jsonl
+
+# Further collections (collections/<name>/): PDFs are not redistributed (SOURCES.csv records
+# their provenance and licence); processed data and per-question outputs are regenerable;
+# the evaluation set, result tables, the test-access log and the pipeline log are tracked.
+collections/*/raw/*
+!collections/*/raw/SOURCES.csv
+collections/*/processed/
+collections/*/results/retrieval/
+collections/*/results/generation/
+collections/*/results/smoke/
+collections/*/results/pipeline_state.json
+collections/*/feedback.jsonl
+results/pipeline_state.json

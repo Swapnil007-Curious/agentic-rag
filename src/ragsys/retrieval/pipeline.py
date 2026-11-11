@@ -29,6 +29,7 @@ from __future__ import annotations
 import gc
 import hashlib
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -131,6 +132,8 @@ class RetrievalResources:
             else None
         )
         self.single_encoder = single_encoder
+        # set (e.g. by build_index.py) to encode corpora in resumable batches with progress lines
+        self.embed_progress: Callable[[str], None] | None = None
         # (model name, query instruction on?, sha256(query)) -> (vector, measured encode ms)
         self.query_cache: dict[tuple[str, bool, str], tuple[np.ndarray, float]] = {}
         self._corpora: dict[str, ChunkCorpus] = {}
@@ -229,7 +232,11 @@ class RetrievalResources:
         key = (name, chunker)
         if key not in self._emb or force:
             self._emb[key] = corpus_embeddings(
-                self.encoder(model), self.corpus(chunker), self.emb_dir, force=force
+                self.encoder(model),
+                self.corpus(chunker),
+                self.emb_dir,
+                force=force,
+                progress=self.embed_progress,
             )
         return self._emb[key]
 

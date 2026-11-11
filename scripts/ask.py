@@ -3,6 +3,10 @@
 Usage:
     python scripts/ask.py "Within how many days must a complaint be decided if no testing of goods is needed?" --system G4
     python scripts/ask.py "..." --system G5 --plain
+    python scripts/ask.py --collection cs_ai "What problem does attention solve?" --system G2
+A "selected:" system (cs_ai G2/G4) uses the dev-selected retrieval config; before the dev grid
+and select_configs.py have run it falls back to the first built config of selection_fallback
+and says which one it used.
 Prints the outcome (answered, or abstained with the reason), the answer, every citation with its
 section ids, pages and heading path, the step trace (retrieval, context, threshold, synthesis,
 guards, critic, revision) with timings and LLM usage. Needs Ollama running (configs/llm.yaml)
@@ -20,6 +24,7 @@ from typing import Any
 
 from ragsys.agents.orchestrator import AnswerResult
 from ragsys.agents.runtime import build_engine, llm_unreachable_message, load_settings, make_llm
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.utils.console import emit
 from ragsys.utils.memory import fmt_mb, peak_rss_bytes, set_torch_threads
 from ragsys.utils.seed import set_seed
@@ -120,7 +125,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("question", nargs="+")
     ap.add_argument("--system", default="G4", help="G1..G6 (default G4)")
     ap.add_argument("--plain", action="store_true", help="plain-language answer (still cited)")
-    ap.add_argument("--config", default="configs/generation.yaml")
+    ap.add_argument("--config", default=None, help="default: the collection's generation config")
+    add_collection_arguments(ap)
     ap.add_argument("--retrieval-config", default=None, help="override retrieval_config")
     ap.add_argument("--json", action="store_true", help="print the full record as JSON")
     ap.add_argument("--fake-llm", action="store_true", help="offline deterministic stand-in")
@@ -129,7 +135,10 @@ def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
 
-    settings, rsettings = load_settings(args.config, args.retrieval_config)
+    coll = collection_from_args(args)
+    settings, rsettings = load_settings(
+        config_path(args.config, coll.generation_config), args.retrieval_config
+    )
     if args.system not in settings.systems:
         emit(f"unknown system {args.system!r}; choose one of {', '.join(settings.systems)}")
         return 2
@@ -141,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
         emit(f"ERROR: {problem}")
         return 1
     t0 = time.perf_counter()
-    engine = build_engine(settings, rsettings, llm)
+    engine = build_engine(settings, rsettings, llm, allow_selection_fallback=True)
     engine.orchestrator(args.system)  # load the retriever (and warm it up) before timing
     load_s = time.perf_counter() - t0
     result = engine.ask(" ".join(args.question), args.system, plain=args.plain)

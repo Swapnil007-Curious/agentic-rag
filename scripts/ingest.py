@@ -1,11 +1,15 @@
 """Ingest the configured PDFs: extract, clean, parse structure, extract cross-references.
 
 Usage:
-    python scripts/ingest.py [--config configs/ingest.yaml] [--raw-dir DIR] [--processed-dir DIR]
-                             [--write-sources]
+    python scripts/ingest.py [--collection NAME] [--config FILE] [--raw-dir DIR]
+                             [--processed-dir DIR] [--write-sources]
 Outputs (under processed_dir):
     clean/<doc_id>.txt, clean/<doc_id>.pages.json
     structure/nodes.jsonl, xrefs.jsonl, footnotes.jsonl, structure_report.json
+Textbook collections (cs_ai) also (re)write <raw_dir>/SOURCES.csv with title, authors, edition,
+licence (read from the PDF's licence page when it states one), source URL, sha256, pages and
+the chapters kept; each document line shows the pages kept, the resolved chapter ranges, the
+nodes per level and the licence.
 """
 
 from __future__ import annotations
@@ -14,26 +18,63 @@ import argparse
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import load_ingest_config, resolve_path
 from ragsys.ingest.pipeline import run_ingest
-from ragsys.ingest.sources import write_sources_csv
+from ragsys.ingest.sources import write_sources_csv, write_textbook_sources_csv
+from ragsys.utils.console import emit
 from ragsys.utils.seed import set_seed
+
+
+def _xref_cell(d: dict[str, Any]) -> str:
+    x = d.get("xrefs", {})
+    return (
+        f"{x.get('resolved_to_node', 0)}/{x.get('document', 0)}/{x.get('external', 0)}/"
+        f"{x.get('unresolved', 0)}"
+    )
+
+
+def print_textbook(doc_id: str, d: dict[str, Any]) -> None:
+    levels = d["nodes_per_level"]
+    emit(
+        f"{doc_id:8s} pages kept {d['pages_kept']:3d} of {d['pages']:4d}  nodes={d['nodes_total']:4d} "
+        f"(chapters {levels.get('chapter', 0)}, sections {levels.get('section', 0)}, "
+        f"subsections {levels.get('subsection', 0)}, headings {levels.get('heading', 0)}, "
+        f"code {levels.get('code', 0)})  xrefs node/doc/ext/unres={_xref_cell(d)}"
+    )
+    for r in d["chapter_ranges"]:
+        where = (
+            f"pp. {r['start']}-{r['end']} ({r['n_pages']} pages, {r['method']})"
+            if r["found"]
+            else "NOT FOUND"
+        )
+        emit(f"    chapter {r['title']!r}: {where}")
+    lic = d["licence"]
+    emit(f"    licence: {lic['licence']}  [{lic['source'][:140]}]")
+    dropped = d.get("sections_dropped") or []
+    if dropped:
+        emit(f"    dropped sections: {len(dropped)} (e.g. {', '.join(dropped[:3])})")
+    for w in d["warnings"]:
+        emit(f"    WARNING: {w}")
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("--config", default="configs/ingest.yaml")
+    ap.add_argument("--config", default=None, help="default: the collection's ingest config")
     ap.add_argument("--raw-dir", default=None, help="override paths.raw_dir")
     ap.add_argument("--processed-dir", default=None, help="override paths.processed_dir")
-    ap.add_argument("--write-sources", action="store_true", help="(re)write data/raw/SOURCES.csv")
+    ap.add_argument("--write-sources", action="store_true", help="(re)write <raw_dir>/SOURCES.csv")
+    add_collection_arguments(ap)
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
 
-    cfg = load_ingest_config(resolve_path(Path(args.config)))
+    coll = collection_from_args(args)
+    cfg = load_ingest_config(resolve_path(config_path(args.config, coll.ingest_config)))
     if args.raw_dir:
         cfg.paths.raw_dir = Path(args.raw_dir)
     if args.processed_dir:
@@ -45,30 +86,38 @@ def main(argv: list[str] | None = None) -> int:
     t0 = time.perf_counter()
     result = run_ingest(cfg, raw_dir, processed_dir, write=True)
     elapsed = time.perf_counter() - t0
-    if args.write_sources:
+    if cfg.sources_format == "textbook":
+        rows = write_textbook_sources_csv(cfg, raw_dir, raw_dir / "SOURCES.csv", result.report)
+        emit(f"wrote {raw_dir / 'SOURCES.csv'} ({len(rows)} rows)")
+    elif args.write_sources:
         rows = write_sources_csv(cfg, raw_dir, raw_dir / "SOURCES.csv")
-        print(f"wrote {raw_dir / 'SOURCES.csv'} ({len(rows)} rows)")
+        emit(f"wrote {raw_dir / 'SOURCES.csv'} ({len(rows)} rows)")
 
     rep = result.report
     for s in rep["skipped"]:
-        print(f"SKIPPED {s['doc_id']} ({s['file']}): {s['reason']}")
+        emit(f"SKIPPED {s['doc_id']} ({s['file']}): {s['reason']}")
+    total_kept = 0
     for doc_id, d in rep["documents"].items():
+        if d.get("doc_type") == "textbook":
+            print_textbook(doc_id, d)
+            total_kept += int(d["pages_kept"])
+            continue
         num = d.get("numbering") or {}
-        x = d.get("xrefs", {})
-        print(
+        emit(
             f"{doc_id:17s} pages={d['pages']:3d} dropped_deva={len(d['pages_dropped_devanagari']):2d} "
             f"chapters={d['chapters']:2d} {num.get('unit', 'units')}s={d['sections_or_rules']:3d} "
             f"(max no. {num.get('max_number')}) definitions={d['definitions']:3d} "
-            f"nodes={d['nodes_total']:4d} xrefs node/doc/ext/unres="
-            f"{x.get('resolved_to_node', 0)}/{x.get('document', 0)}/{x.get('external', 0)}/{x.get('unresolved', 0)}"
+            f"nodes={d['nodes_total']:4d} xrefs node/doc/ext/unres={_xref_cell(d)}"
         )
         for w in d["warnings"]:
-            print(f"    WARNING: {w}")
-    print(
+            emit(f"    WARNING: {w}")
+    if total_kept:
+        emit(f"pages kept in total: {total_kept}")
+    emit(
         f"total nodes={rep['totals']['nodes']} xrefs={rep['totals']['xrefs']['total']} "
         f"footnotes={rep['totals']['footnotes']} in {elapsed:.1f}s"
     )
-    print(f"outputs in {processed_dir}")
+    emit(f"outputs in {processed_dir}")
     return 0
 
 

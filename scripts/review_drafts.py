@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import resolve_path
 from ragsys.eval.review import add_unanswerable, review_drafts
 from ragsys.ingest.pipeline import load_nodes
@@ -39,17 +39,19 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("--drafts", default="data/eval/drafts.jsonl")
-    ap.add_argument("--questions", default="data/eval/questions.jsonl")
-    ap.add_argument("--processed-dir", default="data/processed")
+    ap.add_argument("--drafts", default=None, help="default: <eval_dir>/drafts.jsonl")
+    ap.add_argument("--questions", default=None, help="default: <eval_dir>/questions.jsonl")
+    ap.add_argument("--processed-dir", default=None)
+    add_collection_arguments(ap)
     ap.add_argument("--add-unanswerable", action="store_true")
     ap.add_argument("--chunker", default="structural", help="chunks searched by BM25")
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
 
-    processed = resolve_path(Path(args.processed_dir))
-    qpath = resolve_path(Path(args.questions))
+    coll = collection_from_args(args)
+    processed = resolve_path(config_path(args.processed_dir, coll.processed_dir))
+    qpath = resolve_path(config_path(args.questions, coll.questions_file))
     if args.add_unanswerable:
         corpus = load_chunks(processed, args.chunker)
         index = BM25Index(corpus.ids, corpus.texts)
@@ -69,7 +71,8 @@ def main(argv: list[str] | None = None) -> int:
         emit(f"{nodes_path} not found; run scripts/ingest.py first")
         return 1
     node_ids = [n.node_id for n in load_nodes(nodes_path)]
-    review_drafts(resolve_path(Path(args.drafts)), qpath, node_ids, input_fn=_input, out=_out)
+    drafts = resolve_path(config_path(args.drafts, coll.drafts_file))
+    review_drafts(drafts, qpath, node_ids, input_fn=_input, out=_out)
     return 0
 
 

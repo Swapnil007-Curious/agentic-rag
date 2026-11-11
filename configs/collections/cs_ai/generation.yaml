@@ -1,0 +1,77 @@
+# Answer generation for the cs_ai collection: G1-G4 (G5 and G6 are skipped, see skipped_systems).
+
+profile: cs_ai                        # prompt wording (ragsys.eval.profiles)
+llm_config: configs/llm.yaml
+llm_overrides:
+  temperature: 0.0
+  max_tokens: 512
+  cache_dir: collections/cs_ai/processed/llm_cache   # per-collection response cache
+llm_context_window: 4096
+retrieval_config: configs/collections/cs_ai/retrieval.yaml
+results_dir: collections/cs_ai/results
+seed: 42
+
+context:
+  budget_tokens: 1024
+  revision_budget_tokens: 2048
+  min_passages: 1
+
+loop:
+  max_synth_calls: 2
+  max_critic_calls: 2
+  critic_on_guard_fail: false
+  on_final_revise: abstain
+
+# "selected:best_overall" = the best DEV retrieval config in
+# collections/cs_ai/results/tables/selected_configs.json (written by select_configs.py).
+systems:
+  G1:
+    description: "naive RAG: fixed_512 chunks, dense bge-base, synthesizer only"
+    retrieval: "fixed_512|dense|bge-base"
+  G2:
+    description: "best dev retrieval config, synthesizer only"
+    retrieval: "selected:best_overall"
+  G3:
+    description: "G2 + deterministic guards (a guard failure becomes an abstention)"
+    derived_from: G2
+    guards: true
+  G4:
+    description: "G2 + guards + critic with one revision round"
+    retrieval: "selected:best_overall"
+    guards: true
+    critic: true
+
+# Interactive use only (ask.py, the web UI) before select_configs.py has run: the first of
+# these whose embeddings are built is used, with a warning. Evaluations never fall back.
+selection_fallback:
+  - "structural|dense|bge-base"
+  - "structural|dense|bge-small"
+
+skipped_systems:
+  G5: "retrieval-score threshold: underperformed on consumer_law and the cs_ai dev split is small, so a tuned threshold would be unreliable"
+  G6: "fixed_256 hybrid + reranking with guards and critic: the slowest system; fixed_256 is not built for cs_ai"
+
+abstention:
+  threshold_file: collections/cs_ai/results/tables/abstention_threshold.json
+  tuned_system: null                  # no threshold system for cs_ai
+
+nli:
+  model: cross-encoder/nli-deberta-v3-base
+  fallback_model: cross-encoder/nli-distilroberta-base
+  entailment_threshold: 0.5
+  window_tokens: 400
+  window_stride: 300
+  batch_size: 8
+  cache_dir: collections/cs_ai/processed/nli_cache
+
+eval:
+  bootstrap_resamples: 1000
+  seed: 42
+  reference_system: G1
+
+ui:
+  port: 8000
+  systems: [G2, G4]
+  default_system: G4
+  feedback_file: collections/cs_ai/feedback.jsonl
+  sources_csv: collections/cs_ai/raw/SOURCES.csv

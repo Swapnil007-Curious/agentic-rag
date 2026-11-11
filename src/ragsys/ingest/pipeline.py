@@ -8,11 +8,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ragsys.config import IngestConfig
+from ragsys.config import DocumentConfig, IngestConfig
+from ragsys.ingest.chapters import resolve_chapters
 from ragsys.ingest.clean import CleanDocument, Footnote, clean_document
-from ragsys.ingest.extract import RawDocument, extract_pdf
-from ragsys.structure.base import Node, get_parser
+from ragsys.ingest.extract import RawDocument, extract_pdf, pdf_page_count
+from ragsys.ingest.licence import resolve_licence
+from ragsys.ingest.textbook import clean_textbook
+from ragsys.structure.base import Node, ParseResult, get_parser
 from ragsys.structure.statute import numbering_report
+from ragsys.structure.textbook_xrefs import extract_textbook_xrefs
 from ragsys.structure.xrefs import XRef, XRefResolver, extract_xrefs, xref_summary
 from ragsys.utils.runinfo import collect_run_info
 
@@ -58,6 +62,28 @@ def run_ingest(
         path = raw_dir / d.file
         if not path.exists():
             skipped.append({"doc_id": d.doc_id, "file": d.file, "reason": "file not found"})
+            continue
+        if d.doc_type == "textbook":
+            tb = _ingest_textbook(cfg, d, path)
+            if tb is None:
+                skipped.append(
+                    {
+                        "doc_id": d.doc_id,
+                        "file": d.file,
+                        "reason": "no text layer (OCR out of scope)",
+                    }
+                )
+                continue
+            cd, parsed, rep = tb
+            _link_footnotes(cd.footnotes, parsed.nodes)
+            result.clean_docs[d.doc_id] = cd
+            result.nodes.extend(parsed.nodes)
+            result.footnotes.extend(cd.footnotes)
+            doc_types[d.doc_id] = d.doc_type
+            parent_acts[d.doc_id] = None
+            per_doc[d.doc_id] = rep
+            if write:
+                _write_clean(clean_dir, d.doc_id, cd)
             continue
         raw = raw_cache.get(d.file)
         if raw is None:
@@ -109,7 +135,10 @@ def run_ingest(
 
     resolver = XRefResolver(result.nodes, doc_types, parent_acts, cfg.structure.act_aliases)
     for doc_id, cd in result.clean_docs.items():
-        doc_xrefs = extract_xrefs(doc_id, cd.text, result.nodes, resolver)
+        if doc_types[doc_id] == "textbook":
+            doc_xrefs = extract_textbook_xrefs(doc_id, cd.text, result.nodes)
+        else:
+            doc_xrefs = extract_xrefs(doc_id, cd.text, result.nodes, resolver)
         result.xrefs.extend(doc_xrefs)
         summary = xref_summary(doc_xrefs)
         per_doc[doc_id]["xrefs"] = summary
@@ -158,6 +187,64 @@ def run_ingest(
             json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
         )
     return result
+
+
+def _write_clean(clean_dir: Path, doc_id: str, cd: CleanDocument) -> None:
+    clean_dir.mkdir(parents=True, exist_ok=True)
+    (clean_dir / f"{doc_id}.txt").write_text(cd.text, encoding="utf-8", newline="\n")
+    (clean_dir / f"{doc_id}.pages.json").write_text(
+        json.dumps({"doc_id": doc_id, "page_spans": cd.page_spans}), encoding="utf-8"
+    )
+
+
+def _ingest_textbook(
+    cfg: IngestConfig, d: DocumentConfig, path: Path
+) -> tuple[CleanDocument, ParseResult, dict[str, Any]] | None:
+    """Chapter selection -> extraction of those pages -> textbook cleaning -> structure."""
+    ranges = resolve_chapters(path, d.chapters) if d.chapters else []
+    warnings = [
+        f"chapter {r.title!r} not found in the outline or headings" for r in ranges if not r.found
+    ]
+    pages = sorted({p for r in ranges for p in r.pages}) if d.chapters else None
+    raw = extract_pdf(path, cfg.cleaning.marker_max_size_ratio, pages=pages, scripts="caret")
+    if not raw.has_text_layer:
+        return None
+    cd = clean_textbook(raw, d, cfg.cleaning, cfg.textbook, ranges)
+    parsed = get_parser(d.parser, cfg.structure).parse(cd, d)
+    licence = resolve_licence(path, d)
+    levels = Counter(n.level for n in parsed.nodes)
+    rep: dict[str, Any] = {
+        "doc_id": d.doc_id,
+        "file": d.file,
+        "title": d.title,
+        "authors": d.authors,
+        "edition": d.edition,
+        "doc_type": d.doc_type,
+        "parser": d.parser,
+        "pages": pdf_page_count(path),
+        "pages_kept": raw.page_count,
+        "chapter_ranges": [r.to_dict() for r in ranges],
+        "chapters_not_found": [r.title for r in ranges if not r.found],
+        "printed_page_offset": cd.stats.get("printed_page_offset"),
+        "pages_dropped_devanagari": [],
+        "chapters": levels.get("chapter", 0),
+        "sections_or_rules": levels.get("section", 0),
+        "definitions": 0,
+        "schedules": 0,
+        "code_blocks": levels.get("code", 0),
+        "headings": cd.stats.get("headings", 0),
+        "sections_dropped": cd.stats.get("sections_dropped", []),
+        "nodes_total": len(parsed.nodes),
+        "nodes_per_level": dict(sorted(levels.items())),
+        "numbering": None,
+        "footnotes": len(cd.footnotes),
+        "clean_chars": len(cd.text),
+        "licence": licence.to_dict(),
+        "cleaning": cd.stats,
+        "parser_stats": parsed.stats,
+        "warnings": [*warnings, *cd.warnings, *parsed.warnings],
+    }
+    return cd, parsed, rep
 
 
 # --------------------------------------------------------------------------- loading helpers

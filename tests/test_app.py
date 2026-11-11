@@ -43,7 +43,9 @@ def test_page_and_static_assets(client: tuple[TestClient, ScriptedLLM, Path]) ->
     r = c.get("/")
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/html")
     html = r.text
-    assert DISCLAIMER in html and 'label for="question"' in html and 'label for="system"' in html
+    # the disclaimer is per collection (from /api/meta); the page holds its placeholder
+    assert 'id="disclaimer"' in html and 'label for="collection"' in html
+    assert 'label for="question"' in html and 'label for="system"' in html
     assert 'label for="plain"' in html and 'role="switch"' in html and 'aria-live="polite"' in html
     assert '<script src="/static/app.js" defer></script>' in html and "<script>" not in html
     assert "script-src 'self'" in r.headers["content-security-policy"]

@@ -1,7 +1,8 @@
 """Evaluate the selected configs on the TEST split (the only code path that reads test).
 
 Usage:
-    python scripts/eval_retrieval.py --split test --configs-from results/tables/selected_configs.json
+    python scripts/eval_retrieval.py --split test [--collection NAME]
+                                     [--configs-from <results_dir>/tables/selected_configs.json]
 Run once, after the dev grid and select_configs.py. Writes results/retrieval/test/<config>/,
 results/tables/retrieval_test.csv, retrieval_test_by_type.csv (also _by_document, _by_origin),
 retrieval_test_bootstrap.csv (each selected config vs the naive RAG baseline: paired bootstrap
@@ -22,6 +23,7 @@ import sys
 import time
 from pathlib import Path
 
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import resolve_path
 from ragsys.eval.harness import Evaluator, run_configs, write_tables
 from ragsys.eval.split import grant_test_access, read_access_log, split_of
@@ -38,8 +40,9 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("--split", choices=["test"], required=True)
-    ap.add_argument("--configs-from", default="results/tables/selected_configs.json")
-    ap.add_argument("--config", default="configs/retrieval.yaml")
+    ap.add_argument("--configs-from", default=None, help="default: <results_dir>/tables/...")
+    ap.add_argument("--config", default=None, help="default: the collection's retrieval config")
+    add_collection_arguments(ap)
     ap.add_argument("--questions", default=None)
     ap.add_argument("--allow-repeat", action="store_true", help="run although test was accessed")
     ap.add_argument("--min-answerable", type=int, default=None)
@@ -52,7 +55,10 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(errors="replace")
 
     t_start = time.perf_counter()
-    settings = load_retrieval_settings(resolve_path(Path(args.config)))
+    coll = collection_from_args(args)
+    settings = load_retrieval_settings(
+        resolve_path(config_path(args.config, coll.retrieval_config))
+    )
     set_seed(settings.seed)
     set_torch_threads(args.threads)
     res = RetrievalResources(settings, rerank_cache=not args.no_rerank_cache)
@@ -80,7 +86,11 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 3
 
-    sel_path = resolve_path(Path(args.configs_from))
+    sel_path = (
+        resolve_path(Path(args.configs_from))
+        if args.configs_from
+        else root / "tables" / "selected_configs.json"
+    )
     selection = json.loads(sel_path.read_text(encoding="utf-8"))
     configs = [RetrievalConfig.model_validate(s["config"]) for s in selection["selected"]]
     baseline = selection.get("reference_baseline_id") or settings.selection.baselines["naive_rag"]

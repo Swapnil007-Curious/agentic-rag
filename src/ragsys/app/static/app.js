@@ -1,11 +1,13 @@
-// Consumer Law Answers: vanilla JS for the local UI. All document and model text is inserted
-// with textContent (never innerHTML).
+// Document Answers: vanilla JS for the local UI. All document and model text is inserted with
+// textContent (never innerHTML).
 "use strict";
 
 (function () {
   const $ = (id) => document.getElementById(id);
   const form = $("ask-form");
   const question = $("question");
+  const collectionSel = $("collection");
+  const collectionNote = $("collection-note");
   const systemSel = $("system");
   const systemDesc = $("system-desc");
   const plain = $("plain");
@@ -18,12 +20,15 @@
   const answerEl = $("answer");
   const abstainedEl = $("abstained");
   const abstainWhy = $("abstain-why");
+  const notFound = $("not-found");
   const closest = $("closest");
   const traceList = $("trace-list");
   const traceTotal = $("trace-total");
   const fbStatus = $("fb-status");
   const panel = $("panel");
   const layout = document.querySelector(".layout");
+  const examplesBlock = $("examples-block");
+  const examplesList = $("examples");
 
   const STOP = new Set(
     ("the a an and or of to in on for by with from that this these those which who whom whose " +
@@ -41,8 +46,11 @@
     critic: "Critic",
     revision_context: "Context extended",
   };
+  const STORE_KEY = "docanswers.collection";
 
   let systems = [];
+  let meta = null; // /api/meta of the current collection
+  let collection = null; // current collection id
   let current = null; // last /ask response
   let lastTrigger = null; // element that opened the panel
   let timer = null;
@@ -66,11 +74,67 @@
     statusEl.appendChild(document.createTextNode(text));
   }
 
-  // ------------------------------------------------------------------ metadata
+  function remember(name) {
+    try {
+      window.localStorage.setItem(STORE_KEY, name);
+    } catch (err) {
+      /* storage unavailable: the server default is used next time */
+    }
+  }
+
+  function remembered() {
+    try {
+      return window.localStorage.getItem(STORE_KEY);
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function safeUrl(url) {
+    return /^https?:\/\//i.test(url || "") ? url : null;
+  }
+
+  function link(text, url) {
+    const href = safeUrl(url);
+    if (!href) return el("span", null, text);
+    const a = el("a", "doc-link", text);
+    a.href = href;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    return a;
+  }
+
+  // ------------------------------------------------------------------ collections + metadata
+  async function loadCollections() {
+    try {
+      const res = await fetch("/api/collections");
+      const data = await res.json();
+      collectionSel.textContent = "";
+      for (const c of data.collections) {
+        const opt = el("option", null, c.label + (c.available ? "" : " (not built yet)"));
+        opt.value = c.id;
+        collectionSel.appendChild(opt);
+      }
+      const ids = data.collections.map((c) => c.id);
+      const saved = remembered();
+      collection = saved && ids.includes(saved) ? saved : data.default;
+      collectionSel.value = collection;
+      collectionSel.closest(".field-collection").hidden = data.collections.length < 2;
+      await loadMeta();
+    } catch (err) {
+      setStatus("Could not load the collections: " + err, { error: true });
+    }
+  }
+
   async function loadMeta() {
     try {
-      const res = await fetch("/api/meta");
-      const meta = await res.json();
+      const res = await fetch("/api/meta?collection=" + encodeURIComponent(collection));
+      meta = await res.json();
+      $("eyebrow").textContent = meta.eyebrow || "";
+      $("heading").textContent = meta.heading || "Ask the documents";
+      $("lede").textContent = meta.lede || "";
+      question.placeholder = meta.placeholder || "";
+      notFound.textContent = meta.abstention_message || "Not found in these documents";
       systems = meta.systems;
       systemSel.textContent = "";
       for (const s of systems) {
@@ -79,23 +143,57 @@
         if (s.id === meta.default_system) opt.selected = true;
         systemSel.appendChild(opt);
       }
-      updateSystemDesc();
-      if (meta.disclaimer) $("disclaimer").textContent = meta.disclaimer;
-      const docs = $("documents");
-      docs.textContent = "";
-      for (const d of meta.documents) {
-        const li = el("li");
-        li.appendChild(document.createTextNode(d.title + " "));
-        const v = [d.file, d.pages ? d.pages + " pages" : "", d.version].filter(Boolean).join(" · ");
-        li.appendChild(el("span", "version", "(" + v + ")"));
-        docs.appendChild(li);
-      }
-      if (!meta.threshold_tuned) {
+      delete systemDesc.dataset.note;
+      if (!meta.threshold_tuned && systems.some((s) => s.id === "G5")) {
         systemDesc.dataset.note = "G5's abstention threshold is not tuned yet; G5 currently runs like G4.";
-        updateSystemDesc();
       }
+      updateSystemDesc();
+      $("disclaimer").textContent = meta.disclaimer || "";
+      renderDocuments(meta.documents || []);
+      renderExamples(meta.examples || []);
+      collectionNote.textContent = meta.available ? "" : meta.note || "This collection is not built yet.";
+      askBtn.disabled = !meta.available;
     } catch (err) {
-      setStatus("Could not load the system list: " + err, { error: true });
+      setStatus("Could not load the collection: " + err, { error: true });
+    }
+  }
+
+  function renderDocuments(docs) {
+    const list = $("documents");
+    list.textContent = "";
+    for (const d of docs) {
+      const li = el("li", "document");
+      li.appendChild(link(d.title, d.source_url));
+      const by = [d.authors, d.edition].filter(Boolean).join(" · ");
+      if (by) li.appendChild(el("span", "doc-by", " — " + by));
+      const facts = el("span", "version");
+      const parts = [d.file, d.pages_kept ? d.pages_kept + " of " + d.pages + " pages used" : d.pages ? d.pages + " pages" : "", d.version];
+      facts.textContent = " (" + parts.filter(Boolean).join(" · ") + ")";
+      li.appendChild(facts);
+      if (d.licence) {
+        const lic = el("span", "doc-licence");
+        lic.appendChild(document.createTextNode(" Licence: "));
+        lic.appendChild(link(d.licence, d.licence_url));
+        if (d.licence_source) lic.title = d.licence_source;
+        li.appendChild(lic);
+      }
+      list.appendChild(li);
+    }
+  }
+
+  function renderExamples(examples) {
+    examplesList.textContent = "";
+    examplesBlock.hidden = examples.length === 0;
+    for (const q of examples) {
+      const li = el("li");
+      const btn = el("button", "example-chip", q);
+      btn.type = "button";
+      btn.addEventListener("click", () => {
+        question.value = q;
+        question.focus();
+      });
+      li.appendChild(btn);
+      examplesList.appendChild(li);
     }
   }
 
@@ -104,6 +202,16 @@
     let text = s ? s.description : "";
     if (systemSel.value === "G5" && systemDesc.dataset.note) text += " " + systemDesc.dataset.note;
     systemDesc.textContent = text;
+  }
+
+  async function switchCollection() {
+    collection = collectionSel.value;
+    remember(collection);
+    closePanel(false);
+    result.hidden = true;
+    current = null;
+    setStatus("");
+    await loadMeta();
   }
 
   // ------------------------------------------------------------------ ask
@@ -129,7 +237,7 @@
       const res = await fetch("/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q, system: systemSel.value, plain: plain.checked }),
+        body: JSON.stringify({ question: q, system: systemSel.value, plain: plain.checked, collection: collection }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.detail ? JSON.stringify(body.detail) : res.statusText);
@@ -141,7 +249,7 @@
       setStatus("Something went wrong: " + err.message, { error: true });
     } finally {
       clearInterval(timer);
-      askBtn.disabled = false;
+      askBtn.disabled = Boolean(meta && !meta.available);
       askBtn.textContent = "Ask";
     }
   }
@@ -173,6 +281,7 @@
       });
       answerEl.appendChild(p);
     } else {
+      notFound.textContent = data.abstention_message || (meta && meta.abstention_message) || "Not found in these documents";
       abstainWhy.textContent = reasonText(data.reason, data.detail);
       closest.textContent = "";
       for (const c of data.closest_sections || []) {
@@ -328,7 +437,8 @@
 
   async function openClosest(chunkId, trigger) {
     try {
-      const res = await fetch("/passage?chunk_id=" + encodeURIComponent(chunkId));
+      const url = "/passage?chunk_id=" + encodeURIComponent(chunkId) + "&collection=" + encodeURIComponent(collection);
+      const res = await fetch(url);
       if (!res.ok) throw new Error(res.statusText);
       const passage = await res.json();
       const terms = current ? keyTerms(current.question) : [];
@@ -352,6 +462,7 @@
           outcome: current.outcome,
           answer: current.answer || "",
           rating: rating,
+          collection: current.collection || collection,
         }),
       });
       if (!res.ok) throw new Error(res.statusText);
@@ -367,6 +478,7 @@
   question.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) ask(e);
   });
+  collectionSel.addEventListener("change", switchCollection);
   systemSel.addEventListener("change", updateSystemDesc);
   $("panel-close").addEventListener("click", () => closePanel(true));
   panel.addEventListener("click", (e) => {
@@ -376,5 +488,5 @@
     if (e.key === "Escape" && !panel.hidden) closePanel(true);
   });
   for (const b of document.querySelectorAll(".fb-btn")) b.addEventListener("click", () => sendFeedback(b));
-  loadMeta();
+  loadCollections();
 })();

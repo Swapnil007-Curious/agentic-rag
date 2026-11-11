@@ -1,0 +1,163 @@
+{
+  "created_utc": "2026-11-11T03:51:27+00:00",
+  "label": "",
+  "systems": {
+    "G2": {
+      "description": "best dev retrieval config, synthesizer only",
+      "retrieval": "selected:best_overall",
+      "derived_from": null,
+      "guards": false,
+      "critic": false,
+      "threshold": false
+    },
+    "G3": {
+      "description": "G2 + deterministic guards (a guard failure becomes an abstention)",
+      "retrieval": null,
+      "derived_from": "G2",
+      "guards": true,
+      "critic": false,
+      "threshold": false
+    },
+    "G4": {
+      "description": "G2 + guards + critic with one revision round",
+      "retrieval": "selected:best_overall",
+      "derived_from": null,
+      "guards": true,
+      "critic": true,
+      "threshold": false
+    }
+  },
+  "reference": "G1",
+  "run_info": {
+    "utc_time": "2026-11-11T03:51:27+00:00",
+    "git": {
+      "commit": "1bba6c3691d33ba0291538c7215ba6c81d825e24",
+      "dirty": true
+    },
+    "python": "3.11.9",
+    "python_executable": "C:\\Users\\Admin\\agentic-rag\\.venv\\Scripts\\python.exe",
+    "os": "Windows 10 (10.0.26200)",
+    "machine": "AMD64",
+    "cpu_model": "11th Gen Intel(R) Core(TM) i3-1115G4 @ 3.00GHz",
+    "cpu_count_logical": 4,
+    "cpu_count_physical": 2,
+    "ram_total_gb": 19.75,
+    "packages": {
+      "ragsys": "0.1.0",
+      "pymupdf": "2.1",
+      "pydantic": "2.14.3",
+      "PyYAML": "6.0.3",
+      "numpy": "2.4.6",
+      "psutil": "7.2.2",
+      "torch": "2.15.0+cpu",
+      "transformers": "5.22.2",
+      "tokenizers": "0.23.3",
+      "sentence-transformers": "6.2.0"
+    }
+  },
+  "split": "dev",
+  "questions_digest": "8da64d0ba34f2b9318f48c51fb28a7a2e1dd31cd2041d26eb914a6b414e2e05a",
+  "nli": {
+    "model": "cross-encoder/nli-deberta-v3-base",
+    "requested_model": "cross-encoder/nli-deberta-v3-base",
+    "fallback_reason": null,
+    "entailment_threshold": 0.5,
+    "window_tokens": 400,
+    "window_stride": 300
+  },
+  "settings": {
+    "profile": "cs_ai",
+    "llm_config": "configs\\llm.yaml",
+    "llm_overrides": {
+      "temperature": 0.0,
+      "max_tokens": 512,
+      "cache_dir": "collections/cs_ai/processed/llm_cache"
+    },
+    "llm_context_window": 4096,
+    "retrieval_config": "configs\\collections\\cs_ai\\retrieval.yaml",
+    "results_dir": "collections\\cs_ai\\results",
+    "seed": 42,
+    "context": {
+      "budget_tokens": 1024,
+      "revision_budget_tokens": 2048,
+      "min_passages": 1
+    },
+    "loop": {
+      "max_synth_calls": 2,
+      "max_critic_calls": 2,
+      "critic_on_guard_fail": false,
+      "on_final_revise": "abstain"
+    },
+    "systems": {
+      "G1": {
+        "description": "naive RAG: fixed_512 chunks, dense bge-base, synthesizer only",
+        "retrieval": "fixed_512|dense|bge-base",
+        "derived_from": null,
+        "guards": false,
+        "critic": false,
+        "threshold": false
+      },
+      "G2": {
+        "description": "best dev retrieval config, synthesizer only",
+        "retrieval": "selected:best_overall",
+        "derived_from": null,
+        "guards": false,
+        "critic": false,
+        "threshold": false
+      },
+      "G3": {
+        "description": "G2 + deterministic guards (a guard failure becomes an abstention)",
+        "retrieval": null,
+        "derived_from": "G2",
+        "guards": true,
+        "critic": false,
+        "threshold": false
+      },
+      "G4": {
+        "description": "G2 + guards + critic with one revision round",
+        "retrieval": "selected:best_overall",
+        "derived_from": null,
+        "guards": true,
+        "critic": true,
+        "threshold": false
+      }
+    },
+    "abstention": {
+      "threshold_file": "collections\\cs_ai\\results\\tables\\abstention_threshold.json",
+      "tuned_system": null
+    },
+    "selection_fallback": [
+      "structural|dense|bge-base",
+      "structural|dense|bge-small"
+    ],
+    "skipped_systems": {
+      "G5": "retrieval-score threshold: underperformed on consumer_law and the cs_ai dev split is small, so a tuned threshold would be unreliable",
+      "G6": "fixed_256 hybrid + reranking with guards and critic: the slowest system; fixed_256 is not built for cs_ai"
+    },
+    "nli": {
+      "model": "cross-encoder/nli-deberta-v3-base",
+      "fallback_model": "cross-encoder/nli-distilroberta-base",
+      "entailment_threshold": 0.5,
+      "window_tokens": 400,
+      "window_stride": 300,
+      "batch_size": 8,
+      "cache_dir": "collections\\cs_ai\\processed\\nli_cache"
+    },
+    "eval": {
+      "bootstrap_resamples": 1000,
+      "seed": 42,
+      "reference_system": "G1"
+    },
+    "ui": {
+      "port": 8000,
+      "systems": [
+        "G2",
+        "G4"
+      ],
+      "default_system": "G4",
+      "feedback_file": "collections\\cs_ai\\feedback.jsonl",
+      "sources_csv": "collections\\cs_ai\\raw\\SOURCES.csv"
+    }
+  },
+  "abstention_threshold": null
+}

@@ -24,6 +24,7 @@ from pathlib import Path
 from ragsys.agents.abstention import tune_threshold
 from ragsys.agents.orchestrator import abstention_score
 from ragsys.agents.runtime import load_settings
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import resolve_path
 from ragsys.eval.generation import questions_digest
 from ragsys.eval.split import questions_for_split
@@ -39,7 +40,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("--config", default="configs/generation.yaml")
+    ap.add_argument("--config", default=None, help="default: the collection's generation config")
+    add_collection_arguments(ap)
     ap.add_argument("--retrieval-config", default=None)
     ap.add_argument("--questions", default=None)
     ap.add_argument("--threads", type=int, default=4)
@@ -48,10 +50,16 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(errors="replace")
 
     t_start = time.perf_counter()
-    settings, rsettings = load_settings(args.config, args.retrieval_config)
+    coll = collection_from_args(args)
+    settings, rsettings = load_settings(
+        config_path(args.config, coll.generation_config), args.retrieval_config
+    )
     set_seed(settings.seed)
     set_torch_threads(args.threads)
     system = settings.abstention.tuned_system
+    if system is None:
+        emit(f"{coll.name}: no threshold system is configured (abstention.tuned_system: null)")
+        return 2
     cfg = settings.retrieval_cfg(system)
     qpath = resolve_path(Path(args.questions) if args.questions else rsettings.paths.questions)
     processed = resolve_path(rsettings.paths.processed_dir)

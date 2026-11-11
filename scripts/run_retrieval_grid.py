@@ -1,8 +1,8 @@
 """Run the retrieval grid of configs/retrieval.yaml on the DEV split.
 
 Usage:
-    python scripts/run_retrieval_grid.py --split dev [--overwrite] [--only TEXT ...] [--smoke]
-                                         [--no-rerank-cache] [--threads 4]
+    python scripts/run_retrieval_grid.py --split dev [--collection NAME] [--overwrite]
+                                         [--only TEXT ...] [--smoke] [--no-rerank-cache] [--threads 4]
 Writes results/retrieval/dev/<config>/per_query.jsonl and summary.json for every config, and
 results/tables/retrieval_dev.csv (one row per config), retrieval_dev_by_type.csv,
 _by_document.csv, _by_origin.csv, _bootstrap.csv (vs the naive baseline) and .meta.json.
@@ -24,6 +24,7 @@ import sys
 import time
 from pathlib import Path
 
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import resolve_path
 from ragsys.eval.harness import (
     SMOKE_LABEL,
@@ -46,8 +47,9 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("--split", choices=["dev"], default="dev", help="only dev is allowed")
-    ap.add_argument("--config", default="configs/retrieval.yaml")
+    ap.add_argument("--config", default=None, help="default: the collection's retrieval config")
     ap.add_argument("--questions", default=None, help="override paths.questions")
+    add_collection_arguments(ap)
     ap.add_argument("--overwrite", action="store_true", help="recompute existing configs")
     ap.add_argument("--only", nargs="+", default=None, help="run configs whose id contains TEXT")
     ap.add_argument("--smoke", action="store_true", help='write to results/smoke, label "smoke"')
@@ -60,7 +62,10 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(errors="replace")
 
     t_start = time.perf_counter()
-    settings = load_retrieval_settings(resolve_path(Path(args.config)))
+    coll = collection_from_args(args)
+    settings = load_retrieval_settings(
+        resolve_path(config_path(args.config, coll.retrieval_config))
+    )
     set_seed(settings.seed)
     threads = set_torch_threads(args.threads)
     qpath = resolve_path(Path(args.questions) if args.questions else settings.paths.questions)

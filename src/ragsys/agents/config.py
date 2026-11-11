@@ -8,10 +8,17 @@ from another system's outputs without new LLM calls (``derived_from``). Two deri
   failure turns the answer into an abstention;
 * adding the retrieval-score threshold (G5 = G4 + threshold): questions whose abstention score is
   below the dev-tuned threshold are abstained before any LLM call.
+
+``retrieval`` may also be ``selected:<role>`` (e.g. ``selected:best_overall``): the retrieval
+config chosen on dev by scripts/select_configs.py, read from
+``<results_dir>/tables/selected_configs.json``. Evaluations require that file; interactive use
+(ask.py, the web UI) may fall back to the first ``selection_fallback`` config whose embeddings
+are built (see :meth:`ragsys.agents.engine.AnswerEngine.retrieval_config`).
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Literal
 
@@ -43,6 +50,13 @@ class LoopSettings(StrictModel):
     on_final_revise: Literal["abstain", "answer"] = "abstain"
 
 
+SELECTED_PREFIX = "selected:"
+
+
+class SelectionMissing(FileNotFoundError):
+    """A system uses ``selected:<role>`` but select_configs.py has not written that role yet."""
+
+
 class SystemSpec(StrictModel):
     description: str
     retrieval: str | None = None  # retrieval config id (runnable system)
@@ -57,14 +71,14 @@ class SystemSpec(StrictModel):
             raise ValueError("a system needs exactly one of 'retrieval' or 'derived_from'")
         if self.critic and not self.guards:
             raise ValueError("the critic loop always runs the deterministic guards")
-        if self.retrieval is not None:
+        if self.retrieval is not None and not self.retrieval.startswith(SELECTED_PREFIX):
             parse_config_id(self.retrieval)  # fail early on a bad id
         return self
 
 
 class AbstentionSettings(StrictModel):
     threshold_file: Path = Path("results/tables/abstention_threshold.json")
-    tuned_system: str = "G5"  # the system whose threshold is tuned on dev
+    tuned_system: str | None = "G5"  # the system whose threshold is tuned on dev (None: none)
 
 
 class NLISettings(StrictModel):
@@ -92,6 +106,7 @@ class UISettings(StrictModel):
 
 
 class GenerationSettings(StrictModel):
+    profile: str = "consumer_law"  # prompt wording (ragsys.profiles)
     llm_config: Path = Path("configs/llm.yaml")
     llm_overrides: dict[str, Any] = Field(default_factory=lambda: {"temperature": 0.0})
     # Context window of the served model (Ollama: OLLAMA_CONTEXT_LENGTH); a warning is recorded
@@ -104,6 +119,10 @@ class GenerationSettings(StrictModel):
     loop: LoopSettings = Field(default_factory=LoopSettings)
     systems: dict[str, SystemSpec]
     abstention: AbstentionSettings = Field(default_factory=AbstentionSettings)
+    # interactive fallback for "selected:" systems before select_configs.py has run
+    selection_fallback: list[str] = Field(default_factory=list)
+    # systems of the standard set that this collection does not run, with the reason
+    skipped_systems: dict[str, str] = Field(default_factory=dict)
     nli: NLISettings = Field(default_factory=NLISettings)
     eval: AnswerEvalSettings = Field(default_factory=AnswerEvalSettings)
     ui: UISettings = Field(default_factory=UISettings)
@@ -136,8 +155,14 @@ class GenerationSettings(StrictModel):
                 raise ValueError(f"unknown system {name!r}")
         if self.ui.default_system not in self.ui.systems:
             raise ValueError("ui.default_system must be one of ui.systems")
-        if self.abstention.tuned_system not in self.systems:
-            raise ValueError(f"unknown abstention.tuned_system {self.abstention.tuned_system!r}")
+        tuned = self.abstention.tuned_system
+        if tuned is not None and tuned not in self.systems:
+            raise ValueError(f"unknown abstention.tuned_system {tuned!r}")
+        for cid in self.selection_fallback:
+            parse_config_id(cid)
+        from ragsys.profiles import get_profile
+
+        get_profile(self.profile)  # fail early on an unknown profile
         return self
 
     # ------------------------------------------------------------------ helpers
@@ -158,7 +183,28 @@ class GenerationSettings(StrictModel):
         return rid
 
     def retrieval_cfg(self, name: str) -> RetrievalConfig:
-        return parse_config_id(self.retrieval_id(name))
+        """The retrieval config of a system (``selected:<role>`` is read from the selection
+        file; :class:`SelectionMissing` when it is not there yet)."""
+        rid = self.retrieval_id(name)
+        if rid.startswith(SELECTED_PREFIX):
+            return self.selected_retrieval(rid[len(SELECTED_PREFIX) :])
+        return parse_config_id(rid)
+
+    def selection_path(self) -> Path:
+        return resolve_path(self.results_dir) / "tables" / "selected_configs.json"
+
+    def selected_retrieval(self, role: str) -> RetrievalConfig:
+        path = self.selection_path()
+        if not path.exists():
+            raise SelectionMissing(
+                f"{path} not found: run the dev retrieval grid and scripts/select_configs.py "
+                f"before using a 'selected:{role}' system"
+            )
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for entry in data.get("selected", []):
+            if role in entry.get("roles", []):
+                return RetrievalConfig.model_validate(entry["config"])
+        raise SelectionMissing(f"no config with role {role!r} in {path}")
 
     def is_derived(self, name: str) -> bool:
         return self.system(name).derived_from is not None

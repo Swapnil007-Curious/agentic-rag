@@ -157,6 +157,12 @@ class Paragraph:
     bold_ratio: float
     bold_text: str
     n_lines: int
+    # set by the textbook cleaner (ragsys.ingest.textbook): "text" | "heading" | "code", and for
+    # headings the level (1 = chapter), number ("5.1.2") and title without the number
+    kind: str = "text"
+    level: int | None = None
+    number: str | None = None
+    title: str | None = None
 
 
 @dataclass

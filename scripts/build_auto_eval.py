@@ -1,11 +1,15 @@
 """Build the evaluation set automatically with a local LLM and automatic quality filters.
 
 Usage:
-    python scripts/build_auto_eval.py [--rebuild] [--seed 0]
-        [--n-candidates 200] [--target-answerable 90]
-        [--n-unanswerable-candidates 90] [--target-unanswerable 30]
-        [--llm-config configs/llm.yaml] [--config configs/retrieval.yaml]
-        [--questions data/eval/questions.jsonl] [--report results/tables/eval_construction.json]
+    python scripts/build_auto_eval.py [--collection NAME] [--rebuild] [--seed 0]
+        [--n-candidates N] [--target-answerable N]
+        [--n-unanswerable-candidates N] [--target-unanswerable N]
+        [--llm-config FILE] [--config FILE] [--questions FILE] [--report FILE]
+
+Counts default to the collection's auto_eval settings (consumer_law: 200 candidates -> 90
+answerable, 90 -> 30 unanswerable; cs_ai: 140 -> 60, 60 -> 20). Prompts, the question-type mix
+and the out-of-scope topics come from the collection's profile (ragsys.profiles); LLM responses
+are cached in the collection's own <processed_dir>/llm_cache.
 
 Answerable: 200 candidates from the drafting code (same type mix, seed 0), then the filters
 format -> provision_number -> copy (one paraphrase attempt) -> numbers -> support (LLM) ->
@@ -39,6 +43,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import load_ingest_config, resolve_path
 from ragsys.eval.autogen import AutoEvalBuilder
 from ragsys.eval.schema import AUTO_ORIGIN, EvalQuestion
@@ -46,6 +51,7 @@ from ragsys.eval.split import split_of
 from ragsys.eval.validate import load_questions
 from ragsys.ingest.pipeline import load_nodes, load_xrefs
 from ragsys.llm.client import ChatModel, LLMClient, load_llm_config
+from ragsys.profiles import get_profile
 from ragsys.retrieval.config import load_retrieval_settings
 from ragsys.retrieval.pipeline import RetrievalResources
 from ragsys.utils.console import emit
@@ -115,14 +121,15 @@ def main(argv: list[str] | None = None, llm: ChatModel | None = None) -> int:
     )
     ap.add_argument("--rebuild", action="store_true", help="replace existing automatic items")
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--n-candidates", type=int, default=200)
-    ap.add_argument("--target-answerable", type=int, default=90)
-    ap.add_argument("--n-unanswerable-candidates", type=int, default=90)
-    ap.add_argument("--target-unanswerable", type=int, default=30)
+    ap.add_argument("--n-candidates", type=int, default=None)
+    ap.add_argument("--target-answerable", type=int, default=None)
+    ap.add_argument("--n-unanswerable-candidates", type=int, default=None)
+    ap.add_argument("--target-unanswerable", type=int, default=None)
     ap.add_argument("--dense-model", default="bge-small", help="retrieval check / duplicates")
-    ap.add_argument("--llm-config", default="configs/llm.yaml")
-    ap.add_argument("--config", default="configs/retrieval.yaml", help="retrieval settings")
-    ap.add_argument("--ingest-config", default="configs/ingest.yaml", help="document titles")
+    ap.add_argument("--llm-config", default=None, help="default: configs/llm.yaml")
+    ap.add_argument("--config", default=None, help="retrieval settings (default: collection's)")
+    ap.add_argument("--ingest-config", default=None, help="document titles")
+    add_collection_arguments(ap)
     ap.add_argument("--questions", default=None, help="override paths.questions")
     ap.add_argument(
         "--report", default=None, help="default: <results_dir>/tables/eval_construction.json"
@@ -134,7 +141,24 @@ def main(argv: list[str] | None = None, llm: ChatModel | None = None) -> int:
 
     t_start = time.perf_counter()
     started = _dt.datetime.now(_dt.UTC).isoformat(timespec="seconds")
-    settings = load_retrieval_settings(resolve_path(Path(args.config)))
+    coll = collection_from_args(args)
+    profile = get_profile(coll.profile)
+    defaults = coll.spec.auto_eval
+    n_candidates = args.n_candidates or defaults.n_candidates
+    target_answerable = args.target_answerable or defaults.target_answerable
+    n_unans = (
+        args.n_unanswerable_candidates
+        if args.n_unanswerable_candidates is not None
+        else defaults.n_unanswerable_candidates
+    )
+    target_unans = (
+        args.target_unanswerable
+        if args.target_unanswerable is not None
+        else defaults.target_unanswerable
+    )
+    settings = load_retrieval_settings(
+        resolve_path(config_path(args.config, coll.retrieval_config))
+    )
     set_torch_threads(args.threads)
     qpath = resolve_path(Path(args.questions) if args.questions else settings.paths.questions)
     report_path = (
@@ -164,13 +188,15 @@ def main(argv: list[str] | None = None, llm: ChatModel | None = None) -> int:
     nodes = load_nodes(nodes_path)
     xrefs = load_xrefs(res.processed_dir / "structure" / "xrefs.jsonl")
     titles = {n.doc_id: n.doc_title for n in nodes}
-    ing = resolve_path(Path(args.ingest_config))
+    ing = resolve_path(config_path(args.ingest_config, coll.ingest_config))
     if ing.exists():
         titles.update({d.doc_id: d.display_title for d in load_ingest_config(ing).documents})
 
     base_url: str | None = None
     if llm is None:
-        cfg = load_llm_config(resolve_path(Path(args.llm_config)))
+        cfg = (
+            load_llm_config(resolve_path(Path(args.llm_config))) if args.llm_config else coll.llm()
+        )
         client = LLMClient(cfg)
         if not client.is_reachable():
             emit(
@@ -198,13 +224,15 @@ def main(argv: list[str] | None = None, llm: ChatModel | None = None) -> int:
         seed=args.seed,
         dense_model=args.dense_model,
         out=emit,
+        profile=profile,
     )
+    emit(f"collection {coll.name}: profile {profile.name}")
     try:
         result = builder.build(
-            n_candidates=args.n_candidates,
-            target_answerable=args.target_answerable,
-            n_unanswerable_candidates=args.n_unanswerable_candidates,
-            target_unanswerable=args.target_unanswerable,
+            n_candidates=n_candidates,
+            target_answerable=target_answerable,
+            n_unanswerable_candidates=n_unans,
+            target_unanswerable=target_unans,
         )
     finally:
         released = res.loaded_encoders()
@@ -232,6 +260,7 @@ def main(argv: list[str] | None = None, llm: ChatModel | None = None) -> int:
             "created_utc": _dt.datetime.now(_dt.UTC).isoformat(timespec="seconds"),
             "started_utc": started,
             "base_url": base_url,
+            "collection": coll.name,
             "questions_file": str(qpath),
             "questions_sha256": hashlib.sha256(qpath.read_bytes()).hexdigest(),
             "rebuild": bool(args.rebuild),
@@ -258,8 +287,8 @@ def main(argv: list[str] | None = None, llm: ChatModel | None = None) -> int:
     fc = report["final_counts"]["new_items"]
     emit(
         f"appended {len(new_q)} item(s) to {qpath}: {fc['answerable']} answerable "
-        f"(target {args.target_answerable}) + {fc['unanswerable']} unanswerable "
-        f"(target {args.target_unanswerable})"
+        f"(target {target_answerable}) + {fc['unanswerable']} unanswerable "
+        f"(target {target_unans})"
     )
     emit("  by type: " + ", ".join(f"{k}={v}" for k, v in fc["by_type"].items()))
     emit(
@@ -276,7 +305,8 @@ def main(argv: list[str] | None = None, llm: ChatModel | None = None) -> int:
     emit(f"wrote {report_path}")
     emit(f"total wall time {fmt_duration(time.perf_counter() - t_start)}")
     emit(
-        "Next: python scripts/validate_eval.py   (optional: python scripts/spot_check.py --n 20 --seed 0)"
+        f"Next: python scripts/validate_eval.py --collection {coll.name}   "
+        f"(optional: python scripts/spot_check.py --collection {coll.name} --n 20 --seed 0)"
     )
     return 0
 

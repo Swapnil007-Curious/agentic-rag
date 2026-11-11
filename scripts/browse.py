@@ -6,6 +6,8 @@ Usage (PowerShell or any shell):
     python scripts/browse.py show "cpa2019:s2(7)"      quote IDs that contain parentheses
     python scripts/browse.py search "unfair trade practice"   keyword search, top 20
     python scripts/browse.py defs [--doc ecom2020]     all defined terms with node IDs
+    python scripts/browse.py --collection cs_ai list --doc d2l      chapters/sections of a book
+    python scripts/browse.py --collection cs_ai show d2l:11.5       a textbook section
 Output is plain text (no box-drawing characters) and safe for cp1252 consoles.
 """
 
@@ -17,7 +19,8 @@ import sys
 import textwrap
 from pathlib import Path
 
-from ragsys.chunking.base import node_label
+from ragsys.chunking.base import node_label, textbook_label
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import resolve_path
 from ragsys.eval.validate import suggest_ids
 from ragsys.ingest.pipeline import load_footnotes, load_nodes, load_xrefs
@@ -40,6 +43,8 @@ def own_segments(node: Node, by_id: dict[str, Node], text: str) -> list[str]:
 
 
 def node_title(n: Node) -> str:
+    if n.doc_type == "textbook":
+        return textbook_label(n)
     if n.level in ("section", "rule"):
         return f"{'Section' if n.level == 'section' else 'Rule'} {n.number} - {n.heading}"
     if n.level == "chapter":
@@ -72,6 +77,19 @@ def cmd_list(nodes: list[Node], doc: str | None) -> None:
             emit(f"no nodes for doc {d!r}; known: {sorted({n.doc_id for n in nodes})}")
             continue
         emit(f"== {d}: {dn[0].doc_title}")
+        if dn[0].doc_type == "textbook":
+            depth = {"chapter": 0, "section": 1, "subsection": 2, "heading": 3}
+            for n in sorted(dn, key=lambda n: n.order):
+                if n.level == "code":
+                    continue
+                pages = (
+                    f"p.{n.page_start}"
+                    if n.page_start == n.page_end
+                    else f"pp.{n.page_start}-{n.page_end}"
+                )
+                indent = "  " * (depth.get(n.level, 3) + 1)
+                emit(f"{indent}{n.node_id:24s} {node_title(n)}  [{pages}]")
+            continue
         for n in sorted(dn, key=lambda n: n.order):
             pages = (
                 f"p.{n.page_start}"
@@ -199,7 +217,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("--processed-dir", default="data/processed")
+    ap.add_argument("--processed-dir", default=None, help="default: the collection's")
+    add_collection_arguments(ap)
     sub = ap.add_subparsers(dest="cmd", required=True)
     p_list = sub.add_parser("list", help="sections/rules with headings")
     p_list.add_argument("--doc", default=None)
@@ -214,7 +233,8 @@ def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
 
-    processed = resolve_path(Path(args.processed_dir))
+    coll = collection_from_args(args)
+    processed = resolve_path(config_path(args.processed_dir, coll.processed_dir))
     nodes_path = processed / "structure" / "nodes.jsonl"
     if not nodes_path.exists():
         emit(f"{nodes_path} not found; run scripts/ingest.py first")

@@ -19,9 +19,9 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import load_ingest_config, resolve_path
 from ragsys.eval.drafting import (
-    TYPE_MIX,
     allocate,
     build_pools,
     draft_questions,
@@ -34,8 +34,18 @@ from ragsys.eval.validate import load_questions
 from ragsys.ingest.pipeline import load_nodes, load_xrefs
 from ragsys.llm.client import ChatModel, LLMClient, load_llm_config
 from ragsys.llm.fake import FakeLLM
+from ragsys.profiles import get_profile
 from ragsys.retrieval.corpus import NodeGraph
 from ragsys.utils.console import emit
+
+ALL_TYPES = [
+    "definition",
+    "factual",
+    "procedural",
+    "numeric",
+    "cross_reference",
+    "multi_section",
+]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -43,19 +53,22 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("--n", type=int, default=150)
-    ap.add_argument("--types", nargs="+", choices=list(TYPE_MIX), default=None)
+    ap.add_argument("--types", nargs="+", choices=ALL_TYPES, default=None)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--llm-config", default="configs/llm.yaml")
+    ap.add_argument("--llm-config", default=None, help="default: configs/llm.yaml")
     ap.add_argument("--fake", action="store_true", help="use the deterministic FakeLLM")
-    ap.add_argument("--out", default="data/eval/drafts.jsonl")
-    ap.add_argument("--questions", default="data/eval/questions.jsonl")
-    ap.add_argument("--processed-dir", default="data/processed")
-    ap.add_argument("--ingest-config", default="configs/ingest.yaml")
+    ap.add_argument("--out", default=None, help="default: <eval_dir>/drafts.jsonl")
+    ap.add_argument("--questions", default=None, help="default: <eval_dir>/questions.jsonl")
+    ap.add_argument("--processed-dir", default=None)
+    ap.add_argument("--ingest-config", default=None)
+    add_collection_arguments(ap)
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
 
-    processed = resolve_path(Path(args.processed_dir))
+    coll = collection_from_args(args)
+    profile = get_profile(coll.profile)
+    processed = resolve_path(config_path(args.processed_dir, coll.processed_dir))
     nodes_path = processed / "structure" / "nodes.jsonl"
     if not nodes_path.exists():
         emit(f"{nodes_path} not found; run scripts/ingest.py first")
@@ -64,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
     xrefs = load_xrefs(processed / "structure" / "xrefs.jsonl")
     graph = NodeGraph(nodes)
     titles = {n.doc_id: n.doc_title for n in nodes}
-    ing = resolve_path(Path(args.ingest_config))
+    ing = resolve_path(config_path(args.ingest_config, coll.ingest_config))
     if ing.exists():
         titles.update({d.doc_id: d.display_title for d in load_ingest_config(ing).documents})
 
@@ -74,7 +87,9 @@ def main(argv: list[str] | None = None) -> int:
         llm = FakeLLM()
         emit("using FakeLLM (deterministic canned drafts, no network) -- not real drafts")
     else:
-        cfg = load_llm_config(resolve_path(Path(args.llm_config)))
+        cfg = (
+            load_llm_config(resolve_path(Path(args.llm_config))) if args.llm_config else coll.llm()
+        )
         client = LLMClient(cfg)
         if not client.is_reachable():
             emit(
@@ -87,17 +102,19 @@ def main(argv: list[str] | None = None) -> int:
         llm, base_url = client, cfg.base_url
         emit(f"using {cfg.model} at {cfg.base_url}")
 
-    out_path = resolve_path(Path(args.out))
+    out_path = resolve_path(config_path(args.out, coll.drafts_file))
     existing = load_drafts(out_path)
-    qpath = resolve_path(Path(args.questions))
+    qpath = resolve_path(config_path(args.questions, coll.questions_file))
     questions, _errs = load_questions(qpath) if qpath.exists() else ([], [])
     used = {g for d in existing for g in d.get("gold_node_ids", [])}
     used |= {g for q in questions for g in q.gold_node_ids}
 
-    mix = {t: w for t, w in TYPE_MIX.items() if args.types is None or t in args.types}
+    mix = {t: w for t, w in profile.type_mix.items() if args.types is None or t in args.types}
     alloc = allocate(args.n, mix)
-    pools = build_pools(nodes, xrefs, graph, exclude=used)
-    sample, shortfall = stratified_sample(pools, alloc, seed=args.seed)
+    pools = build_pools(nodes, xrefs, graph, exclude=used, profile=profile)
+    sample, shortfall = stratified_sample(
+        pools, alloc, seed=args.seed, order=profile.sampling_order
+    )
     emit(
         "plan: "
         + ", ".join(f"{t}={alloc[t]}" for t in mix)
@@ -108,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
         emit(f"WARNING: only {alloc[t] - k} of {alloc[t]} {t} targets available")
 
     drafts, failures = draft_questions(
-        llm, sample, titles, next_draft_number(existing), args.seed, base_url
+        llm, sample, titles, next_draft_number(existing), args.seed, base_url, profile=profile
     )
     save_drafts(out_path, existing + drafts)
     by_type = Counter(d["type"] for d in drafts)

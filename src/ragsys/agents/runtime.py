@@ -44,6 +44,7 @@ def build_engine(
     *,
     require_threshold: bool = False,
     load_threshold_file: bool = True,
+    allow_selection_fallback: bool = False,
 ) -> AnswerEngine:
     resources = RetrievalResources(retrieval_settings, rerank_cache=True)
     return AnswerEngine(
@@ -53,4 +54,5 @@ def build_engine(
         resources,
         load_threshold_file=load_threshold_file,
         require_threshold=require_threshold,
+        allow_selection_fallback=allow_selection_fallback,
     )

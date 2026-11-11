@@ -23,8 +23,6 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
-from ragsys.agents import critic as critic_mod
-from ragsys.agents import synthesizer as synth_mod
 from ragsys.agents.config import GenerationSettings
 from ragsys.agents.derive import derive_records
 from ragsys.agents.engine import AnswerEngine
@@ -38,6 +36,7 @@ from ragsys.eval.answers import (
 )
 from ragsys.eval.schema import EvalQuestion
 from ragsys.llm.client import LLMConfig
+from ragsys.profiles import CONSUMER_LAW, GenerationPrompts, get_profile
 from ragsys.retrieval.pipeline import RetrievalResources
 from ragsys.utils.memory import fmt_duration, fmt_mb, rss_bytes
 
@@ -67,15 +66,11 @@ def questions_digest(questions: Sequence[EvalQuestion]) -> str:
     return h.hexdigest()
 
 
-def prompt_digest() -> str:
+def prompt_digest(prompts: GenerationPrompts | None = None) -> str:
+    """Digest of the synthesizer and critic prompts (default: the consumer_law profile)."""
+    p = prompts or CONSUMER_LAW.generation
     text = "\n".join(
-        [
-            synth_mod.SYNTH_PROMPT_VERSION,
-            synth_mod.SYSTEM_PROMPT,
-            synth_mod.PLAIN_LANGUAGE_RULE,
-            critic_mod.CRITIC_PROMPT_VERSION,
-            critic_mod.SYSTEM_PROMPT,
-        ]
+        [p.synth_version, p.synth_system, p.plain_rule, p.critic_version, p.critic_system]
     )
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
@@ -89,7 +84,7 @@ def system_fingerprint(settings: GenerationSettings, system: str, llm: LLMConfig
             "retrieval": settings.retrieval_cfg(base).model_dump(mode="json"),
             "context": settings.context.model_dump(mode="json"),
             "loop": settings.loop.model_dump(mode="json"),
-            "prompts": prompt_digest(),
+            "prompts": prompt_digest(get_profile(settings.profile).generation),
             "llm": {
                 "base_url": llm.base_url,
                 "model": llm.model,

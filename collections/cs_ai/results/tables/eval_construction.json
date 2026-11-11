@@ -1,0 +1,896 @@
+{
+  "profile": "cs_ai",
+  "type_mix": {
+    "definition": 15,
+    "factual": 15,
+    "procedural": 12,
+    "numeric": 8,
+    "multi_section": 10
+  },
+  "cross_reference_decision": {
+    "included": false,
+    "resolved_reference_pairs": 5,
+    "min_pool": 30,
+    "weight": 0,
+    "taken_from": null,
+    "reason": "only 5 resolved cross-reference pairs between eligible passages (< 30); cross_reference questions are not built"
+  },
+  "notes": [
+    "Unanswerable questions are realistic computer science / AI questions on topics the selected chapters do not cover (other tools, chapters that were not ingested, recent model facts, company practices). The generator LLM may know answers to some of them from pretraining; this is intended: the items test whether the system abstains when the documents lack the answer, not whether an answer exists."
+  ],
+  "model": "qwen2.5:3b",
+  "seed": 0,
+  "prompt_version": "auto-v1",
+  "draft_prompt_version": "draft-v1",
+  "thresholds": {
+    "question_words": [
+      6,
+      40
+    ],
+    "max_answer_words": 40,
+    "copy_overlap": 0.6,
+    "near_duplicate_cosine": 0.9,
+    "dense_model": "BAAI/bge-small-en-v1.5",
+    "retrieval_check_k": 5
+  },
+  "answerable": {
+    "candidates": {
+      "requested": 140,
+      "type_plan": {
+        "definition": 35,
+        "factual": 35,
+        "procedural": 28,
+        "numeric": 19,
+        "multi_section": 23
+      },
+      "pool_sizes": {
+        "definition": 44,
+        "factual": 281,
+        "procedural": 217,
+        "numeric": 78,
+        "multi_section": 89
+      },
+      "sampling_shortfall": {
+        "definition": 5
+      },
+      "topped_up": {
+        "factual": 5
+      },
+      "sampled": 140,
+      "sampled_by_type": {
+        "multi_section": 23,
+        "numeric": 19,
+        "procedural": 28,
+        "definition": 30,
+        "factual": 40
+      },
+      "sampled_by_document": {
+        "d2l": 83,
+        "ods": 25,
+        "progit": 32
+      },
+      "excluded_nodes_of_existing_questions": 0
+    },
+    "drafted": 140,
+    "filters": [
+      {
+        "name": "format",
+        "description": "valid JSON with question and gold_answer; question 6-40 words; answer <= 40 words",
+        "in": 140,
+        "pass": 132,
+        "fail": 8,
+        "pass_rate": 0.9429,
+        "fail_reasons": {
+          "answer_too_long": 6,
+          "missing_fields": 2
+        },
+        "fail_examples": [
+          {
+            "reason": "answer_too_long",
+            "draft": "d0002",
+            "type": "multi_section",
+            "nodes": [
+              "d2l:11.6.1",
+              "d2l:9.5.1"
+            ],
+            "question": "What are the key components used in the self-attention mechanism described in the first passage, and how do they differ from the components used in the RNN model described in the second passage?",
+            "gold_answer": "In self-attention, the key components are the input sequence, multi-head attention, and the definition of attention pooling. In RNN, the key components are the input sequence, hidden state, and the forward method that updates the hidden state at each time step using tanh activation."
+          },
+          {
+            "reason": "answer_too_long",
+            "draft": "d0007",
+            "type": "multi_section",
+            "nodes": [
+              "d2l:h-convexity-and-second-derivatives",
+              "ods:3.3.4"
+            ],
+            "question": "How does the concept of convexity in functions relate to the process of removing an element from an SEList, as described in the passages?",
+            "gold_answer": "The concept of convexity in functions relates to the process of removing an element from an SEList by providing a method to ensure that the size of the block containing the removed element remains at least b -1, similar to how convex functions ensure that the second derivative is non-negative."
+          },
+          {
+            "reason": "answer_too_long",
+            "draft": "d0014",
+            "type": "multi_section",
+            "nodes": [
+              "ods:3.3.2",
+              "ods:6.2.1"
+            ],
+            "question": "How does the process of finding an element in an Open Data Structures list compare to finding an element in a binary search tree? What are the key differences in the search algorithms used for each data structure?",
+            "gold_answer": "In a list, you locate the correct block and then find the specific element within that block. In a binary search tree, you directly compare the value to the root and then decide to go left or right based on the comparison."
+          },
+          {
+            "reason": "answer_too_long",
+            "draft": "d0015",
+            "type": "multi_section",
+            "nodes": [
+              "ods:5.2.3",
+              "ods:11.2.2"
+            ],
+            "question": "How does the concept of independent hash values in tabulation hashing relate to the sorting algorithm described in radix-sort, and what is the significance of this relationship in the context of data structures?",
+            "gold_answer": "The relationship between tabulation hashing and radix-sort lies in their approach to handling and sorting data. Tabulation hashing uses independent hash values for elements, ensuring that different elements map to different hash values, which is crucial for the stability of radix-sort. Radix-sort's stability is ensured by the fact that elements are placed in the correct bucket during each pass, and the stable sorting property of counting-sort guarantees that the relative order of elements is preserved, making it suitable for sorting elements with a wide range of values."
+          },
+          {
+            "reason": "answer_too_long",
+            "draft": "d0017",
+            "type": "multi_section",
+            "nodes": [
+              "progit:h-deleting-tags",
+              "progit:h-deleting-remote-branches"
+            ],
+            "question": "How is the process of deleting a local tag and a remote tag similar or different, based on the information provided in the passages?",
+            "gold_answer": "Deleting a local tag with git tag -d <tagname> and deleting a remote tag with either git push <remote> :refs/tags/<tagname> or git push <remote> --delete <tagname> are both ways to remove a tag, but the first is local and the second is for remote servers."
+          },
+          {
+            "reason": "answer_too_long",
+            "draft": "d0022",
+            "type": "multi_section",
+            "nodes": [
+              "progit:h-your-identity",
+              "progit:h-git-aliases"
+            ],
+            "question": "What are some ways to set up Git aliases for common commands, and how can you create a custom alias for a specific Git operation?",
+            "gold_answer": "You can set up Git aliases for common commands like 'co' for checkout, 'ci' for commit, and 'st' for status. You can also create custom aliases like 'unstage' for resetting HEAD and 'last' for viewing the last commit. Git aliases are set up using the 'git config --global' command."
+          },
+          {
+            "reason": "missing_fields",
+            "draft": "d0026",
+            "nodes": [
+              "d2l:h-warmup"
+            ]
+          },
+          {
+            "reason": "missing_fields",
+            "draft": "d0103",
+            "nodes": [
+              "d2l:h-fine-tuning-t5"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "provision_number",
+        "description": "no section/rule/clause number in the question unless type is cross_reference",
+        "in": 132,
+        "pass": 132,
+        "fail": 0,
+        "pass_rate": 1.0,
+        "fail_reasons": {},
+        "fail_examples": []
+      },
+      {
+        "name": "copy",
+        "description": "lexical overlap with the source <= 0.6; one LLM paraphrase attempt otherwise, then re-checked (also length and provision numbers)",
+        "in": 132,
+        "pass": 75,
+        "fail": 57,
+        "pass_rate": 0.5682,
+        "fail_reasons": {
+          "copy_like_after_paraphrase": 56,
+          "paraphrase_bad_length": 1
+        },
+        "fail_examples": [
+          {
+            "reason": "copy_like_after_paraphrase",
+            "draft": "d0003",
+            "type": "multi_section",
+            "nodes": [
+              "d2l:h-convergence-analysis",
+              "d2l:7.2.3"
+            ],
+            "question": "What condition must be met for the error in Newton's method to decrease quadratically, and how does this relate to the edge detection kernel's operation in images?",
+            "gold_answer": "The error in Newton's method decreases quadratically when f^′′′(ξ^(^k^)) / (2 f^′′(x^(^k^))) ≤c, similar to how the edge detection kernel detects edges by comparing adjacent pixel values.",
+            "paraphrase": "What condition makes Newton's method error decrease quadratically, and how is this related to edge detection in images?",
+            "overlap_before": 0.75
+          },
+          {
+            "reason": "copy_like_after_paraphrase",
+            "draft": "d0008",
+            "type": "multi_section",
+            "nodes": [
+              "d2l:9.4.3",
+              "d2l:h-gpt-and-gpt-2"
+            ],
+            "question": "How does the training process for a character-level language model using an RNN differ from the training process for GPT models?",
+            "gold_answer": "The RNN uses cross-entropy loss and a softmax operation on the output from the output layer, while GPT models use language modeling as the training objective with a Transformer decoder.",
+            "paraphrase": "What are the key differences in training RNN language models vs. GPT models?",
+            "overlap_before": 0.917
+          },
+          {
+            "reason": "copy_like_after_paraphrase",
+            "draft": "d0011",
+            "type": "multi_section",
+            "nodes": [
+              "ods:2.6.1",
+              "ods:5.1.2"
+            ],
+            "question": "How does the amortized cost of grow() and shrink() operations compare to the expected time complexity of add(x) and remove(x) operations in a ChainedHashTable?",
+            "gold_answer": "The amortized cost of grow() and shrink() is O(1) per operation, while add(x) and remove(x) are O(1) expected time.",
+            "paraphrase": "What's the time complexity difference between ChainedHashTable's add(x) and remove(x) vs grow() and shrink() operations?",
+            "overlap_before": 0.867
+          },
+          {
+            "reason": "copy_like_after_paraphrase",
+            "draft": "d0012",
+            "type": "multi_section",
+            "nodes": [
+              "ods:6.2.4",
+              "ods:10.1.1"
+            ],
+            "question": "How does the performance of BinarySearchTree compare to that of BinaryHeap in terms of time complexity for add(x) and remove(x) operations?",
+            "gold_answer": "BinarySearchTree has O(n) time per operation, while BinaryHeap has O(logn) time per operation.",
+            "paraphrase": "What are the time complexity differences between BinarySearchTree and BinaryHeap for add(x) and remove(x) operations?",
+            "overlap_before": 0.75
+          },
+          {
+            "reason": "copy_like_after_paraphrase",
+            "draft": "d0013",
+            "type": "multi_section",
+            "nodes": [
+              "ods:6.1.1",
+              "ods:3.3.5"
+            ],
+            "question": "What is the relationship between the potential of the SEList and the number of calls to spread() and gather() in the context of the add(i,x) and remove(i) methods?",
+            "gold_answer": "The potential of the SEList increases by at most one when Case 1 or Case 2 occurs, and decreases by b - 1 when Case 3 occurs.",
+            "paraphrase": "How does SEList potential relate to spread() and gather() calls in add(i,x) and remove(i) methods?",
+            "overlap_before": 0.833
+          },
+          {
+            "reason": "copy_like_after_paraphrase",
+            "draft": "d0023",
+            "type": "multi_section",
+            "nodes": [
+              "progit:h-checking-out-tags",
+              "progit:h-creating-a-new-branch"
+            ],
+            "question": "What happens when you create a new branch in Pro Git and how does it differ from switching to a new branch?",
+            "gold_answer": "Creating a new branch in Pro Git creates a new pointer to the same commit you're currently on, while switching to a new branch changes the HEAD pointer to point to the new branch.",
+            "paraphrase": "How do I create a new branch in Pro Git and what's the difference from switching branches?",
+            "overlap_before": 0.8
+          },
+          {
+            "reason": "copy_like_after_paraphrase",
+            "draft": "d0029",
+            "type": "numeric",
+            "nodes": [
+              "d2l:12.8.2"
+            ],
+            "question": "What is the learning rate used in the RMSProp implementation?",
+            "gold_answer": "0.01",
+            "paraphrase": "What is the value of the learning rate in RMSProp algorithm?",
+            "overlap_before": 1.0
+          },
+          {
+            "reason": "copy_like_after_paraphrase",
+            "draft": "d0030",
+            "type": "numeric",
+            "nodes": [
+              "d2l:h-implementation-from-scratch"
+            ],
+            "question": "What is the effective sample size when the momentum hyperparameter is set to 0.9?",
+            "gold_answer": "10",
+            "paraphrase": "What happens to the sample size when momentum is 0.9?",
+            "overlap_before": 1.0
+          }
+        ]
+      },
+      {
+        "name": "numbers",
+        "description": "every number in the gold answer (digits or words) occurs in the source text, headings or document titles (numbers inside provision references may also match the source node ids)",
+        "in": 75,
+        "pass": 74,
+        "fail": 1,
+        "pass_rate": 0.9867,
+        "fail_reasons": {
+          "number_not_in_source": 1
+        },
+        "fail_examples": [
+          {
+            "reason": "number_not_in_source",
+            "draft": "d0069",
+            "type": "procedural",
+            "nodes": [
+              "progit:h-a-short-history-of-git"
+            ],
+            "question": "How can one start using Git as a new user?",
+            "gold_answer": "To start using Git, one can clone a repository, create a new branch, make changes, and commit those changes to the branch.",
+            "missing": [
+              "one"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "support",
+        "description": "LLM judge on source + question + answer returns {\"supported\": true}; corrected answers are recorded but never applied",
+        "in": 74,
+        "pass": 67,
+        "fail": 7,
+        "pass_rate": 0.9054,
+        "fail_reasons": {
+          "not_supported": 7
+        },
+        "fail_examples": [
+          {
+            "reason": "not_supported",
+            "draft": "d0005",
+            "type": "multi_section",
+            "nodes": [
+              "d2l:h-5.2.1-training",
+              "d2l:11.8.5"
+            ],
+            "question": "What common method is used to train MLPs and Vision Transformers on the Fashion-MNIST dataset?",
+            "gold_answer": "The fit method on the model and data.",
+            "corrected_answer": ""
+          },
+          {
+            "reason": "not_supported",
+            "draft": "d0018",
+            "type": "multi_section",
+            "nodes": [
+              "progit:h-getting-started-summary",
+              "progit:h-initializing-a-repository-in-an-existing-directory"
+            ],
+            "question": "What steps are needed to initialize a Git repository in an existing directory, and where does this process differ based on the operating system?",
+            "gold_answer": "To initialize, use $ git init in the directory. Differences are for Linux: $ cd /home/user/my_project; for macOS: $ cd /Users/user/my_project; for Windows: $ cd C:/Users/user/my_project.",
+            "corrected_answer": "To initialize a Git repository in an existing directory, use $ git init in the directory. Differences are for Linux: $ cd /home/user/my_project; for macOS: $ cd /Users/user/my_project; for Windows: $ cd C:/Users/user/my_project."
+          },
+          {
+            "reason": "not_supported",
+            "draft": "d0059",
+            "type": "procedural",
+            "nodes": [
+              "ods:12.4"
+            ],
+            "question": "How do I use Hopcroft-Tarjan algorithm to check if a graph is planar without edge crossings?",
+            "gold_answer": "The Hopcroft-Tarjan planarity testing algorithm can determine if a graph can be drawn in the plane and without any edges crossing in O(n) time.",
+            "corrected_answer": ""
+          },
+          {
+            "reason": "not_supported",
+            "draft": "d0060",
+            "type": "procedural",
+            "nodes": [
+              "ods:3.1.2"
+            ],
+            "question": "How can I remove the last element from an SLList?",
+            "gold_answer": "To remove from the tail, traverse the SLList from head, skipping two nodes.",
+            "corrected_answer": "To remove from the tail, traverse the SLList from head, skipping two nodes."
+          },
+          {
+            "reason": "not_supported",
+            "draft": "d0076",
+            "type": "definition",
+            "nodes": [
+              "d2l:12.8.1"
+            ],
+            "question": "What does the term 'learning rate' refer to in the context of the Adam optimization algorithm?",
+            "gold_answer": "The learning rate η is a parameter that controls the step size during gradient descent.",
+            "corrected_answer": ""
+          },
+          {
+            "reason": "not_supported",
+            "draft": "d0107",
+            "type": "factual",
+            "nodes": [
+              "d2l:h-cosine-scheduler"
+            ],
+            "question": "What equation is used for learning rate in the Cosine Annealing Scheduler?",
+            "gold_answer": "ηt= ηT+ η^0 -η^T (1 + cos(πt/T)) / 2",
+            "corrected_answer": "ηt= ηT+ η^0 -η^T (1 + cos(πt/T)) / 2"
+          },
+          {
+            "reason": "not_supported",
+            "draft": "d0140",
+            "type": "factual",
+            "nodes": [
+              "progit:h-installing-on-windows"
+            ],
+            "question": "What is Git-lfs and what is its relationship to Git?",
+            "gold_answer": "Git for Windows",
+            "corrected_answer": ""
+          }
+        ]
+      },
+      {
+        "name": "answerable_from_source",
+        "description": "the LLM answers from the source text alone; dropped when its answer states other numbers than the gold answer or names a different entity of the same kind (capitalised terms)",
+        "in": 67,
+        "pass": 66,
+        "fail": 1,
+        "pass_rate": 0.9851,
+        "fail_reasons": {
+          "number_conflict": 1
+        },
+        "fail_examples": [
+          {
+            "reason": "number_conflict",
+            "draft": "d0041",
+            "type": "numeric",
+            "nodes": [
+              "progit:h-annotated-tags"
+            ],
+            "question": "How many tag names are displayed after running git tag command?",
+            "gold_answer": "3",
+            "independent_answer": "v0.1\nv1.3\nv1.4",
+            "numbers": {
+              "gold_only": [
+                "3"
+              ],
+              "llm_only": [
+                "0.1",
+                "1.3",
+                "1.4"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "near_duplicate",
+        "description": "bge-small cosine <= 0.9 to existing questions and to earlier candidates (keep the first)",
+        "in": 66,
+        "pass": 64,
+        "fail": 2,
+        "pass_rate": 0.9697,
+        "fail_reasons": {
+          "near_duplicate": 2
+        },
+        "fail_examples": [
+          {
+            "reason": "near_duplicate",
+            "draft": "d0079",
+            "type": "definition",
+            "nodes": [
+              "d2l:h-translation-invariance"
+            ],
+            "question": "What does it mean for a neural network to be translation invariant?",
+            "gold_answer": "Translation invariance means that a shift in the input should simply lead to a shift in the hidden representation, only possible if V and U do not depend on the input's position.",
+            "similarity": 0.9057,
+            "nearest": "What does the term 'translation invariance' refer to in the context of neural networks?"
+          },
+          {
+            "reason": "near_duplicate",
+            "draft": "d0128",
+            "type": "factual",
+            "nodes": [
+              "ods:3.2.1"
+            ],
+            "question": "What is the time complexity of the add(i,x) function?",
+            "gold_answer": "O(1 + min{i,n -i})",
+            "similarity": 0.9563,
+            "nearest": "What is the time complexity of the add(i,x) operation in terms of n?"
+          }
+        ]
+      }
+    ],
+    "paraphrase": {
+      "attempted": 93,
+      "passed_copy_check": 36,
+      "in_survivors": 28
+    },
+    "independent_answer_refusals": 2,
+    "survivors": 64,
+    "survivors_by_type": {
+      "multi_section": 9,
+      "numeric": 10,
+      "procedural": 13,
+      "definition": 18,
+      "factual": 14
+    },
+    "survivors_by_document": {
+      "d2l": 43,
+      "ods": 6,
+      "progit": 15
+    },
+    "selection": {
+      "target": 60,
+      "available": 64,
+      "selected": 60,
+      "shortfall": 0,
+      "by_type": {
+        "definition": {
+          "mix_target": 15,
+          "available": 18,
+          "quota_after_redistribution": 16,
+          "selected": 16
+        },
+        "factual": {
+          "mix_target": 15,
+          "available": 14,
+          "quota_after_redistribution": 14,
+          "selected": 14
+        },
+        "procedural": {
+          "mix_target": 12,
+          "available": 13,
+          "quota_after_redistribution": 13,
+          "selected": 13
+        },
+        "numeric": {
+          "mix_target": 8,
+          "available": 10,
+          "quota_after_redistribution": 8,
+          "selected": 8
+        },
+        "multi_section": {
+          "mix_target": 10,
+          "available": 9,
+          "quota_after_redistribution": 9,
+          "selected": 9
+        }
+      },
+      "by_document": {
+        "d2l": 39,
+        "ods": 6,
+        "progit": 15
+      }
+    },
+    "mean_lexical_overlap": {
+      "selected": 0.4852,
+      "survivors": 0.4858
+    }
+  },
+  "unanswerable": {
+    "candidates_generated": {
+      "out_of_scope": 30,
+      "perturbation": 30
+    },
+    "candidates_requested": {
+      "out_of_scope": 30,
+      "perturbation": 30
+    },
+    "generation_failures": {},
+    "filters": [
+      {
+        "name": "format",
+        "description": "non-empty question of 6-40 words",
+        "in": 60,
+        "pass": 60,
+        "fail": 0,
+        "pass_rate": 1.0,
+        "fail_reasons": {},
+        "fail_examples": []
+      },
+      {
+        "name": "corpus_provision_number",
+        "description": "the question names no section or rule number that exists in this corpus",
+        "in": 60,
+        "pass": 60,
+        "fail": 0,
+        "pass_rate": 1.0,
+        "fail_reasons": {},
+        "fail_examples": []
+      },
+      {
+        "name": "near_duplicate",
+        "description": "bge-small cosine <= 0.9 to every existing and selected answerable question and to earlier unanswerable candidates (keep the first)",
+        "in": 60,
+        "pass": 54,
+        "fail": 6,
+        "pass_rate": 0.9,
+        "fail_reasons": {
+          "near_duplicate": 6
+        },
+        "fail_examples": [
+          {
+            "reason": "near_duplicate",
+            "method": "perturbation",
+            "group": "specific_company",
+            "question": "How does Microsoft implement the remove(i) method in its ArrayStack internally?",
+            "similarity": 0.9138,
+            "nearest": "What is the Big O notation for the remove(i) method in an ArrayStack?"
+          },
+          {
+            "reason": "near_duplicate",
+            "method": "perturbation",
+            "group": "specific_company",
+            "question": "How does OpenAI internally handle a remote force-push with git rebase and when is it used successfully?",
+            "similarity": 0.9126,
+            "nearest": "How does git rebase handle a remote force-push and when can it be used successfully?"
+          },
+          {
+            "reason": "near_duplicate",
+            "method": "perturbation",
+            "group": "specific_year",
+            "question": "What are the top benchmark results in deep learning for 2023?",
+            "similarity": 0.9306,
+            "nearest": "What were the key 2022 benchmark results in deep learning and how did they compare to the previous year's figures?"
+          },
+          {
+            "reason": "near_duplicate",
+            "method": "perturbation",
+            "group": "specific_year",
+            "question": "What are the expected benchmark results for deep learning models in 2024?",
+            "similarity": 0.9097,
+            "nearest": "What were the key 2022 benchmark results in deep learning and how did they compare to the previous year's figures?"
+          },
+          {
+            "reason": "near_duplicate",
+            "method": "perturbation",
+            "group": "specific_company",
+            "question": "How does Amazon use SHA-1 internally in its Git repositories?",
+            "similarity": 0.9185,
+            "nearest": "What is SHA-1 used for in Git repositories?"
+          },
+          {
+            "reason": "near_duplicate",
+            "method": "perturbation",
+            "group": "specific_year",
+            "question": "What are the projected benchmark results for deep learning models in 2025?",
+            "similarity": 0.9076,
+            "nearest": "What were the key 2022 benchmark results in deep learning and how did they compare to the previous year's figures?"
+          }
+        ]
+      },
+      {
+        "name": "retrieval_check",
+        "description": "top-5 chunks of structural|hybrid_rrf|bge-small|cfg-b8b28e shown to the LLM, which must return {\"answered\": false}",
+        "in": 54,
+        "pass": 54,
+        "fail": 0,
+        "pass_rate": 1.0,
+        "fail_reasons": {},
+        "fail_examples": []
+      }
+    ],
+    "survivors": 54,
+    "survivors_by_method": {
+      "out_of_scope": 30,
+      "perturbation": 24
+    },
+    "selection": {
+      "target": 20,
+      "available": 54,
+      "selected": 20,
+      "shortfall": 0,
+      "by_method": {
+        "out_of_scope": {
+          "available": 30,
+          "quota": 10,
+          "selected": 10
+        },
+        "perturbation": {
+          "available": 24,
+          "quota": 10,
+          "selected": 10
+        }
+      },
+      "by_group": {
+        "out_of_scope:balanced_trees": 1,
+        "out_of_scope:company_practices": 1,
+        "out_of_scope:git_hosting": 1,
+        "out_of_scope:git_internals": 1,
+        "out_of_scope:kubernetes": 1,
+        "out_of_scope:llm_facts": 1,
+        "out_of_scope:quantum": 1,
+        "out_of_scope:recsys_gp": 1,
+        "out_of_scope:reinforcement_learning": 1,
+        "out_of_scope:vision_gans": 1,
+        "perturbation:another_tool": 3,
+        "perturbation:specific_company": 3,
+        "perturbation:specific_version": 2,
+        "perturbation:specific_year": 2
+      }
+    },
+    "mean_lexical_overlap_with_top5": 0.6119
+  },
+  "llm_calls": {
+    "calls": 468,
+    "cached": 0,
+    "latency_s": 7258.7,
+    "completion_tokens": 16745,
+    "by_phase": {
+      "draft": {
+        "calls": 140,
+        "cached": 0,
+        "latency_s": 2621.1,
+        "completion_tokens": 9460
+      },
+      "paraphrase": {
+        "calls": 93,
+        "cached": 0,
+        "latency_s": 410.2,
+        "completion_tokens": 1961
+      },
+      "support": {
+        "calls": 74,
+        "cached": 0,
+        "latency_s": 1173.0,
+        "completion_tokens": 1283
+      },
+      "answer_from_source": {
+        "calls": 67,
+        "cached": 0,
+        "latency_s": 1088.1,
+        "completion_tokens": 2269
+      },
+      "out_of_scope": {
+        "calls": 10,
+        "cached": 0,
+        "latency_s": 96.8,
+        "completion_tokens": 705
+      },
+      "perturbation": {
+        "calls": 30,
+        "cached": 0,
+        "latency_s": 163.7,
+        "completion_tokens": 743
+      },
+      "retrieval_check": {
+        "calls": 54,
+        "cached": 0,
+        "latency_s": 1705.6,
+        "completion_tokens": 324
+      }
+    }
+  },
+  "generation_wall_time_s": 7284.4,
+  "created_utc": "2026-11-11T03:21:26+00:00",
+  "started_utc": "2026-11-11T01:19:56+00:00",
+  "base_url": "http://localhost:11434/v1",
+  "collection": "cs_ai",
+  "questions_file": "C:\\Users\\Admin\\agentic-rag\\collections\\cs_ai\\eval\\questions.jsonl",
+  "questions_sha256": "797c199bd4cee3e21b148d099efe7fe8bf7f15544045d7b908e2083dddfe78ba",
+  "rebuild": false,
+  "replaced_auto_items": 0,
+  "kept_existing_items": 0,
+  "ids": {
+    "first": "q001",
+    "last": "q080"
+  },
+  "final_counts": {
+    "new_items": {
+      "total": 80,
+      "answerable": 60,
+      "unanswerable": 20,
+      "by_type": {
+        "definition": 16,
+        "factual": 14,
+        "multi_section": 9,
+        "numeric": 8,
+        "procedural": 13,
+        "unanswerable": 20
+      },
+      "by_document": {
+        "(none)": 20,
+        "d2l": 39,
+        "ods": 6,
+        "progit": 15
+      },
+      "by_difficulty": {
+        "easy": 29,
+        "hard": 12,
+        "medium": 39
+      },
+      "by_split": {
+        "dev": {
+          "answerable": 20,
+          "unanswerable": 4
+        },
+        "test": {
+          "answerable": 40,
+          "unanswerable": 16
+        }
+      },
+      "by_split_type": {
+        "dev": {
+          "definition": 8,
+          "factual": 4,
+          "multi_section": 2,
+          "numeric": 2,
+          "procedural": 4,
+          "unanswerable": 4
+        },
+        "test": {
+          "definition": 8,
+          "factual": 10,
+          "multi_section": 7,
+          "numeric": 6,
+          "procedural": 9,
+          "unanswerable": 16
+        }
+      }
+    },
+    "whole_file": {
+      "total": 80,
+      "answerable": 60,
+      "unanswerable": 20,
+      "by_type": {
+        "definition": 16,
+        "factual": 14,
+        "multi_section": 9,
+        "numeric": 8,
+        "procedural": 13,
+        "unanswerable": 20
+      },
+      "by_document": {
+        "(none)": 20,
+        "d2l": 39,
+        "ods": 6,
+        "progit": 15
+      },
+      "by_difficulty": {
+        "easy": 29,
+        "hard": 12,
+        "medium": 39
+      },
+      "by_split": {
+        "dev": {
+          "answerable": 20,
+          "unanswerable": 4
+        },
+        "test": {
+          "answerable": 40,
+          "unanswerable": 16
+        }
+      },
+      "by_split_type": {
+        "dev": {
+          "definition": 8,
+          "factual": 4,
+          "multi_section": 2,
+          "numeric": 2,
+          "procedural": 4,
+          "unanswerable": 4
+        },
+        "test": {
+          "definition": 8,
+          "factual": 10,
+          "multi_section": 7,
+          "numeric": 6,
+          "procedural": 9,
+          "unanswerable": 16
+        }
+      }
+    }
+  },
+  "wall_time_s": 7289.9,
+  "peak_rss_mb": 651,
+  "run_info": {
+    "utc_time": "2026-11-11T03:21:26+00:00",
+    "git": {
+      "commit": "1bba6c3691d33ba0291538c7215ba6c81d825e24",
+      "dirty": true
+    },
+    "python": "3.11.9",
+    "python_executable": "C:\\Users\\Admin\\agentic-rag\\.venv\\Scripts\\python.exe",
+    "os": "Windows 10 (10.0.26200)",
+    "machine": "AMD64",
+    "cpu_model": "11th Gen Intel(R) Core(TM) i3-1115G4 @ 3.00GHz",
+    "cpu_count_logical": 4,
+    "cpu_count_physical": 2,
+    "ram_total_gb": 19.75,
+    "packages": {
+      "ragsys": "0.1.0",
+      "pymupdf": "2.1",
+      "pydantic": "2.14.3",
+      "PyYAML": "6.0.3",
+      "numpy": "2.4.6",
+      "psutil": "7.2.2",
+      "torch": "2.15.0+cpu",
+      "transformers": "5.22.2",
+      "tokenizers": "0.23.3",
+      "sentence-transformers": "6.2.0"
+    }
+  }
+}

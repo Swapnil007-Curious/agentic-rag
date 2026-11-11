@@ -1,0 +1,28 @@
+[
+  {
+    "utc_time": "2026-11-11T03:25:48+00:00",
+    "git_commit": "1bba6c3691d33ba0291538c7215ba6c81d825e24",
+    "git_dirty": true,
+    "configs": [
+      "structural|dense|bge-small",
+      "fixed_512|dense|bge-small",
+      "fixed_512|dense|bge-base",
+      "fixed_512|bm25"
+    ],
+    "n_questions": 56,
+    "note": "selection: C:\\Users\\Admin\\agentic-rag\\collections\\cs_ai\\results\\tables\\selected_configs.json"
+  },
+  {
+    "utc_time": "2026-11-11T03:51:38+00:00",
+    "git_commit": "1bba6c3691d33ba0291538c7215ba6c81d825e24",
+    "git_dirty": true,
+    "configs": [
+      "G1",
+      "G2",
+      "G3",
+      "G4"
+    ],
+    "n_questions": 56,
+    "note": "generation: systems G1 G2 G3 G4; no abstention threshold (no threshold system)"
+  }
+]

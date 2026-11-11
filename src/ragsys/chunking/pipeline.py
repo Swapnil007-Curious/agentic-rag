@@ -48,8 +48,19 @@ def load_corpus(processed_dir: Path) -> list[DocInput]:
     return docs
 
 
-def chunker_names(cfg: ChunkingConfig) -> list[str]:
+def all_chunker_names(cfg: ChunkingConfig) -> list[str]:
     return [f.name for f in cfg.fixed] + ["semantic", "structural"]
+
+
+def chunker_names(cfg: ChunkingConfig) -> list[str]:
+    """Chunkers of this configuration (``chunkers`` when set, else every chunker)."""
+    names = all_chunker_names(cfg)
+    if cfg.chunkers is None:
+        return names
+    unknown = [c for c in cfg.chunkers if c not in names]
+    if unknown:
+        raise ValueError(f"unknown chunker(s) {unknown} in chunkers; known: {names}")
+    return list(cfg.chunkers)
 
 
 def build_chunker(name: str, cfg: ChunkingConfig) -> Chunker:
@@ -65,7 +76,9 @@ def build_chunker(name: str, cfg: ChunkingConfig) -> Chunker:
         return SemanticChunker(tok, embedder, s.breakpoint_percentile, s.min_tokens, s.max_tokens)
     if name == "structural":
         st = cfg.structural
-        return StructuralChunker(tok, st.max_tokens, st.min_tokens, st.contextual_header)
+        return StructuralChunker(
+            tok, st.max_tokens, st.min_tokens, st.contextual_header, orphan_text=st.orphan_text
+        )
     raise ValueError(f"unknown chunker {name!r}; choose from {chunker_names(cfg)}")
 
 

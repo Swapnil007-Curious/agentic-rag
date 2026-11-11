@@ -25,6 +25,7 @@ from typing import Any
 from ragsys.agents.context import sanitize
 from ragsys.agents.llmcall import json_with_repair
 from ragsys.agents.runtime import load_settings
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import resolve_path
 from ragsys.eval.answers import chunker_of
 from ragsys.eval.generation import read_jsonl
@@ -61,16 +62,20 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("--model", required=True, help="judge model, e.g. llama3.2:3b")
-    ap.add_argument("--results", default="results/generation/dev/G4")
+    ap.add_argument("--results", default=None, help="default: <results_dir>/generation/dev/G4")
     ap.add_argument("--n", type=int, default=40)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--config", default="configs/generation.yaml")
+    ap.add_argument("--config", default=None, help="default: the collection's generation config")
+    add_collection_arguments(ap)
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
 
-    settings, rsettings = load_settings(args.config)
-    rdir = resolve_path(Path(args.results))
+    coll = collection_from_args(args)
+    settings, rsettings = load_settings(config_path(args.config, coll.generation_config))
+    rdir = resolve_path(
+        Path(args.results) if args.results else settings.results_dir / "generation" / "dev" / "G4"
+    )
     records = {r["qid"]: r for r in read_jsonl(rdir / "per_question.jsonl")}
     evals = [e for e in read_jsonl(rdir / "eval.jsonl") if e["answered"] and e["qid"] in records]
     if not evals:

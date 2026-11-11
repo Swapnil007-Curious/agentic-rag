@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import hashlib
 from pathlib import Path
+from typing import Any
 
 from ragsys.config import IngestConfig
 from ragsys.ingest.extract import pdf_page_count
@@ -64,6 +65,82 @@ def write_sources_csv(cfg: IngestConfig, raw_dir: Path, out: Path) -> list[dict[
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=FIELDS, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+    return rows
+
+
+# --------------------------------------------------------------------------- textbooks
+
+TEXTBOOK_FIELDS = [
+    "file_name",
+    "doc_id",
+    "title",
+    "authors",
+    "edition",
+    "licence",
+    "licence_url",
+    "licence_source",
+    "source_url",
+    "sha256",
+    "bytes",
+    "pages",
+    "pages_kept",
+    "chapters",
+    "downloaded_on",
+]
+
+
+def _chapters_cell(ranges: list[dict[str, Any]]) -> str:
+    cells = []
+    for r in ranges:
+        if r.get("found"):
+            cells.append(f"{r['title']} (pp. {r['start']}-{r['end']})")
+        else:
+            cells.append(f"{r['title']} (not found)")
+    return "; ".join(cells)
+
+
+def build_textbook_rows(
+    cfg: IngestConfig, raw_dir: Path, report: dict[str, Any]
+) -> list[dict[str, str]]:
+    """One row per enabled document, with the licence and chapter selection from ingestion."""
+    docs = report.get("documents", {})
+    rows = []
+    for d in cfg.enabled_documents():
+        path = raw_dir / d.file
+        present = path.exists()
+        rep = docs.get(d.doc_id, {})
+        lic = rep.get("licence") or {}
+        rows.append(
+            {
+                "file_name": d.file,
+                "doc_id": d.doc_id,
+                "title": d.title,
+                "authors": d.authors,
+                "edition": d.edition,
+                "licence": str(lic.get("licence", d.licence)),
+                "licence_url": str(lic.get("licence_url", d.licence_url)),
+                "licence_source": str(lic.get("source", "")),
+                "source_url": d.source_url,
+                "sha256": sha256_file(path) if present else "",
+                "bytes": str(path.stat().st_size) if present else "",
+                "pages": str(pdf_page_count(path)) if present else "",
+                "pages_kept": str(rep.get("pages_kept", "")),
+                "chapters": _chapters_cell(rep.get("chapter_ranges", [])),
+                "downloaded_on": d.downloaded_on,
+            }
+        )
+    return rows
+
+
+def write_textbook_sources_csv(
+    cfg: IngestConfig, raw_dir: Path, out: Path, report: dict[str, Any]
+) -> list[dict[str, str]]:
+    rows = build_textbook_rows(cfg, raw_dir, report)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=TEXTBOOK_FIELDS, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     return rows

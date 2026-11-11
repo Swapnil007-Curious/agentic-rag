@@ -25,6 +25,7 @@ import sys
 import textwrap
 from pathlib import Path
 
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import resolve_path
 from ragsys.eval.schema import EvalQuestion
 from ragsys.eval.spot_check import remove_auto_items, run_session, sample_items, summarise
@@ -55,8 +56,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--n", type=int, default=20)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--config", default="configs/retrieval.yaml")
+    ap.add_argument("--config", default=None, help="default: the collection's retrieval config")
     ap.add_argument("--questions", default=None, help="override paths.questions")
+    add_collection_arguments(ap)
     ap.add_argument(
         "--out", default=None, help="default: <results_dir>/tables/eval_spot_check.json"
     )
@@ -69,7 +71,10 @@ def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
 
-    settings = load_retrieval_settings(resolve_path(Path(args.config)))
+    coll = collection_from_args(args)
+    settings = load_retrieval_settings(
+        resolve_path(config_path(args.config, coll.retrieval_config))
+    )
     qpath = resolve_path(Path(args.questions) if args.questions else settings.paths.questions)
     out_path = (
         resolve_path(Path(args.out))

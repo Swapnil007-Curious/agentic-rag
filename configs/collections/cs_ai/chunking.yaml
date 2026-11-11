@@ -1,0 +1,22 @@
+# Chunking for the cs_ai collection: fixed_512 and structural only (same size rules as
+# consumer_law). Structural chunks also cover a chapter's introduction before its first section.
+
+paths:
+  processed_dir: collections/cs_ai/processed
+  cache_dir: collections/cs_ai/processed/cache
+
+tokenizer_model: BAAI/bge-small-en-v1.5
+seed: 42
+
+chunkers: [fixed_512, structural]
+
+fixed:
+  - name: fixed_512
+    size: 512
+    overlap: 64
+
+structural:
+  max_tokens: 384
+  min_tokens: 48
+  contextual_header: true
+  orphan_text: true

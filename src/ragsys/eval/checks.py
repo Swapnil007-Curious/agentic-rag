@@ -53,6 +53,24 @@ def mentions_provision_number(text: str) -> bool:
     return PROVISION_REF_RE.search(text) is not None
 
 
+BOOK_REF_RE = re.compile(
+    r"\b(?:sections?|chapters?|figs?\.|figures?|tables?|equations?|eqs?\.)\s*\(?\d+(?:\.\d+)*\)?"
+    r"|§\s*\d+(?:\.\d+)*",
+    re.IGNORECASE,
+)
+_BOOK_NUMBER_RE = re.compile(r"(?:\b(?:sections?|chapters?)|§)\s*(\d+(?:\.\d+)*)", re.IGNORECASE)
+
+
+def mentions_book_reference(text: str) -> bool:
+    """True when ``text`` names a book section, chapter, figure, table or equation number."""
+    return BOOK_REF_RE.search(text) is not None
+
+
+def book_reference_numbers(text: str) -> set[str]:
+    """Numbers written after "section"/"chapter"/"§", e.g. {"5.1", "3"}."""
+    return {m.group(1) for m in _BOOK_NUMBER_RE.finditer(text)}
+
+
 def section_rule_numbers(text: str) -> set[str]:
     """Numbers written after "section"/"rule" (or "s."/"r."), lower-cased, e.g. {"35", "2a"}."""
     return {m.group(1).lower() for m in _REF_NUMBER_RE.finditer(text)}

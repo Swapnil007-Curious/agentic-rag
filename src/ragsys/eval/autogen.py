@@ -54,7 +54,9 @@ from typing import Any, TypeVar
 
 from ragsys.eval import drafting
 from ragsys.eval.checks import (
+    book_reference_numbers,
     entity_conflicts,
+    mentions_book_reference,
     mentions_provision_number,
     n_words,
     near_duplicates,
@@ -74,6 +76,7 @@ from ragsys.eval.drafting import (
 )
 from ragsys.eval.schema import AUTO_ORIGIN, Difficulty, EvalQuestion
 from ragsys.llm.client import ChatModel, LLMJSONError, LLMResponse, Message
+from ragsys.profiles import CONSUMER_LAW, EvalProfile
 from ragsys.retrieval.config import RetrievalConfig
 from ragsys.retrieval.corpus import NodeGraph
 from ragsys.retrieval.pipeline import RetrievalResources, Retriever
@@ -92,151 +95,21 @@ PASSAGE_CHARS = 1200
 OUT_OF_SCOPE_PER_CALL = 3
 
 OutFn = Callable[[str], None]
+_BOOK_NUMBER_LEVELS = frozenset({"chapter", "section", "subsection"})
 T = TypeVar("T")
 
 _JSON_ONLY = "Reply with a single JSON object and nothing else."
+# Domain-independent prompts; the domain-specific ones come from the profile (ragsys.profiles).
 SYSTEM_PARAPHRASE = f"You rewrite questions in plain, everyday English. {_JSON_ONLY}"
-SYSTEM_SUPPORT = (
-    f"You are a strict fact checker for a legal question-answering benchmark. {_JSON_ONLY}"
-)
-SYSTEM_ANSWER = f"You answer questions using only the legal text you are given. {_JSON_ONLY}"
-SYSTEM_OUT_OF_SCOPE = (
-    "You write realistic questions that people in India ask about legal and consumer matters. "
-    f"{_JSON_ONLY}"
-)
 SYSTEM_PERTURB = f"You rewrite questions so that they ask about a different subject. {_JSON_ONLY}"
 SYSTEM_RETRIEVAL = f"You judge whether retrieved passages answer a question. {_JSON_ONLY}"
-
-CORPUS_NAME = "the Consumer Protection Act, 2019 and its four Rules"
-
-# (topic id, description given to the LLM, short subject used in the gold reason)
-OUT_OF_SCOPE_TOPICS: tuple[tuple[str, str, str], ...] = (
-    (
-        "state_fees",
-        "court fees, stamp duty or registration charges that apply only in one particular "
-        "Indian state, such as Maharashtra, Karnataka or Tamil Nadu",
-        "fees that apply only in a particular state",
-    ),
-    (
-        "state_procedures",
-        "procedures run by one particular state government, such as a state's own consumer "
-        "helpline, ration card or electricity complaint process in Kerala, Punjab or West Bengal",
-        "procedures of a particular state government",
-    ),
-    (
-        "ipc_bns",
-        "criminal offences such as cheating, fraud or forgery and their punishments under the "
-        "Indian Penal Code or the Bharatiya Nyaya Sanhita",
-        "criminal law (the Indian Penal Code / Bharatiya Nyaya Sanhita)",
-    ),
-    (
-        "motor_vehicles",
-        "traffic fines, driving licences, vehicle registration and accident insurance claims "
-        "under the Motor Vehicles Act",
-        "the Motor Vehicles Act",
-    ),
-    (
-        "rti",
-        "filing a Right to Information (RTI) application: fees, time limits for replies and "
-        "appeals under the RTI Act",
-        "the Right to Information Act",
-    ),
-    (
-        "income_tax",
-        "income tax returns, TDS, deductions and tax refunds under the Income-tax Act",
-        "the Income-tax Act",
-    ),
-    (
-        "contract_act",
-        "when a contract is valid or void, agreements with minors, and remedies for breach of "
-        "contract under the Indian Contract Act, 1872",
-        "the Indian Contract Act, 1872",
-    ),
-    (
-        "cpa1986_limits",
-        "how things worked under the old, repealed Consumer Protection Act, 1986, such as the "
-        "money limits and time limits of the old District Forum",
-        "the repealed Consumer Protection Act, 1986",
-    ),
-    (
-        "cpa1986_bodies",
-        "how the District Forum, State Commission and National Commission were set up and "
-        "staffed under the repealed Consumer Protection Act, 1986",
-        "the repealed Consumer Protection Act, 1986",
-    ),
-    (
-        "supreme_court",
-        "what the Supreme Court of India decided in specific consumer protection judgments",
-        "court judgments (case law)",
-    ),
-    (
-        "ncdrc_cases",
-        "outcomes of specific landmark cases decided by the National Consumer Disputes Redressal "
-        "Commission, such as medical negligence or builder delay cases",
-        "decisions in specific cases (case law)",
-    ),
-    (
-        "addresses",
-        "the postal address, office hours or location of a particular District Commission or "
-        "State Commission office",
-        "office addresses and opening hours",
-    ),
-    (
-        "phone_numbers",
-        "phone numbers, email addresses or websites of consumer helplines and consumer "
-        "commission offices",
-        "phone numbers and contact details",
-    ),
-    (
-        "case_timelines",
-        "the status, dates or timeline of a specific real consumer case against a named company",
-        "the timeline of a specific real case",
-    ),
-    (
-        "banking_ombudsman",
-        "complaints about banks under the Reserve Bank of India's Banking Ombudsman or "
-        "Integrated Ombudsman Scheme",
-        "the RBI banking ombudsman schemes",
-    ),
-)
-
-# perturbation kind -> (concrete targets, template of the target description)
-PERTURBATION_TARGETS: dict[str, tuple[tuple[str, ...], str]] = {
-    "another_law": (
-        (
-            "the Right to Information Act, 2005",
-            "the Motor Vehicles Act, 1988",
-            "the Income-tax Act, 1961",
-            "the Indian Contract Act, 1872",
-            "the Bharatiya Nyaya Sanhita, 2023",
-            "the repealed Consumer Protection Act, 1986",
-            "the Real Estate (Regulation and Development) Act, 2016",
-            "the Banking Regulation Act, 1949",
-        ),
-        "{x}",
-    ),
-    "specific_state": (
-        ("Kerala", "Maharashtra", "Punjab", "Assam", "Gujarat", "Tamil Nadu", "Bihar", "Goa"),
-        "a rule, fee or practice that applies only in the state of {x}",
-    ),
-    "specific_company": (
-        (
-            "Flipkart",
-            "Amazon India",
-            "Tata Motors",
-            "Reliance Jio",
-            "HDFC Bank",
-            "Zomato",
-            "IndiGo Airlines",
-            "Maruti Suzuki",
-        ),
-        "the company {x}'s own policy or practice",
-    ),
-    "specific_year": (
-        ("2017", "2022", "2015", "2023", "2018", "2021"),
-        "figures, events or cases from the year {x}",
-    ),
-}
+# consumer_law values under their original names
+SYSTEM_SUPPORT = CONSUMER_LAW.support_system
+SYSTEM_ANSWER = CONSUMER_LAW.answer_system
+SYSTEM_OUT_OF_SCOPE = CONSUMER_LAW.oos_system
+CORPUS_NAME = CONSUMER_LAW.corpus_name
+OUT_OF_SCOPE_TOPICS: tuple[tuple[str, str, str], ...] = CONSUMER_LAW.oos_topics
+PERTURBATION_TARGETS: dict[str, tuple[tuple[str, ...], str]] = CONSUMER_LAW.perturbation_targets
 
 
 # --------------------------------------------------------------------------- bookkeeping
@@ -406,9 +279,11 @@ class UnanswerableItem:
 # --------------------------------------------------------------------------- prompts
 
 
-def source_blocks(c: Candidate, doc_titles: dict[str, str]) -> str:
+def source_blocks(
+    c: Candidate, doc_titles: dict[str, str], profile: EvalProfile | None = None
+) -> str:
     """The provision text(s) exactly as the drafting prompt shows them."""
-    labels = ["PROVISION", "SECOND PROVISION"]
+    labels = (profile or CONSUMER_LAW).source_labels
     blocks = []
     for label, n in zip(labels, c.nodes, strict=False):
         title = doc_titles.get(n.doc_id, n.doc_title)
@@ -420,21 +295,21 @@ def _messages(system: str, user: str) -> list[Message]:
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
-def paraphrase_messages(question: str, qtype: str) -> list[Message]:
+def paraphrase_messages(
+    question: str, qtype: str, profile: EvalProfile | None = None
+) -> list[Message]:
+    p = profile or CONSUMER_LAW
     numbers_rule = (
-        "You may keep a section or rule number if the question needs it."
-        if qtype == "cross_reference"
-        else "Do not mention section, rule, sub-section or clause numbers."
+        p.paraphrase_number_rule_xref if qtype == "cross_reference" else p.paraphrase_number_rule
     )
     user = "\n".join(
         [
-            "Rewrite this question the way an ordinary citizen would ask it:",
+            p.paraphrase_intro,
             f'"{question}"',
             "",
             "Rules:",
             "- Keep exactly the same meaning, so that the same answer still applies.",
-            "- Use plain, everyday words instead of legal terms; avoid wording copied from "
-            "legal texts.",
+            p.paraphrase_wording_rule,
             f"- {numbers_rule}",
             f"- Between {MIN_QUESTION_WORDS} and {MAX_QUESTION_WORDS} words.",
             "",
@@ -444,21 +319,21 @@ def paraphrase_messages(question: str, qtype: str) -> list[Message]:
     return _messages(SYSTEM_PARAPHRASE, user)
 
 
-def support_messages(c: Candidate, titles: dict[str, str], q: str, a: str) -> list[Message]:
+def support_messages(
+    c: Candidate, titles: dict[str, str], q: str, a: str, profile: EvalProfile | None = None
+) -> list[Message]:
+    p = profile or CONSUMER_LAW
     user = "\n".join(
         [
-            "Check a question-answer pair against the legal text.",
+            p.support_intro,
             "",
-            "LEGAL TEXT:",
-            source_blocks(c, titles),
+            p.text_label,
+            source_blocks(c, titles, p),
             "",
             f"QUESTION: {q}",
             f"PROPOSED ANSWER: {a}",
             "",
-            "Is the proposed answer correct and fully supported by the legal text? Every fact, "
-            "number, authority and condition in the answer must be stated in the text, and the "
-            "answer must answer the question. If the answer adds anything that is not in the "
-            "text, or gets anything wrong, it is not supported.",
+            p.support_rule,
             "",
             "Reply with a JSON object with two keys:",
             '"supported": true or false,',
@@ -466,64 +341,71 @@ def support_messages(c: Candidate, titles: dict[str, str], q: str, a: str) -> li
             'is false, otherwise "".',
         ]
     )
-    return _messages(SYSTEM_SUPPORT, user)
+    return _messages(p.support_system, user)
 
 
-def answer_messages(c: Candidate, titles: dict[str, str], q: str) -> list[Message]:
+def answer_messages(
+    c: Candidate, titles: dict[str, str], q: str, profile: EvalProfile | None = None
+) -> list[Message]:
+    p = profile or CONSUMER_LAW
     user = "\n".join(
         [
-            "Answer the question using only the legal text below.",
+            p.answer_intro,
             "",
-            "LEGAL TEXT:",
-            source_blocks(c, titles),
+            p.text_label,
+            source_blocks(c, titles, p),
             "",
             f"QUESTION: {q}",
             "",
             "Rules:",
-            "- Use only the legal text; do not use outside knowledge.",
+            p.answer_rule,
             f"- Answer in at most {MAX_ANSWER_WORDS} words.",
             '- If the text does not contain the answer, answer "not stated in the text".',
             "",
             'Reply with a JSON object: {"answer": "..."}',
         ]
     )
-    return _messages(SYSTEM_ANSWER, user)
+    return _messages(p.answer_system, user)
 
 
-def out_of_scope_messages(topic: str, n: int = OUT_OF_SCOPE_PER_CALL) -> list[Message]:
+def out_of_scope_messages(
+    topic: str, n: int = OUT_OF_SCOPE_PER_CALL, profile: EvalProfile | None = None
+) -> list[Message]:
+    p = profile or CONSUMER_LAW
     slots = ", ".join(['"..."'] * n)
     user = "\n".join(
         [
-            f"Write {n} different questions that an ordinary person in India might really ask "
-            "about this topic:",
+            p.oos_intro.format(n=n),
             topic,
             "",
             "Rules:",
             "- Each question must be specific, self-contained and between 8 and 30 words long.",
-            "- Use plain, everyday language, as a consumer or citizen would.",
-            "- Do not mention section or rule numbers.",
+            p.oos_language_rule,
+            p.oos_number_rule,
             f"- The {n} questions must be about different aspects of the topic.",
             "",
             f'Reply with a JSON object: {{"questions": [{slots}]}}',
         ]
     )
-    return _messages(SYSTEM_OUT_OF_SCOPE, user)
+    return _messages(p.oos_system, user)
 
 
-def perturbation_messages(question: str, target: str) -> list[Message]:
+def perturbation_messages(
+    question: str, target: str, profile: EvalProfile | None = None
+) -> list[Message]:
+    p = profile or CONSUMER_LAW
     user = "\n".join(
         [
-            "Here is a question about Indian consumer protection law:",
+            p.perturb_intro,
             f'"{question}"',
             "",
             f"Rewrite it into a new question about {target}.",
             "Rules:",
-            f"- The new question must clearly be about {target}, not about the Consumer "
-            "Protection Act, 2019 or its Rules.",
+            p.perturb_not_about.format(target=target),
             "- Change the subject of the question; do not just add the name to the end of the "
             "old question.",
             "- Plain, everyday language; between 8 and 30 words.",
-            "- Do not mention section or rule numbers.",
+            p.perturb_number_rule,
             "",
             'Reply with a JSON object: {"question": "..."}',
         ]
@@ -531,16 +413,15 @@ def perturbation_messages(question: str, target: str) -> list[Message]:
     return _messages(SYSTEM_PERTURB, user)
 
 
-def retrieval_check_messages(question: str, passages: Sequence[tuple[str, str]]) -> list[Message]:
-    lines = [f"QUESTION: {question}", "", "PASSAGES (from Indian consumer protection law):"]
+def retrieval_check_messages(
+    question: str, passages: Sequence[tuple[str, str]], profile: EvalProfile | None = None
+) -> list[Message]:
+    p = profile or CONSUMER_LAW
+    lines = [f"QUESTION: {question}", "", p.retrieval_header]
     for i, (heading, text) in enumerate(passages, start=1):
         lines += [f"[{i}] {heading}", text[:PASSAGE_CHARS], ""]
     lines += [
-        "Do these passages contain the answer to this exact question? Answer true only if the "
-        "passages themselves state the answer to the question as asked, including the specific "
-        "law, state, company, year, person or case it asks about. Answer false if the passages "
-        "are only about a related topic or a different law, or do not give the specific "
-        "information asked for.",
+        p.retrieval_rule,
         "",
         'Reply with a JSON object: {"answered": true} or {"answered": false}',
     ]
@@ -719,7 +600,11 @@ class AutoEvalBuilder:
         seed: int = 0,
         dense_model: str = "bge-small",
         out: OutFn = print,
+        profile: EvalProfile | None = None,
     ) -> None:
+        self.profile = profile or CONSUMER_LAW
+        self.type_mix: dict[str, int] = dict(self.profile.type_mix)
+        self.cross_reference_decision: dict[str, Any] | None = None
         self.llm = MeteredLLM(llm)
         self.resources = resources
         self.nodes = list(nodes)
@@ -732,9 +617,14 @@ class AutoEvalBuilder:
         self.out = out
         self.model_name = llm.model
         self.filters: dict[str, FilterStat] = {}
-        self.corpus_numbers = {
-            (n.number or "").lower() for n in self.nodes if n.level in ("section", "rule")
-        } - {""}
+        if self.profile.reference_check == "provision":
+            self.corpus_numbers = {
+                (n.number or "").lower() for n in self.nodes if n.level in ("section", "rule")
+            } - {""}
+        else:
+            self.corpus_numbers = {
+                n.number for n in self.nodes if n.number and n.level in _BOOK_NUMBER_LEVELS
+            }
         self.paraphrase_attempted = 0
         self.paraphrase_rescued = 0
         self.answer_refusals = 0
@@ -746,6 +636,16 @@ class AutoEvalBuilder:
         if key not in self.filters:
             self.filters[key] = FilterStat(key.split(":", 1)[-1], description)
         return self.filters[key]
+
+    def _mentions_reference(self, text: str) -> bool:
+        if self.profile.reference_check == "provision":
+            return mentions_provision_number(text)
+        return mentions_book_reference(text)
+
+    def _reference_numbers(self, text: str) -> set[str]:
+        if self.profile.reference_check == "provision":
+            return section_rule_numbers(text)
+        return book_reference_numbers(text)
 
     def _encoder(self) -> Any:
         return self.resources.encoder(self.dense_model, True)
@@ -761,9 +661,32 @@ class AutoEvalBuilder:
 
     def sample_candidates(self, n: int) -> tuple[list[Candidate], dict[str, Any]]:
         exclude = {g for q in self.existing for g in q.gold_node_ids}
-        pools = build_pools(self.nodes, self.xrefs, self.graph, exclude=exclude)
-        plan = allocate(n, TYPE_MIX)
-        sample, shortfall = stratified_sample(pools, plan, seed=self.seed)
+        p = self.profile
+        pools = build_pools(self.nodes, self.xrefs, self.graph, exclude=exclude, profile=p)
+        mix = dict(p.type_mix)
+        if p.cross_reference_min_pool > 0:
+            n_xr = len(pools.get("cross_reference", []))
+            include = n_xr >= p.cross_reference_min_pool
+            self.cross_reference_decision = {
+                "included": include,
+                "resolved_reference_pairs": n_xr,
+                "min_pool": p.cross_reference_min_pool,
+                "weight": p.cross_reference_weight if include else 0,
+                "taken_from": p.cross_reference_take_from if include else None,
+                "reason": (
+                    f"{n_xr} resolved cross-reference pairs >= {p.cross_reference_min_pool}"
+                    if include
+                    else f"only {n_xr} resolved cross-reference pairs between eligible passages "
+                    f"(< {p.cross_reference_min_pool}); cross_reference questions are not built"
+                ),
+            }
+            if include:
+                mix["cross_reference"] = p.cross_reference_weight
+                mix[p.cross_reference_take_from] -= p.cross_reference_weight
+        self.type_mix = mix
+        plan = allocate(n, mix)
+        order = p.sampling_order
+        sample, shortfall = stratified_sample(pools, plan, seed=self.seed, order=order)
         topped_up: dict[str, int] = {}
         if shortfall:
             # give the missing targets to the general "factual" pool so n candidates are drafted
@@ -772,11 +695,11 @@ class AutoEvalBuilder:
                 adjusted[t] -= k
             adjusted["factual"] += sum(shortfall.values())
             topped_up = {"factual": sum(shortfall.values())}
-            sample, _short = stratified_sample(pools, adjusted, seed=self.seed)
+            sample, _short = stratified_sample(pools, adjusted, seed=self.seed, order=order)
         info = {
             "requested": n,
             "type_plan": plan,
-            "pool_sizes": {t: len(pools[t]) for t in TYPE_MIX},
+            "pool_sizes": {t: len(pools.get(t, [])) for t in mix},
             "sampling_shortfall": shortfall,
             "topped_up": topped_up,
             "sampled": len(sample),
@@ -796,7 +719,9 @@ class AutoEvalBuilder:
         prog = Progress("draft", len(candidates), self.out)
         items: list[AnswerableItem] = []
         for i, c in enumerate(candidates, start=1):
-            drafts, failures = draft_questions(self.llm, [c], self.titles, i, self.seed)
+            drafts, failures = draft_questions(
+                self.llm, [c], self.titles, i, self.seed, profile=self.profile
+            )
             it = AnswerableItem(c, i)
             if failures:
                 err = str(failures[0].get("error", ""))
@@ -828,7 +753,7 @@ class AutoEvalBuilder:
         )
         kept = []
         for it in items:
-            bad = it.qtype != "cross_reference" and mentions_provision_number(it.question)
+            bad = it.qtype != "cross_reference" and self._mentions_reference(it.question)
             if stat.record(not bad, "mentions_provision_number", it.brief()):
                 it.filters.append("provision_number")
                 kept.append(it)
@@ -852,14 +777,14 @@ class AutoEvalBuilder:
                 kept.append(it)
                 continue
             self.paraphrase_attempted += 1
-            data = self._ask(paraphrase_messages(it.question, it.qtype))
+            data = self._ask(paraphrase_messages(it.question, it.qtype, self.profile))
             new = clean_question(data.get("question", "")) if data else ""
             reason = ""
             if not data:
                 reason = "paraphrase_invalid_json"
             elif not (MIN_QUESTION_WORDS <= n_words(new) <= MAX_QUESTION_WORDS):
                 reason = "paraphrase_bad_length"
-            elif it.qtype != "cross_reference" and mentions_provision_number(new):
+            elif it.qtype != "cross_reference" and self._mentions_reference(new):
                 reason = "paraphrase_mentions_provision_number"
             else:
                 ov = self._overlap(it, new)
@@ -906,7 +831,9 @@ class AutoEvalBuilder:
         prog = Progress("support", len(items), self.out)
         kept = []
         for it in items:
-            data = self._ask(support_messages(it.cand, self.titles, it.question, it.gold_answer))
+            data = self._ask(
+                support_messages(it.cand, self.titles, it.question, it.gold_answer, self.profile)
+            )
             verdict = _as_bool(data.get("supported")) if data else None
             corrected = str(data.get("corrected_answer", "") or "") if data else ""
             it.meta["support_check"] = {"supported": verdict, "corrected_answer": corrected}
@@ -928,7 +855,7 @@ class AutoEvalBuilder:
         prog = Progress("answer", len(items), self.out)
         kept = []
         for it in items:
-            data = self._ask(answer_messages(it.cand, self.titles, it.question))
+            data = self._ask(answer_messages(it.cand, self.titles, it.question, self.profile))
             answer = str(data.get("answer", "") or "") if data else ""
             it.meta["independent_answer"] = answer
             reason = ""
@@ -980,19 +907,20 @@ class AutoEvalBuilder:
     def generate_out_of_scope(self, n: int) -> list[UnanswerableItem]:
         self.llm.phase = "out_of_scope"
         n_calls = -(-n // OUT_OF_SCOPE_PER_CALL)
-        topics = [OUT_OF_SCOPE_TOPICS[i % len(OUT_OF_SCOPE_TOPICS)] for i in range(n_calls)]
+        all_topics = self.profile.oos_topics
+        topics = [all_topics[i % len(all_topics)] for i in range(n_calls)]
         prog = Progress("out-of-scope", len(topics), self.out)
         out: list[UnanswerableItem] = []
         for tid, desc, subject in topics:
             want = min(OUT_OF_SCOPE_PER_CALL, n - len(out))
-            data = self._ask(out_of_scope_messages(desc, OUT_OF_SCOPE_PER_CALL))
+            data = self._ask(out_of_scope_messages(desc, OUT_OF_SCOPE_PER_CALL, self.profile))
             qs = data.get("questions") if data else None
             got = 0
             if isinstance(qs, list):
                 for q in qs[:want]:
                     text = clean_question(q)
                     if text:
-                        reason = f"Not in the corpus: it asks about {subject}, which {CORPUS_NAME} do not cover."
+                        reason = f"Not in the corpus: it asks about {subject}, which {self.profile.corpus_name} do not cover."
                         out.append(
                             UnanswerableItem(
                                 "out_of_scope", tid, text, reason, len(out), meta={"topic": desc}
@@ -1013,21 +941,20 @@ class AutoEvalBuilder:
         rng = random.Random(f"{self.seed}-perturbation")
         order = list(sources)
         rng.shuffle(order)
-        kinds = list(PERTURBATION_TARGETS)
+        targets = self.profile.perturbation_targets
+        kinds = list(targets)
         prog = Progress("perturbation", n, self.out)
         out: list[UnanswerableItem] = []
         for i in range(n):
             src = order[i % len(order)]
             kind = kinds[i % len(kinds)]
-            values, template = PERTURBATION_TARGETS[kind]
+            values, template = targets[kind]
             value = values[(i // len(kinds)) % len(values)]
             target = template.format(x=value)
-            data = self._ask(perturbation_messages(src.question, target))
+            data = self._ask(perturbation_messages(src.question, target, self.profile))
             text = clean_question(data.get("question", "")) if data else ""
             if text:
-                reason = (
-                    f"Not in the corpus: it asks about {target}, which {CORPUS_NAME} do not cover."
-                )
+                reason = f"Not in the corpus: it asks about {target}, which {self.profile.corpus_name} do not cover."
                 out.append(
                     UnanswerableItem(
                         "perturbation",
@@ -1070,7 +997,7 @@ class AutoEvalBuilder:
             if not fmt.record(not reason, reason, it.brief()):
                 continue
             it.filters.append("format")
-            hits = sorted(section_rule_numbers(it.question) & self.corpus_numbers)
+            hits = sorted(self._reference_numbers(it.question) & self.corpus_numbers)
             if corpus_num.record(
                 not hits, "names_corpus_provision", {**it.brief(), "numbers": hits}
             ):
@@ -1122,7 +1049,7 @@ class AutoEvalBuilder:
             res = retriever.search(it.question)
             top = res.results[:RETRIEVAL_CHECK_K]
             passages = [(r.chunk.heading_path, r.chunk.display_text) for r in top]
-            data = self._ask(retrieval_check_messages(it.question, passages))
+            data = self._ask(retrieval_check_messages(it.question, passages, self.profile))
             verdict = _as_bool(data.get("answered")) if data else None
             it.meta["retrieved_chunk_ids"] = [r.chunk_id for r in top]
             it.meta["retrieval_config"] = cfg.config_id()
@@ -1178,7 +1105,7 @@ class AutoEvalBuilder:
             items = fn(items)
             say(f"   {label}: {len(items)}/{before} pass")
         survivors = items
-        selected, sel_report = select_answerable(survivors, target_answerable)
+        selected, sel_report = select_answerable(survivors, target_answerable, self.type_mix)
         if sel_report["shortfall"]:
             say(
                 f"WARNING: only {len(selected)} answerable question(s) survived the filters "
@@ -1208,6 +1135,10 @@ class AutoEvalBuilder:
         questions += [self._to_question_u(it, f"q{base + k:03d}") for k, it in enumerate(chosen_u)]
         overlaps_sel = [it.overlap for it in selected]
         report: dict[str, Any] = {
+            "profile": self.profile.name,
+            "type_mix": dict(self.type_mix),
+            "cross_reference_decision": self.cross_reference_decision,
+            "notes": list(self.profile.notes),
             "model": self.model_name,
             "seed": self.seed,
             "prompt_version": PROMPT_VERSION,

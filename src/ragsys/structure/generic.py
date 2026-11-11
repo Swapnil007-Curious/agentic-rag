@@ -4,16 +4,32 @@ Used for any document that is not configured as an act/rules document. Produces 
 ``heading`` nodes; body paragraphs belong to the nearest preceding heading.
 Node IDs: ``<doc>:preamble`` for text before the first heading, then hierarchical counters
 ``<doc>:h1``, ``<doc>:h1.2``, ``<doc>:h1.2.1`` in document order.
+
+Textbooks (``doc_type: textbook``) use the headings, levels and code blocks found by the
+textbook cleaner (:mod:`ragsys.ingest.textbook`) instead:
+
+* levels: 1 -> ``chapter``, 2 -> ``section`` (the retrieval unit), 3 -> ``subsection``,
+  deeper -> ``heading``; a heading's parent is the nearest preceding heading of a lower level;
+* IDs: numbered headings ``<doc>:<number>`` (``d2l:5``, ``d2l:5.1``, ``d2l:5.1.2``);
+  unnumbered headings ``<doc>:h-<slug>``; a slug used by several headings of the document is
+  qualified with its parent's number or slug (``progit:h-git-basics-summary``); remaining
+  clashes get ``~2``, ``~3``;
+* code blocks become ``code`` nodes inside the heading they follow: ``<parent id>/code-<k>``.
 """
 
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass, field
+from typing import Literal
 
 from ragsys.config import DocumentConfig
 from ragsys.ingest.clean import CleanDocument, Paragraph
-from ragsys.structure.base import Node, ParseResult
+from ragsys.structure.base import Node, ParseResult, slugify
+
+TextbookLevel = Literal["chapter", "section", "subsection", "heading", "code"]
+TEXTBOOK_LEVELS: dict[int, TextbookLevel] = {1: "chapter", 2: "section", 3: "subsection"}
 
 NUMBERED_HEADING_RE = re.compile(
     r"^(?P<num>\d{1,2}(?:\.\d{1,2}){0,3})\.?\s+(?P<title>[A-Z].{0,120})$"
@@ -51,6 +67,8 @@ class GenericParser:
         return bigger or (boldish and (numbered or len(t.split()) <= 12))
 
     def parse(self, doc: CleanDocument, cfg: DocumentConfig) -> ParseResult:
+        if cfg.doc_type == "textbook":
+            return _parse_textbook(doc, cfg)
         body = doc.body_font_size
         heads = [p for p in doc.paragraphs if self._is_heading(p, body)]
         sizes = sorted({round(p.size, 1) for p in heads}, reverse=True)
@@ -135,3 +153,143 @@ class GenericParser:
             )
         warnings = [] if heads else ["no headings detected; whole document is one preamble node"]
         return ParseResult(nodes=nodes, warnings=warnings, stats={"headings": len(heads)})
+
+
+# --------------------------------------------------------------------------- textbooks
+
+
+@dataclass(eq=False)
+class _T:
+    node_id: str
+    depth: int  # heading level; 0 = preamble, 99 = code
+    level: TextbookLevel
+    heading: str | None
+    start: int
+    end: int
+    number: str | None = None
+    slug: str = ""
+    parent: _T | None = None
+    children: list[_T] = field(default_factory=list)
+
+
+def _extend(n: _T | None, end: int) -> None:
+    while n is not None:
+        n.end = max(n.end, end)
+        n = n.parent
+
+
+def _parse_textbook(doc: CleanDocument, cfg: DocumentConfig) -> ParseResult:
+    doc_id = cfg.doc_id
+    heads = [p for p in doc.paragraphs if p.kind == "heading"]
+    slug_counts = Counter(slugify(p.title or p.text) for p in heads if not p.number)
+    used: set[str] = set()
+    all_nodes: list[_T] = []
+    stack: list[_T] = []
+    preamble: _T | None = None
+    code_counts: Counter[str] = Counter()
+
+    def unique(candidate: str) -> str:
+        nid, k = candidate, 1
+        while nid in used:
+            k += 1
+            nid = f"{candidate}~{k}"
+        used.add(nid)
+        return nid
+
+    def owner(p: Paragraph) -> _T:
+        nonlocal preamble
+        if stack:
+            return stack[-1]
+        if preamble is None:
+            preamble = _T(
+                unique(f"{doc_id}:preamble"), 0, "heading", "Preamble", p.char_start, p.char_end
+            )
+            all_nodes.append(preamble)
+        return preamble
+
+    for p in doc.paragraphs:
+        if p.kind == "heading":
+            depth = p.level or 6
+            while stack and stack[-1].depth >= depth:
+                stack.pop()
+            parent = stack[-1] if stack else None
+            title = (p.title or p.text).strip()
+            slug = slugify(title)
+            if p.number:
+                nid = unique(f"{doc_id}:{p.number}")
+            elif slug_counts[slug] > 1 and parent is not None:
+                qual = parent.number or parent.slug or "x"
+                nid = unique(f"{doc_id}:h-{qual}-{slug}")
+            else:
+                nid = unique(f"{doc_id}:h-{slug}")
+            node = _T(
+                node_id=nid,
+                depth=depth,
+                level=TEXTBOOK_LEVELS.get(depth, "heading"),
+                heading=title,
+                start=p.char_start,
+                end=p.char_end,
+                number=p.number,
+                slug=slug,
+                parent=parent,
+            )
+            if parent is not None:
+                parent.children.append(node)
+            all_nodes.append(node)
+            stack.append(node)
+            _extend(node, p.char_end)
+        elif p.kind == "code":
+            own = owner(p)
+            code_counts[own.node_id] += 1
+            code = _T(
+                node_id=unique(f"{own.node_id}/code-{code_counts[own.node_id]}"),
+                depth=99,
+                level="code",
+                heading=None,
+                start=p.char_start,
+                end=p.char_end,
+                parent=own,
+            )
+            own.children.append(code)
+            all_nodes.append(code)
+            _extend(code, p.char_end)
+        else:
+            _extend(owner(p), p.char_end)
+
+    nodes: list[Node] = []
+    for order, t in enumerate(all_nodes):
+        end = t.end
+        while end > t.start and doc.text[end - 1].isspace():
+            end -= 1
+        p0, p1 = doc.pages_for(t.start, end)
+        nodes.append(
+            Node(
+                doc_id=doc_id,
+                doc_title=cfg.title,
+                doc_type=cfg.doc_type,
+                node_id=t.node_id,
+                level=t.level,
+                number=t.number,
+                heading=t.heading,
+                text=doc.text[t.start : end],
+                parent_id=t.parent.node_id if t.parent else None,
+                children=[c.node_id for c in t.children],
+                page_start=p0,
+                page_end=p1,
+                char_start=t.start,
+                char_end=end,
+                order=order,
+            )
+        )
+    levels = Counter(n.level for n in nodes)
+    warnings = [] if heads else ["no headings detected; whole document is one preamble node"]
+    return ParseResult(
+        nodes=nodes,
+        warnings=warnings,
+        stats={
+            "headings": len(heads),
+            "numbered_headings": sum(1 for p in heads if p.number),
+            "code_blocks": levels.get("code", 0),
+            "nodes_per_level": dict(sorted(levels.items())),
+        },
+    )

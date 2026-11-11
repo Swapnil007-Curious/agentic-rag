@@ -24,29 +24,17 @@ from pathlib import Path
 from typing import Any
 
 from ragsys.llm.client import ChatModel, LLMJSONError, Message
+from ragsys.profiles import CONSUMER_LAW, EvalProfile
 from ragsys.retrieval.bm25 import STOPWORDS, BM25Index, normalise
 from ragsys.retrieval.corpus import NodeGraph
 from ragsys.structure.base import Node
 from ragsys.structure.xrefs import XRef
 
 PROMPT_VERSION = "draft-v1"
-TYPE_MIX: dict[str, int] = {
-    "definition": 15,
-    "factual": 20,
-    "procedural": 15,
-    "numeric": 15,
-    "cross_reference": 15,
-    "multi_section": 10,
-}
+# consumer_law defaults; other collections pass their profile (ragsys.profiles)
+TYPE_MIX: dict[str, int] = dict(CONSUMER_LAW.type_mix)
 # scarce pools are sampled first so the general "factual" pool does not use their nodes
-SAMPLING_ORDER = (
-    "multi_section",
-    "cross_reference",
-    "numeric",
-    "procedural",
-    "definition",
-    "factual",
-)
+SAMPLING_ORDER = CONSUMER_LAW.sampling_order
 OVERLAP_FLAG_THRESHOLD = 0.6
 MAX_ANSWER_WORDS = 40
 SOURCE_CHARS = 2500
@@ -73,20 +61,7 @@ SECTION_NUMBER_RE = re.compile(
     re.IGNORECASE,
 )
 
-TYPE_GUIDANCE: dict[str, str] = {
-    "definition": "Ask what a term defined in the text means or what it includes.",
-    "factual": "Ask about a specific fact stated in the text (who, what, which body, what is required).",
-    "procedural": "Ask how something is done: the steps, the manner, or who must do what and how.",
-    "numeric": "Ask for a number, time limit, amount or count that is stated in the text.",
-    "cross_reference": (
-        "The first provision refers to the second one. Ask a question whose full answer needs "
-        "both provisions, i.e. it requires following the reference."
-    ),
-    "multi_section": (
-        "One provision is from the Act and one from Rules made under it. Ask a question whose "
-        "full answer needs information from both provisions."
-    ),
-}
+TYPE_GUIDANCE: dict[str, str] = dict(CONSUMER_LAW.type_guidance)
 
 
 @dataclass(frozen=True)
@@ -133,7 +108,10 @@ def build_pools(
     xrefs: Iterable[XRef],
     graph: NodeGraph,
     exclude: Iterable[str] = (),
+    profile: EvalProfile | None = None,
 ) -> dict[str, list[Candidate]]:
+    if profile is not None and profile.pool_builder == "textbook":
+        return build_pools_textbook(nodes, xrefs, graph, exclude)
     excluded = set(exclude)
     usable = [n for n in nodes if n.node_id not in excluded]
     pools: dict[str, list[Candidate]] = {t: [] for t in TYPE_MIX}
@@ -186,6 +164,121 @@ def build_pools(
     return pools
 
 
+# --------------------------------------------------------------------------- textbooks
+
+_TB_LEVELS = frozenset({"section", "subsection", "heading"})
+DEFINITION_TB_RE = re.compile(
+    r"\b(?:is|are)\s+(?:called|known\s+as|defined\s+as|referred\s+to\s+as|termed)\b"
+    r"|\bwe\s+(?:call|define|refer\s+to)\b|\b(?:is|are)\s+defined\b|\bdefinition\b"
+    r"|\brefers\s+to\b|\bstands\s+for\b",
+    re.IGNORECASE,
+)
+PROCEDURAL_TB_RE = re.compile(
+    r"\b(?:run|type|command|steps?|procedure|first,|then|next,|finally|how\s+to"
+    r"|to\s+(?:create|add|remove|insert|delete|find|compute|merge|rebase|commit|clone|push"
+    r"|pull|fetch|stage|undo|train|implement|initiali[sz]e)"
+    r"|git\s+[a-z][a-z-]+|insert(?:s|ing)?|delet(?:e|es|ing)|travers(?:e|al)|iterat(?:e|ion))\b",
+    re.IGNORECASE,
+)
+NUMERIC_TB_RE = re.compile(
+    r"\bO\([^)\n]{1,30}\)"
+    r"|\b\d+(?:\.\d+)?\s*(?:%|percent|bits?|bytes?|KB|MB|GB|layers?|epochs?|parameters?"
+    r"|dimensions?|times|elements|nodes|items|steps|seconds|channels|heads|tokens|units|pixels"
+    r"|characters)\b"
+    r"|\b(?:learning\s+rate|lr|batch\s+size|momentum|dropout|kernel\s+size|stride|padding"
+    r"|weight\s+decay)\b[^.\n]{0,25}?\d"
+    r"|\bversion\s+\d+(?:\.\d+)+",
+    re.IGNORECASE,
+)
+MULTI_SECTION_MIN_RATIO = 0.25  # BM25 score of the pair / score of the node against itself
+
+
+def _tb_eligible(n: Node, lo: int = 40) -> bool:
+    """Leaf-sized textbook nodes: the drafting prompt shows SOURCE_CHARS characters."""
+    return n.level in _TB_LEVELS and _n_words(n) >= lo and len(n.text) <= SOURCE_CHARS + 300
+
+
+def _chapter_of(n: Node, graph: NodeGraph) -> str:
+    chain = [n.node_id, *graph.ancestors(n.node_id)]
+    return chain[-1]
+
+
+def build_pools_textbook(
+    nodes: Sequence[Node],
+    xrefs: Iterable[XRef],
+    graph: NodeGraph,
+    exclude: Iterable[str] = (),
+) -> dict[str, list[Candidate]]:
+    """Candidate pools for textbooks: definitions (defining sentences), facts, procedures
+    (commands, algorithm steps, code), numbers (running times, hyperparameters, counts),
+    resolved cross-references, and pairs of related passages from different chapters."""
+    excluded = set(exclude)
+    usable = [n for n in nodes if n.node_id not in excluded and _tb_eligible(n)]
+    has_code = {n.parent_id for n in nodes if n.level == "code"}
+    pools: dict[str, list[Candidate]] = {
+        t: []
+        for t in (
+            "definition",
+            "factual",
+            "procedural",
+            "numeric",
+            "cross_reference",
+            "multi_section",
+        )
+    }
+    for n in usable:
+        pools["factual"].append(Candidate("factual", (n,)))
+        if DEFINITION_TB_RE.search(n.text):
+            pools["definition"].append(Candidate("definition", (n,)))
+        if PROCEDURAL_TB_RE.search(n.text) or n.node_id in has_code:
+            pools["procedural"].append(Candidate("procedural", (n,)))
+        if NUMERIC_TB_RE.search(n.text):
+            pools["numeric"].append(Candidate("numeric", (n,)))
+
+    by_id = {n.node_id: n for n in usable}
+
+    def eligible_self_or_ancestor(node_id: str) -> str | None:
+        cur: str | None = node_id
+        while cur is not None and cur in graph:
+            if cur in by_id:
+                return cur
+            cur = graph.parent(cur)
+        return None
+
+    seen: set[tuple[str, str]] = set()
+    for x in xrefs:
+        if x.resolution != "exact" or not x.target_node:
+            continue
+        s = eligible_self_or_ancestor(x.source_node)
+        t = x.target_node
+        if s is None or t not in by_id or s == t:
+            continue
+        if t in graph.ancestors(s) or t in graph.descendants(s) or (s, t) in seen:
+            continue
+        seen.add((s, t))
+        pools["cross_reference"].append(Candidate("cross_reference", (by_id[s], by_id[t])))
+
+    # related passages in different chapters (BM25 best match of each node)
+    if len(usable) > 2:
+        index = BM25Index([n.node_id for n in usable], [n.text for n in usable])
+        pairs: set[frozenset[str]] = set()
+        for n in usable:
+            hits = index.search(n.text, 8)
+            self_score = next((sc for i, sc in hits if i == n.node_id), None)
+            if not self_score:
+                continue
+            for hid, score in hits:
+                other = by_id[hid]
+                if hid == n.node_id or _chapter_of(other, graph) == _chapter_of(n, graph):
+                    continue
+                key = frozenset((n.node_id, hid))
+                if score / self_score >= MULTI_SECTION_MIN_RATIO and key not in pairs:
+                    pairs.add(key)
+                    pools["multi_section"].append(Candidate("multi_section", (n, other)))
+                break
+    return pools
+
+
 def _doc_quotas(sizes: dict[str, int], quota: int) -> dict[str, int]:
     """Split ``quota`` across documents proportionally to sqrt(pool size), capped by size."""
     out = dict.fromkeys(sizes, 0)
@@ -213,14 +306,17 @@ def _doc_quotas(sizes: dict[str, int], quota: int) -> dict[str, int]:
 
 
 def stratified_sample(
-    pools: dict[str, list[Candidate]], alloc: dict[str, int], seed: int = 0
+    pools: dict[str, list[Candidate]],
+    alloc: dict[str, int],
+    seed: int = 0,
+    order: Sequence[str] = SAMPLING_ORDER,
 ) -> tuple[list[Candidate], dict[str, int]]:
     """Sample candidates per type (scarce types first); nodes are never reused.
     Returns the sample and the shortfall per type."""
     used: set[str] = set()
     sample: list[Candidate] = []
     shortfall: dict[str, int] = {}
-    for qtype in SAMPLING_ORDER:
+    for qtype in order:
         quota = alloc.get(qtype, 0)
         if quota <= 0:
             continue
@@ -256,28 +352,24 @@ def stratified_sample(
     return sample, shortfall
 
 
-def build_messages(c: Candidate, doc_titles: dict[str, str]) -> list[Message]:
-    section_rule = (
-        "You may mention the section or rule number of the first provision."
-        if c.qtype == "cross_reference"
-        else "Do not mention section, rule, sub-section or clause numbers in the question."
-    )
+def build_messages(
+    c: Candidate, doc_titles: dict[str, str], profile: EvalProfile | None = None
+) -> list[Message]:
+    p = profile or CONSUMER_LAW
+    section_rule = p.draft_number_rule_xref if c.qtype == "cross_reference" else p.draft_number_rule
     blocks = []
-    labels = ["PROVISION", "SECOND PROVISION"]
-    for label, n in zip(labels, c.nodes, strict=False):
+    for label, n in zip(p.source_labels, c.nodes, strict=False):
         title = doc_titles.get(n.doc_id, n.doc_title)
         blocks.append(f'{label} [{n.node_id}] ({title}):\n"""\n{n.text[:SOURCE_CHARS]}\n"""')
     user = "\n".join(
         [
-            "Write ONE evaluation question that a member of the public might ask, "
-            "answerable only from the text below.",
+            p.draft_intro,
             "",
-            f"Question type: {c.qtype}. {TYPE_GUIDANCE[c.qtype]}",
+            f"Question type: {c.qtype}. {p.type_guidance[c.qtype]}",
             "",
             "Rules:",
             "- The answer must be fully contained in the text; do not use outside knowledge.",
-            "- Paraphrase: do not copy distinctive phrases from the text; use plain, everyday "
-            "wording a citizen would use.",
+            p.draft_paraphrase_rule,
             f"- {section_rule}",
             f"- gold_answer: a correct answer in at most {MAX_ANSWER_WORDS} words, based only on the text.",
             '- difficulty: "easy", "medium" or "hard".',
@@ -288,11 +380,7 @@ def build_messages(c: Candidate, doc_titles: dict[str, str]) -> list[Message]:
             *blocks,
         ]
     )
-    system = (
-        "You write evaluation questions for a retrieval benchmark over Indian consumer "
-        "protection law. Reply with a single JSON object and nothing else."
-    )
-    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    return [{"role": "system", "content": p.draft_system}, {"role": "user", "content": user}]
 
 
 def _content_words(text: str) -> list[str]:
@@ -352,13 +440,14 @@ def draft_questions(
     start_number: int,
     seed: int,
     base_url: str | None = None,
+    profile: EvalProfile | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Ask the LLM for one draft per candidate. Returns (drafts, failures)."""
     drafts: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
     number = start_number
     for c in candidates:
-        messages = build_messages(c, doc_titles)
+        messages = build_messages(c, doc_titles, profile)
         try:
             data, resp = llm.chat_json(messages)
         except LLMJSONError as exc:

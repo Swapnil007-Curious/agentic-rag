@@ -2,7 +2,9 @@
 reads test questions).
 
 Usage:
-    python scripts/eval_generation.py --split test --systems G1 G2 G3 G4 G5 G6
+    python scripts/eval_generation.py --split test [--collection NAME] --systems G1 G2 G3 G4 G5 G6
+--systems defaults to the collection's test systems (consumer_law: G1-G6; cs_ai: G1-G4). The
+abstention threshold file is required only when a requested system uses the threshold (G5).
 Run once, after the dev runs, derive_systems.py and tune_abstention.py. Refuses to start when
 results/tables/abstention_threshold.json (tuned on dev) is missing, when the evaluation set has
 fewer answerable questions than selection.min_answerable_for_test, or when a generation test
@@ -29,7 +31,9 @@ from pathlib import Path
 from typing import Any
 
 from ragsys.agents.abstention import load_threshold
+from ragsys.agents.config import SelectionMissing
 from ragsys.agents.runtime import build_engine, llm_unreachable_message, load_settings, make_llm
+from ragsys.collections import add_collection_arguments, collection_from_args, config_path
 from ragsys.config import resolve_path
 from ragsys.eval.generation import (
     derive_system,
@@ -54,8 +58,9 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("--split", choices=["test"], required=True)
-    ap.add_argument("--systems", nargs="+", default=ALL_SYSTEMS)
-    ap.add_argument("--config", default="configs/generation.yaml")
+    ap.add_argument("--systems", nargs="+", default=None, help="default: the collection's")
+    ap.add_argument("--config", default=None, help="default: the collection's generation config")
+    add_collection_arguments(ap)
     ap.add_argument("--retrieval-config", default=None)
     ap.add_argument("--questions", default=None)
     ap.add_argument("--allow-repeat", action="store_true", help="run although it completed")
@@ -67,21 +72,31 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(errors="replace")
 
     t_start = time.perf_counter()
-    settings, rsettings = load_settings(args.config, args.retrieval_config)
-    systems = ordered_systems(settings, args.systems)
+    coll = collection_from_args(args)
+    settings, rsettings = load_settings(
+        config_path(args.config, coll.generation_config), args.retrieval_config
+    )
+    systems = ordered_systems(settings, args.systems or coll.spec.pipeline.test_systems)
+    needs_threshold = any(settings.system(s).threshold for s in systems)
     try:
         info = load_threshold(settings.threshold_path())
     except ValueError as exc:
         emit(f"refusing to evaluate the test split: {exc}")
         return 2
-    if info is None:
+    if info is None and needs_threshold:
         emit(
             f"refusing to evaluate the test split: {settings.threshold_path()} is missing. "
             "Tune the abstention threshold on dev first (python scripts/tune_abstention.py); "
             "the test split stays unopened."
         )
         return 2
-    threshold = float(info["threshold"])
+    threshold = float(info["threshold"]) if info is not None else None
+    try:
+        for s in systems:
+            settings.retrieval_cfg(s)
+    except SelectionMissing as exc:
+        emit(f"refusing to evaluate the test split: {exc}; the test split stays unopened.")
+        return 2
     qpath = resolve_path(Path(args.questions) if args.questions else rsettings.paths.questions)
     processed = resolve_path(rsettings.paths.processed_dir)
     rep = validate_file(qpath, processed / "structure" / "nodes.jsonl")
@@ -125,14 +140,19 @@ def main(argv: list[str] | None = None) -> int:
     n_test = sum(1 for q in rep.questions if split_of(q.id) == "test")
     note = (
         f"generation{' (resume)' if resume else ''}{' (repeat)' if marker.exists() else ''}: "
-        f"systems {' '.join(systems)}; abstention threshold {threshold:.4f} from {settings.threshold_path()}"
+        f"systems {' '.join(systems)}; "
+        + (
+            f"abstention threshold {threshold:.4f} from {settings.threshold_path()}"
+            if threshold is not None
+            else "no abstention threshold (no threshold system)"
+        )
     )
     log_path = root / "test_access_log.json"
     access = grant_test_access(log_path, systems, n_test, note=note)
     emit(f"TEST split opened ({n_test} questions); access logged to {log_path}")
     questions = questions_for_split(rep.questions, "test", access)
     llm_cfg = settings.llm()
-    engine = build_engine(settings, rsettings, llm, require_threshold=True)
+    engine = build_engine(settings, rsettings, llm, require_threshold=needs_threshold)
     records: dict[str, list[dict[str, Any]]] = {}
     for system in needed:
         fp = system_fingerprint(settings, system, llm_cfg)

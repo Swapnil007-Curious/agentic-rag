@@ -1,0 +1,5 @@
+{
+  "workerUrl": " https://agentic-rag-proxy.swaps2309.workers.dev",
+  "modelDtype": "fp16",
+  "repository": "https://github.com/Swapnil007-Curious/agentic-rag"
+}

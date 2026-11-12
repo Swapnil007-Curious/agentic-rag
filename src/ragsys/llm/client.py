@@ -12,6 +12,13 @@
   measured when the response was first computed in ``stored_latency_ms``;
   :attr:`LLMResponse.reported_latency_ms` gives the latency to report either way, so latency
   figures do not depend on whether the cache was warm (as for the rerank cache).
+* Hosted endpoints (named backends in configs/llm.yaml, see :mod:`ragsys.llm.backends`): a
+  client-side token bucket (``requests_per_minute`` / ``tokens_per_minute``, shared by all
+  clients of the same endpoint and model), the provider's ``Retry-After`` on 429 responses
+  (a wait longer than ``max_retry_wait_s`` raises :class:`QuotaExceeded` instead of sleeping
+  for hours), provider-specific request options (``extra_body``) and the rate-limit headers of
+  the last response. The cache key also contains the backend name for every backend except
+  ``local``, whose keys predate backends and stay valid.
 """
 
 from __future__ import annotations
@@ -31,9 +38,11 @@ import httpx2
 import openai
 from pydantic import Field
 
-from ragsys.config import StrictModel, load_yaml_config, resolve_path
+from ragsys.config import StrictModel, resolve_path
+from ragsys.llm.ratelimit import RateLimiter, retry_after_seconds, shared_limiter
 
 API_KEY_ENV = "LLM_API_KEY"
+LEGACY_BACKEND = "local"  # its cache keys carry no backend name (they predate backends)
 log = logging.getLogger("ragsys.llm")
 
 Message = dict[str, str]
@@ -51,10 +60,21 @@ class LLMConfig(StrictModel):
     backoff_initial_s: float = Field(default=1.0, ge=0)
     backoff_max_s: float = Field(default=30.0, ge=0)
     cache_dir: Path | None = Path("data/processed/llm_cache")
+    # ---- named backends (configs/llm.yaml "backends:"); defaults keep the original behaviour
+    backend: str | None = None  # backend name; part of the cache key unless "local"/None
+    send_api_key: bool = True  # pass LLM_API_KEY to the endpoint (off for a local server)
+    extra_body: dict[str, Any] | None = None  # provider-specific request fields (cache-keyed)
+    requests_per_minute: float | None = Field(default=None, gt=0)
+    tokens_per_minute: float | None = Field(default=None, gt=0)
+    max_retry_wait_s: float = Field(default=120.0, gt=0)  # longer Retry-After -> QuotaExceeded
 
 
-def load_llm_config(path: str | Path) -> LLMConfig:
-    return load_yaml_config(path, LLMConfig)
+def load_llm_config(path: str | Path, backend: str | None = None) -> LLMConfig:
+    """The client config of a backend of configs/llm.yaml (default: its default backend). A
+    file without a ``backends:`` section is a single endpoint (the original layout)."""
+    from ragsys.llm.backends import load_backends
+
+    return load_backends(path).client_config(backend)
 
 
 @dataclass
@@ -85,6 +105,15 @@ class ChatModel(Protocol):
 
 class LLMJSONError(ValueError):
     """The model's reply contained no parseable JSON object."""
+
+
+EXIT_QUOTA = 75  # exit code of a run stopped by QuotaExceeded (EX_TEMPFAIL: try again later)
+
+
+class QuotaExceeded(RuntimeError):
+    """The provider asks to wait longer than ``max_retry_wait_s`` (a daily quota is probably
+    exhausted). Runs fail loudly instead of sleeping for hours; resumable runs continue from
+    their caches when started again."""
 
 
 def extract_json(text: str) -> dict[str, Any]:
@@ -158,17 +187,25 @@ class LLMClient:
         self._sleep = sleep
         self.cache_dir = resolve_path(cfg.cache_dir) if (use_cache and cfg.cache_dir) else None
         self.calls: list[dict[str, Any]] = []  # per-call timing / usage records (no secrets)
+        self.backend = cfg.backend
+        self.last_rate_limit: dict[str, str] = {}  # x-ratelimit-* headers of the last response
+        self.limiter: RateLimiter | None = shared_limiter(
+            self.base_url, cfg.model, cfg.requests_per_minute, cfg.tokens_per_minute
+        )
+        key = os.environ.get(API_KEY_ENV) if cfg.send_api_key else None
         self._sdk = openai.OpenAI(
             base_url=self.base_url,
-            # Ollama ignores the key; the SDK only requires a non-empty string.
-            api_key=os.environ.get(API_KEY_ENV) or "not-needed",
+            # a local server ignores the key; the SDK only requires a non-empty string.
+            api_key=key or "not-needed",
             timeout=cfg.timeout_s,
             max_retries=0,  # retries are handled here, with logging and a fixed cap
             http_client=http_client,
         )
 
     def __repr__(self) -> str:  # never include credentials
-        return f"LLMClient(base_url={self.base_url!r}, model={self.model!r})"
+        return (
+            f"LLMClient(backend={self.backend!r}, base_url={self.base_url!r}, model={self.model!r})"
+        )
 
     # ------------------------------------------------------------------ helpers
 
@@ -181,20 +218,27 @@ class LLMClient:
             params["seed"] = self.cfg.seed
         if json_mode and self.cfg.json_mode:
             params["response_format"] = {"type": "json_object"}
+        if self.cfg.extra_body:
+            params["extra_body"] = dict(self.cfg.extra_body)
         return params
 
     def cache_key(self, messages: Sequence[Message], params: dict[str, Any]) -> str:
-        blob = json.dumps(
-            {
-                "base_url": self.base_url,
-                "model": self.model,
-                "messages": list(messages),
-                "params": params,
-            },
-            sort_keys=True,
-            ensure_ascii=False,
-        )
+        data: dict[str, Any] = {
+            "base_url": self.base_url,
+            "model": self.model,
+            "messages": list(messages),
+            "params": params,
+        }
+        if self.backend not in (None, LEGACY_BACKEND):
+            data["backend"] = self.backend
+        blob = json.dumps(data, sort_keys=True, ensure_ascii=False)
         return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def estimate_tokens(messages: Sequence[Message], params: dict[str, Any]) -> int:
+        """Prompt estimate (4 characters per token) plus the completion limit."""
+        chars = sum(len(m.get("content", "")) for m in messages)
+        return chars // 4 + 8 * len(messages) + int(params.get("max_tokens", 0))
 
     def _cache_path(self, key: str) -> Path | None:
         return self.cache_dir / key[:2] / f"{key}.json" if self.cache_dir else None
@@ -227,21 +271,55 @@ class LLMClient:
             return resp
 
         attempt = 0
+        reserved = self.estimate_tokens(messages, params)
         while True:
             attempt += 1
+            if self.limiter is not None:
+                waited = self.limiter.acquire(reserved)
+                if waited > 0.5:
+                    log.info("rate limiter: waited %.1fs before the call", waited)
             t0 = time.perf_counter()
             try:
-                completion = self._sdk.chat.completions.create(
+                raw = self._sdk.chat.completions.with_raw_response.create(
                     model=self.model,
                     messages=list(messages),  # type: ignore[arg-type]
                     **params,
                 )
+                completion = raw.parse()
+                self.last_rate_limit = {
+                    str(k).lower(): str(v)
+                    for k, v in raw.headers.items()
+                    if str(k).lower().startswith("x-ratelimit-")
+                }
                 break
             except _RETRYABLE as exc:
+                if self.limiter is not None:
+                    self.limiter.settle(reserved, 0)
                 if attempt > self.cfg.max_retries:
                     log.error("LLM call failed after %d attempts: %s", attempt, type(exc).__name__)
+                    if isinstance(exc, openai.RateLimitError):
+                        raise QuotaExceeded(
+                            f"{self.base_url} ({self.model}) still refuses calls after {attempt} "
+                            "attempts (rate limit); the provider's quota is probably exhausted. "
+                            "No other model was used instead; run the same command again later "
+                            "(finished calls come from the cache)."
+                        ) from exc
                     raise
                 delay = min(self.cfg.backoff_max_s, self.cfg.backoff_initial_s * 2 ** (attempt - 1))
+                if isinstance(exc, openai.RateLimitError):
+                    asked = retry_after_seconds(getattr(exc.response, "headers", None))
+                    if asked is not None:
+                        if asked > self.cfg.max_retry_wait_s:
+                            raise QuotaExceeded(
+                                f"{self.base_url} ({self.model}) asks to wait {asked:.0f} s "
+                                f"(more than max_retry_wait_s = {self.cfg.max_retry_wait_s:.0f} s);"
+                                " the provider's quota is probably exhausted. No other model was "
+                                "used instead; run the same command again later (finished calls "
+                                "come from the cache)."
+                            ) from exc
+                        delay = max(asked, 0.5)
+                        if self.limiter is not None:
+                            self.limiter.penalise(delay)
                 log.warning(
                     "LLM call attempt %d failed (%s); retrying in %.1fs",
                     attempt,
@@ -259,6 +337,8 @@ class LLMClient:
                 "completion_tokens": int(completion.usage.completion_tokens or 0),
                 "total_tokens": int(completion.usage.total_tokens or 0),
             }
+        if self.limiter is not None:
+            self.limiter.settle(reserved, usage.get("total_tokens") or reserved)
         resp = LLMResponse(
             content=content,
             model=completion.model or self.model,

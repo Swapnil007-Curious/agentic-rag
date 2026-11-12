@@ -23,7 +23,7 @@ Level = Literal[
     "heading",
     "code",
 ]
-DocType = Literal["act", "rules", "generic", "textbook"]
+DocType = Literal["act", "rules", "generic", "textbook", "constitution"]
 
 # Levels that form the top-level retrieval units of a document ("section-level").
 UNIT_LEVELS: frozenset[str] = frozenset({"section", "rule", "schedule"})
@@ -79,12 +79,15 @@ class StructureParser(Protocol):
 
 
 def get_parser(name: str, structure_cfg: StructureConfig) -> StructureParser:
-    """Factory for configured parsers ("statute" or "generic")."""
+    """Factory for configured parsers ("statute", "constitution" or "generic")."""
+    from ragsys.structure.constitution import ConstitutionParser
     from ragsys.structure.generic import GenericParser
     from ragsys.structure.statute import IndianStatuteParser
 
     if name == "statute":
         return IndianStatuteParser(structure_cfg)
+    if name == "constitution":
+        return ConstitutionParser(structure_cfg)
     if name == "generic":
         return GenericParser()
     raise ValueError(f"unknown parser {name!r}")

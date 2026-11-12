@@ -11,6 +11,10 @@ from typing import Any
 # One citation group: [C2], [c2], [C1, C3], [C1; C3], [C1,3]
 CITATION_GROUP_RE = re.compile(r"\[\s*[Cc]\s*\d+(?:\s*[,;]\s*(?:[Cc]\s*)?\d+)*\s*\]")
 _LABEL_NUM_RE = re.compile(r"\d+")
+# the same tags written with fullwidth brackets, as some models do: 【C3】, 【C3†L1-L4】, 【C1, C3】
+_FULLWIDTH_GROUP_RE = re.compile(
+    r"【\s*([Cc]\s*\d+(?:\s*[,;]\s*(?:[Cc]\s*)?\d+)*)(?:\s*†[^】]*)?\s*】"
+)
 _LOOSE_LABEL_RE = re.compile(r"^\s*\[?\s*[Cc]?\s*(\d+)\s*\]?\s*$")
 
 # Words after which a full stop does not end a sentence.
@@ -76,6 +80,14 @@ def normalize_label(value: Any) -> str | None:
     if not m or int(m.group(1)) <= 0:
         return None
     return f"C{int(m.group(1))}"
+
+
+def normalize_citation_brackets(text: str) -> str:
+    """Rewrite fullwidth citation tags ("【C3】", "【C3†L1-L4】") as "[C3]". Answers that use
+    ASCII brackets (every answer of the local model) are returned unchanged."""
+    if "【" not in text:
+        return text
+    return _FULLWIDTH_GROUP_RE.sub(lambda m: f"[{m.group(1)}]", text)
 
 
 def labels_in(text: str) -> list[str]:

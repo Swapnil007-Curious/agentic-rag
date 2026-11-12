@@ -1,4 +1,5 @@
-# Answer generation for the cs_ai collection: G1-G4 (G5 and G6 are skipped, see skipped_systems).
+# Answer generation for the cs_ai collection: G1-G4 (G5 and G6 are skipped, see skipped_systems)
+# and the hosted generator-scale ablation G2H / G4H.
 
 profile: cs_ai                        # prompt wording (ragsys.eval.profiles)
 llm_config: configs/llm.yaml
@@ -40,6 +41,21 @@ systems:
     retrieval: "selected:best_overall"
     guards: true
     critic: true
+  # Generator-scale ablation (TEST split only, no tuning): G2 and G4 with the hosted backend
+  # (configs/llm.yaml: its model and the date it was chosen), the same retrieval config and the
+  # hosted context budgets (2048 / 3072 tokens).
+  G2H:
+    description: "G2 with the hosted generator (generator-scale ablation)"
+    retrieval: "selected:best_overall"
+    backend: hosted
+    ablation_of: G2
+  G4H:
+    description: "G4 with the hosted generator (generator-scale ablation)"
+    retrieval: "selected:best_overall"
+    guards: true
+    critic: true
+    backend: hosted
+    ablation_of: G4
 
 # Interactive use only (ask.py, the web UI) before select_configs.py has run: the first of
 # these whose embeddings are built is used, with a warning. Evaluations never fall back.

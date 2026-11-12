@@ -62,6 +62,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--processed-dir", default=None)
     ap.add_argument("--ingest-config", default=None)
     add_collection_arguments(ap)
+    ap.add_argument(
+        "--backend", default=None, help="LLM backend of configs/llm.yaml (default: local)"
+    )
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
@@ -88,7 +91,9 @@ def main(argv: list[str] | None = None) -> int:
         emit("using FakeLLM (deterministic canned drafts, no network) -- not real drafts")
     else:
         cfg = (
-            load_llm_config(resolve_path(Path(args.llm_config))) if args.llm_config else coll.llm()
+            load_llm_config(resolve_path(Path(args.llm_config)), args.backend)
+            if args.llm_config
+            else coll.llm(args.backend)
         )
         client = LLMClient(cfg)
         if not client.is_reachable():

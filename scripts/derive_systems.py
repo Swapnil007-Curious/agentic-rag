@@ -22,7 +22,12 @@ from pathlib import Path
 from ragsys.agents.abstention import load_threshold
 from ragsys.agents.derive import derivation_kind
 from ragsys.agents.runtime import load_settings
-from ragsys.collections import add_collection_arguments, collection_from_args, config_path
+from ragsys.collections import (
+    add_collection_arguments,
+    collection_from_args,
+    config_path,
+    eval_index_refusal,
+)
 from ragsys.config import resolve_path
 from ragsys.eval.generation import (
     derive_system,
@@ -57,6 +62,10 @@ def main(argv: list[str] | None = None) -> int:
     settings, rsettings = load_settings(
         config_path(args.config, coll.generation_config), args.retrieval_config
     )
+    refusal = eval_index_refusal(coll, rsettings)
+    if refusal:
+        emit(f"refusing to run: {refusal}")
+        return 2
     names = args.systems or [s for s in settings.systems if settings.is_derived(s)]
     systems = ordered_systems(settings, names)
     not_derived = [s for s in systems if not settings.is_derived(s)]

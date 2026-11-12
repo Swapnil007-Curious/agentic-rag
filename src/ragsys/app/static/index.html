@@ -6,6 +6,7 @@
   <meta name="color-scheme" content="light dark">
   <title>Document Answers</title>
   <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/markdown.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
 <body>
@@ -21,18 +22,42 @@
 
   <div class="wrap layout">
     <main class="primary" id="main">
-      <form id="ask-form" class="card ask" novalidate>
-        <div class="field field-collection">
-          <label for="collection" class="label">Collection</label>
-          <select id="collection" name="collection" aria-describedby="collection-note"></select>
-          <p id="collection-note" class="hint" aria-live="polite"></p>
+      <section class="card settings" aria-label="Collection, mode and model">
+        <div class="settings-grid">
+          <div class="field field-collection">
+            <label for="collection" class="label">Collection</label>
+            <select id="collection" name="collection" aria-describedby="collection-note collection-badge"></select>
+            <p class="badge-line"><span id="collection-badge" class="badge eval-badge"></span> <a id="summary-link" class="summary-link" href="#" hidden>Evaluation summary</a></p>
+            <p id="collection-note" class="hint" aria-live="polite"></p>
+          </div>
+          <fieldset class="field field-mode">
+            <legend class="label">Mode</legend>
+            <div class="segmented" id="mode-group">
+              <input type="radio" name="mode" id="mode-grounded" value="grounded" checked>
+              <label for="mode-grounded">Grounded</label>
+              <input type="radio" name="mode" id="mode-hybrid" value="hybrid">
+              <label for="mode-hybrid">Hybrid</label>
+              <input type="radio" name="mode" id="mode-chat" value="chat">
+              <label for="mode-chat">Chat &amp; Code</label>
+            </div>
+            <p id="mode-desc" class="hint" aria-live="polite"></p>
+          </fieldset>
+          <div class="field field-backend">
+            <label for="backend" class="label">Model</label>
+            <select id="backend" name="backend" aria-describedby="backend-desc"></select>
+            <p id="backend-desc" class="hint" aria-live="polite"></p>
+          </div>
         </div>
+        <p id="safety-note" class="safety-note" hidden></p>
+        <p id="index-note" class="hint index-note" hidden></p>
+      </section>
 
+      <form id="ask-form" class="card ask" novalidate>
         <label for="question" class="label">Your question</label>
         <textarea id="question" name="question" rows="3" maxlength="1000" required
           aria-describedby="question-hint"
           placeholder=""></textarea>
-        <p id="question-hint" class="hint">An answer takes roughly half a minute to two minutes on this computer. Press Ctrl+Enter to ask.</p>
+        <p id="question-hint" class="hint">With the local model an answer takes roughly half a minute to two minutes on this computer. Press Ctrl+Enter to ask.</p>
 
         <div id="examples-block" class="examples-block" hidden>
           <p class="examples-label" id="examples-label">Try an example</p>
@@ -54,6 +79,33 @@
         </div>
       </form>
 
+      <section id="chat" class="card chat" hidden aria-labelledby="chat-heading">
+        <div class="chat-head">
+          <h2 id="chat-heading" class="chat-title">Conversation</h2>
+          <button type="button" id="new-chat" class="btn btn-quiet">New chat</button>
+        </div>
+        <ol id="chat-log" class="chat-log" aria-live="polite" aria-label="Chat history"></ol>
+        <p id="chat-empty" class="hint">Ask anything about the collection's subject, or paste code to explain, review or debug. Code is never run.</p>
+        <form id="chat-form" class="chat-form" novalidate>
+          <label for="chat-input" class="label">Message</label>
+          <textarea id="chat-input" rows="4" maxlength="8000" aria-describedby="chat-hint"></textarea>
+          <p id="chat-hint" class="hint">Ctrl+Enter to send. The last 10 turns are sent to the model.</p>
+          <div class="controls">
+            <div class="field field-toggle">
+              <input type="checkbox" id="use-docs" class="switch" role="switch" aria-describedby="use-docs-desc">
+              <label for="use-docs" class="switch-label">Use documents</label>
+              <p id="use-docs-desc" class="hint">Retrieve passages for your message; the reply cites them as [1], [2].</p>
+            </div>
+            <div class="field field-toggle">
+              <input type="checkbox" id="code-mode" class="switch" role="switch" aria-describedby="code-desc">
+              <label for="code-mode" class="switch-label">Code</label>
+              <p id="code-desc" class="hint">Coding assistant: explain, write, review and debug code.</p>
+            </div>
+            <button type="submit" id="chat-send" class="btn btn-primary">Send</button>
+          </div>
+        </form>
+      </section>
+
       <div id="status" class="status" role="status" aria-live="polite"></div>
 
       <article id="result" class="card result" hidden aria-labelledby="result-heading">
@@ -61,6 +113,7 @@
           <h2 id="result-heading" tabindex="-1">Answer</h2>
           <span id="outcome-badge" class="badge"></span>
         </header>
+        <p id="generator" class="generator"></p>
         <ul id="warnings" class="warnings" hidden></ul>
 
         <div id="answer" class="answer"></div>
@@ -68,9 +121,15 @@
         <div id="abstained" class="abstained" hidden>
           <p class="not-found" id="not-found">Not found in these documents</p>
           <p id="abstain-why" class="hint"></p>
-          <h3 class="subhead">Closest sections</h3>
-          <ul id="closest" class="closest"></ul>
+          <h3 class="subhead" id="closest-heading">Closest sections</h3>
+          <ul id="closest" class="closest" aria-labelledby="closest-heading"></ul>
         </div>
+
+        <section id="general" class="general" hidden aria-labelledby="general-banner">
+          <p id="general-banner" class="general-banner" role="note"></p>
+          <div id="general-answer" class="md"></div>
+          <p id="general-model" class="generator"></p>
+        </section>
 
         <div class="feedback" role="group" aria-labelledby="fb-label">
           <span id="fb-label" class="fb-label">Was this helpful?</span>
@@ -114,6 +173,7 @@
   <footer class="site-footer">
     <div class="wrap">
       <p class="disclaimer" id="disclaimer"></p>
+      <p class="hint" id="privacy-note"></p>
       <h2 class="footer-heading">Documents in this collection</h2>
       <ul id="documents" class="documents"></ul>
     </div>

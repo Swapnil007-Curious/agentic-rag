@@ -23,7 +23,12 @@ import sys
 import time
 from pathlib import Path
 
-from ragsys.collections import add_collection_arguments, collection_from_args, config_path
+from ragsys.collections import (
+    add_collection_arguments,
+    collection_from_args,
+    config_path,
+    eval_index_refusal,
+)
 from ragsys.config import resolve_path
 from ragsys.eval.harness import Evaluator, run_configs, write_tables
 from ragsys.eval.split import grant_test_access, read_access_log, split_of
@@ -59,6 +64,10 @@ def main(argv: list[str] | None = None) -> int:
     settings = load_retrieval_settings(
         resolve_path(config_path(args.config, coll.retrieval_config))
     )
+    refusal = eval_index_refusal(coll, settings)
+    if refusal:
+        emit(f"refusing to run: {refusal}")
+        return 2
     set_seed(settings.seed)
     set_torch_threads(args.threads)
     res = RetrievalResources(settings, rerank_cache=not args.no_rerank_cache)

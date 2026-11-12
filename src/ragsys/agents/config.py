@@ -14,6 +14,14 @@ config chosen on dev by scripts/select_configs.py, read from
 ``<results_dir>/tables/selected_configs.json``. Evaluations require that file; interactive use
 (ask.py, the web UI) may fall back to the first ``selection_fallback`` config whose embeddings
 are built (see :meth:`ragsys.agents.engine.AnswerEngine.retrieval_config`).
+
+Generator backends (configs/llm.yaml, :mod:`ragsys.llm.backends`): a system runs on the default
+backend (``local``, qwen2.5:3b) unless it names another one (``backend: hosted``; G2H and G4H, the
+generator-scale ablation, are G2 and G4 on the hosted backend and say so in ``ablation_of``). The
+LLM settings of a backend are its client config with the collection's ``llm_overrides`` and,
+for non-default backends, the backend's own ``generation_overrides``; its context budgets and
+context window replace the collection's when the backend defines them. Nothing changes for the
+default backend, so the fingerprints of the existing systems stay the same.
 """
 
 from __future__ import annotations
@@ -25,7 +33,8 @@ from typing import Any, Literal
 from pydantic import Field, model_validator
 
 from ragsys.config import StrictModel, load_yaml_config, resolve_path
-from ragsys.llm.client import LLMConfig, load_llm_config
+from ragsys.llm.backends import LLMFile, load_backends
+from ragsys.llm.client import LLMConfig
 from ragsys.retrieval.config import RetrievalConfig, parse_config_id
 
 
@@ -64,11 +73,15 @@ class SystemSpec(StrictModel):
     guards: bool = False  # a guard failure leads to revision (with critic) or abstention
     critic: bool = False  # critic + bounded revise loop
     threshold: bool = False  # retrieval-score abstention before any LLM call
+    backend: str | None = None  # generator backend (None: the default backend of llm.yaml)
+    ablation_of: str | None = None  # the default-backend system this one mirrors (G2H -> G2)
 
     @model_validator(mode="after")
     def _one_source(self) -> SystemSpec:
         if (self.retrieval is None) == (self.derived_from is None):
             raise ValueError("a system needs exactly one of 'retrieval' or 'derived_from'")
+        if self.derived_from is not None and self.backend is not None:
+            raise ValueError("a derived system uses its base system's backend")
         if self.critic and not self.guards:
             raise ValueError("the critic loop always runs the deterministic guards")
         if self.retrieval is not None and not self.retrieval.startswith(SELECTED_PREFIX):
@@ -158,6 +171,10 @@ class GenerationSettings(StrictModel):
         tuned = self.abstention.tuned_system
         if tuned is not None and tuned not in self.systems:
             raise ValueError(f"unknown abstention.tuned_system {tuned!r}")
+        for name, spec in self.systems.items():
+            base = self.systems.get(spec.ablation_of) if spec.ablation_of else None
+            if spec.ablation_of is not None and (base is None or base.derived_from is not None):
+                raise ValueError(f"{name}: ablation_of must name a runnable system")
         for cid in self.selection_fallback:
             parse_config_id(cid)
         from ragsys.profiles import get_profile
@@ -209,10 +226,46 @@ class GenerationSettings(StrictModel):
     def is_derived(self, name: str) -> bool:
         return self.system(name).derived_from is not None
 
-    def llm(self) -> LLMConfig:
-        """configs/llm.yaml with ``llm_overrides`` applied (temperature 0 for generation)."""
-        base = load_llm_config(resolve_path(self.llm_config))
-        return LLMConfig.model_validate({**base.model_dump(), **self.llm_overrides})
+    # ------------------------------------------------------------------ backends
+
+    def backends(self) -> LLMFile:
+        return load_backends(resolve_path(self.llm_config))
+
+    @property
+    def default_backend(self) -> str:
+        return self.backends().default_backend
+
+    def backend_of(self, name: str) -> str:
+        """The backend a system runs on (its base system's for derived systems)."""
+        return self.system(self.runnable_base(name)).backend or self.default_backend
+
+    def llm(self, backend: str | None = None) -> LLMConfig:
+        """The client config of ``backend`` (default: llm.yaml's default backend) with
+        ``llm_overrides`` applied (temperature 0 for generation) and, for other backends, the
+        backend's ``generation_overrides`` (e.g. a larger completion limit for a model that
+        also spends tokens on hidden reasoning)."""
+        reg = self.backends()
+        name = backend or reg.default_backend
+        data = {**reg.client_config(name).model_dump(), **self.llm_overrides}
+        if name != reg.default_backend:
+            data.update(reg.spec(name).generation_overrides)
+        return LLMConfig.model_validate(data)
+
+    def context_for(self, backend: str | None = None) -> ContextSettings:
+        """Context budgets of ``backend``: its own when it defines them, else the collection's."""
+        reg = self.backends()
+        spec = reg.spec(backend)
+        if spec.context_budget_tokens is None or spec.revision_budget_tokens is None:
+            return self.context
+        return ContextSettings(
+            budget_tokens=spec.context_budget_tokens,
+            revision_budget_tokens=spec.revision_budget_tokens,
+            min_passages=self.context.min_passages,
+        )
+
+    def context_window_for(self, backend: str | None = None) -> int | None:
+        spec = self.backends().spec(backend)
+        return spec.llm_context_window or self.llm_context_window
 
     def threshold_path(self) -> Path:
         return resolve_path(self.abstention.threshold_file)

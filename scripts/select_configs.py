@@ -18,7 +18,12 @@ import json
 import sys
 from typing import Any
 
-from ragsys.collections import add_collection_arguments, collection_from_args, config_path
+from ragsys.collections import (
+    add_collection_arguments,
+    collection_from_args,
+    config_path,
+    eval_index_refusal,
+)
 from ragsys.config import resolve_path
 from ragsys.eval.harness import SMOKE_LABEL
 from ragsys.retrieval.config import config_dir_name, load_retrieval_settings, parse_config_id
@@ -76,6 +81,10 @@ def main(argv: list[str] | None = None) -> int:
     settings = load_retrieval_settings(
         resolve_path(config_path(args.config, coll.retrieval_config))
     )
+    refusal = eval_index_refusal(coll, settings)
+    if refusal:
+        emit(f"refusing to run: {refusal}")
+        return 2
     root = resolve_path(settings.paths.results_dir) / ("smoke" if args.smoke else "")
     table = root / "tables" / "retrieval_dev.csv"
     if not table.exists():

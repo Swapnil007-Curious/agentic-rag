@@ -28,5 +28,27 @@
     ],
     "n_questions": 85,
     "note": "generation: systems G1 G2 G3 G4 G5 G6; abstention threshold 0.6711 from C:\\Users\\Admin\\agentic-rag\\results\\tables\\abstention_threshold.json"
+  },
+  {
+    "utc_time": "2026-11-12T15:02:10+00:00",
+    "git_commit": "a3b6d4b20435890e3613b68bcf61ef602db5f34c",
+    "git_dirty": true,
+    "configs": [
+      "G2H",
+      "G4H"
+    ],
+    "n_questions": 85,
+    "note": "generation ablation: systems G2H G4H; backend hosted model openai/gpt-oss-120b (chosen 2026-11-12); bootstrap vs G1, G2, G4"
+  },
+  {
+    "utc_time": "2026-11-12T15:58:10+00:00",
+    "git_commit": "a3b6d4b20435890e3613b68bcf61ef602db5f34c",
+    "git_dirty": true,
+    "configs": [
+      "G2H",
+      "G4H"
+    ],
+    "n_questions": 85,
+    "note": "generation ablation (resume): systems G2H G4H; backend hosted model openai/gpt-oss-120b (chosen 2026-11-12); bootstrap vs G1, G2, G4"
   }
 ]

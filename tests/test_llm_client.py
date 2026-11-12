@@ -11,7 +11,7 @@ import httpx2
 import openai
 import pytest
 
-from ragsys.llm.client import LLMClient, LLMConfig, LLMJSONError, extract_json
+from ragsys.llm.client import LLMClient, LLMConfig, LLMJSONError, QuotaExceeded, extract_json
 from ragsys.llm.fake import FakeLLM
 
 SECRET = "sk-test-SECRET-do-not-log-12345"
@@ -100,8 +100,11 @@ def test_retries_with_exponential_backoff(tmp_path: Path) -> None:
 
 def test_retries_give_up_after_max(tmp_path: Path) -> None:
     client, transport, sleeps = make_client(tmp_path, [429], backoff_max_s=5.0)
-    with pytest.raises(openai.RateLimitError):
+    # a rate limit that outlasts every retry is reported as an exhausted quota (exit code 75
+    # in the evaluation scripts, so a waiting runner can try again later)
+    with pytest.raises(QuotaExceeded) as info:
         client.chat(MSGS)
+    assert isinstance(info.value.__cause__, openai.RateLimitError)
     assert len(transport.requests) == 6  # first attempt + 5 retries
     assert sleeps == [1.0, 2.0, 4.0, 5.0, 5.0]
     client2, transport2, _ = make_client(tmp_path / "b", [400])

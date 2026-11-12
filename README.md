@@ -22,6 +22,14 @@ This repository contains three parts of the project.
   * an answer-quality evaluation harness (NLI-based faithfulness and correctness, citation
     quality, abstention, cost) with the same dev/test discipline as retrieval;
   * a local web UI with clickable citations.
+* **Assistant:**
+  * three answer modes: Grounded (the pipeline above), Hybrid (grounded first, then a clearly
+    labelled general-knowledge answer when the documents do not answer) and Chat & Code (a
+    conversation with optional document passages and a coding assistant);
+  * two generator backends: a local model (Ollama) and a hosted OpenAI-compatible model, with
+    rate limiting and no silent fallback during evaluations;
+  * five collections, two of them evaluated; app-only documents never touch a frozen
+    evaluation corpus; a generator-scale ablation (G2H / G4H) on the evaluated collections.
 
 "Agnostic" means the pipeline is domain-independent: document structure comes from a pluggable
 `StructureParser`. The case-study corpus uses `IndianStatuteParser`; any other PDF can be
@@ -29,9 +37,13 @@ ingested with `GenericParser` (font-size / numbering based headings) by adding i
 `configs/ingest.yaml` with `parser: generic`.
 
 The system serves several **collections** (document sets), each with its own configs, data,
-caches, evaluation set and results: `consumer_law` (the case study above, at its original
-locations) and `cs_ai` (selected chapters of three open-licensed computer science textbooks).
-See [Collections](#collections).
+caches and (when evaluated) evaluation set and results: `consumer_law` (the case study above, at
+its original locations), `cs_ai` (open-licensed computer science textbooks, plus two Python books
+in the app), and three collections served in the app only: `indian_law`, `human_biology` and
+`physics_chemistry`. See [Collections](#collections) and
+[Research page: modes, backends and app collections](#research-page-modes-backends-and-app-collections).
+The web app is a chat assistant that grounds its answers in these collections automatically
+(see [Assistant](#assistant) and [Public demo](#public-demo)).
 
 ## Corpus and sources
 
@@ -70,10 +82,13 @@ so collections never share an output or a cache. The test suite checks that the 
 each collection's config files agree with its roots and that no two collections share a
 location.
 
-| collection | configs | raw / processed / eval / results |
-|---|---|---|
-| `consumer_law` (default) | `configs/{ingest,chunking,retrieval,generation}.yaml` | `data/raw`, `data/processed`, `data/eval`, `results` |
-| `cs_ai` | `configs/collections/cs_ai/*.yaml` | `collections/cs_ai/{raw,processed,eval,results}` |
+| collection | configs | raw / processed / eval / results | evaluated |
+|---|---|---|---|
+| `consumer_law` (default) | `configs/{ingest,chunking,retrieval,generation}.yaml` | `data/raw`, `data/processed`, `data/eval`, `results` | yes |
+| `cs_ai` | `configs/collections/cs_ai/*.yaml` (app index: `configs/collections/cs_ai/app/`) | `collections/cs_ai/{raw,processed,eval,results}` (app index: `processed_app`) | yes |
+| `indian_law` | `configs/collections/indian_law/*.yaml` | `collections/indian_law/{raw,processed}` | no |
+| `human_biology` | `configs/collections/human_biology/*.yaml` | `collections/human_biology/{raw,processed}` | no |
+| `physics_chemistry` | `configs/collections/physics_chemistry/*.yaml` | `collections/physics_chemistry/{raw,processed}` | no |
 
 `consumer_law` maps to the original locations and config files, so every command written
 without `--collection` behaves exactly as before (a test compares the resolved paths with the
@@ -181,15 +196,310 @@ Ollama must be running for the evaluation-set and generation steps.
 ### Adding a collection
 
 1. Put the PDFs in `collections/<name>/raw/`.
-2. Copy `configs/collections/cs_ai/` to `configs/collections/<name>/` and edit the documents
-   (file, doc_id, title, authors, chapters to keep, licence fallback) and every
-   `collections/cs_ai/...` path.
-3. Add an entry to `configs/collections.yaml` (roots, UI texts, profile, auto-eval counts,
-   pipeline systems). A new domain gets its own profile in `src/ragsys/profiles.py` (prompt
-   wording, question-type mix, out-of-scope topics); the `cs_ai` profile suits other technical
-   textbooks.
-4. Run `python scripts/run_collection_pipeline.py --collection <name>` (or step by step with
-   `--collection <name>`), and `pytest -q` to check that the configs agree with the roots.
+2. Copy the configs of a similar collection to `configs/collections/<name>/`:
+   `human_biology/` for textbooks (OpenStax-style numbered headings, whole books selected with
+   `outline_chapters`), `indian_law/` for statutes, `cs_ai/` for an evaluated collection with
+   selected chapters. Edit the documents (file, doc_id, title, authors, edition, source URL,
+   licence and where it was read, chapters to keep) and every `collections/<old>/...` path.
+3. Add an entry to `configs/collections.yaml` (roots, UI texts including the safety note, the
+   chat domain and six example questions, profile, `evaluated`, `eval_docs` / `app_docs`,
+   pipeline settings) and add it to `ui_order`. A new domain gets its own profile in
+   `src/ragsys/profiles.py` (prompt wording; for evaluated collections also the question-type
+   mix and out-of-scope topics).
+4. App only: `python scripts/run_app_collections.py --no-ablation` builds its index (ingest ->
+   chunk -> bge-small index). Evaluated: `python scripts/run_collection_pipeline.py --collection
+   <name>`. Then `pytest -q` checks that the configs agree with the roots and that the
+   documents listed in `eval_docs` / `app_docs` match the ingest configs.
+
+## Assistant
+
+`python scripts/serve.py` opens a chat assistant at http://127.0.0.1:8000 (code:
+`src/ragsys/assistant/`, page: `src/ragsys/app/static/chat.html`). The grounded research page
+with its systems and modes moved to http://127.0.0.1:8000/research; the research pipelines,
+evaluations and results are not changed by the assistant.
+
+### Chat-first behaviour
+
+* **One LLM call per message, streamed token by token** (Server-Sent Events from
+  `POST /api/chat`; the hosted backend streams with `stream=True`, Ollama through its
+  OpenAI-compatible streaming). Stop, Regenerate, Copy and edit-and-resend of the last message
+  are in the page. Nothing is cached on disk and message contents are never logged.
+* **Automatic grounding without an extra LLM call.** The latest message (joined with the
+  previous user message when it is a short follow-up such as "and why?") is embedded with
+  bge-small and searched in the selected collection's app index and in the session's uploaded
+  PDFs. When the top-1 cosine of a source reaches its gate threshold, the best passages of that
+  source are added to the message as labelled, delimited data ([C1], [C2], ...; 2048 index
+  tokens for the hosted backend, 1024 for the local one) and the model is asked to use and cite
+  them when relevant, or to answer from general knowledge and say so. Below the gate the
+  message is plain chat. Thresholds live in `configs/assistant.yaml`: for the two evaluated
+  collections the 5th percentile of the top-1 dense scores of their answerable DEV questions
+  (structural chunks, bge-small; `tests/test_assistant_gate.py` recomputes them from the DEV
+  outputs), 0.62 for the other collections and for uploads.
+* **Source line.** Under every reply: "Answered with documents (N sources)" with clickable
+  citation chips that open the passage, or "General knowledge — no matching documents". It is
+  decided from the citations the reply actually contains; labels that name no passage given to
+  the model are removed.
+* **Verify** (on demand, per grounded reply): the grounded pipeline's deterministic guards
+  (citation validity, number grounding) and the critic check the reply against its cited
+  passages, and every sentence is marked supported or unsupported with the reason.
+* **Grounded only** (switch): the grounded pipeline (synthesizer, guards, critic, one revision
+  round) answers strictly from the documents or says "Not found in these documents" with the
+  closest sections.
+* **Conversation context:** the last 10 turns within the backend's history budget; when they do
+  not fit, the oldest messages are summarised by one short LLM call and the summary is reused
+  for the following turns. Conversations are stored in the browser's localStorage only (the page
+  works when storage is blocked).
+* **System prompt:** a general assistant for students and developers (concepts; code with stated
+  assumptions, runnable examples and complexity notes; step-by-step math and science in LaTeX),
+  with the collection's notice (law collections: "Not legal advice"; human biology:
+  "Educational, not medical advice; for symptoms or emergencies contact a doctor or local
+  emergency services") and the provider's safety policies.
+* **Rendering:** safe Markdown built from text nodes (HTML in a reply is shown as text, only
+  http(s) and mailto links), code blocks with syntax highlighting and copy buttons, LaTeX with
+  KaTeX. highlight.js and KaTeX are vendored under `src/ragsys/app/static/vendor/` with their
+  licence files; the page loads nothing from other sites and keeps the strict
+  Content-Security-Policy. Light and dark themes follow the system setting; the page is
+  keyboard accessible and works at 360 px.
+
+### Uploading your own PDFs
+
+Up to 3 PDFs per browser session (at most 20 MB and 300 pages each). They are parsed in memory
+with the ingest pipeline's line extraction and cleaner, structured by the GenericParser, cut into
+structural chunks and embedded with bge-small, with a progress indicator; they are then searched
+next to the selected collection (also with "None (general chat)"). Nothing is written to disk
+or logs; a session's documents are deleted when the page closes or after 2 hours without
+activity. Non-PDF, encrypted, oversized and scanned (text-less) files are refused with a message.
+
+### Privacy: hosted and local
+
+| backend | what leaves this computer |
+|---|---|
+| local (Ollama, qwen2.5:3b) | nothing: messages, passages and uploads stay on this computer |
+| hosted (Groq) | each message, the recent conversation (or its summary) and the passages added to it are sent to the provider; uploads themselves are not sent, only their matching passages |
+
+The page shows the active backend, its model and this note. The assistant never switches to
+another backend on its own: when the hosted API is rate-limited the reply says "The model is
+busy right now. Please try again in a minute."
+
+### Speed
+
+`python scripts/bench_chat.py` runs 10 prompts over the collections through the assistant and
+prints the time to first token, the full answer time, a projection for a 300-token reply and the
+gate time (embedding + search) with p50 and p95 (`--fake-llm` runs offline).
+
+## Public demo
+
+A free public Hugging Face Space runs the assistant with the hosted backend only (no local
+model): **https://huggingface.co/spaces/USERNAME/agentic-rag-assistant** (placeholder until it
+is deployed). In public mode the research page is off and the API key is protected by limits
+from `configs/assistant.yaml`:
+
+* 20 messages per 10 minutes and 200 per day per visitor (Verify and Grounded-only count as
+  messages), 10 uploads per hour;
+* messages of at most 4000 characters, replies of at most 1500 tokens;
+* a global daily request cap with a friendly "busy, try later" message;
+* no logging of message contents.
+
+The server binds to 127.0.0.1 unless the `HOST` environment variable is set (the Space's image
+sets `HOST=0.0.0.0`, `PORT=7860`); see `src/ragsys/assistant/hosting.py` for `ALLOWED_HOSTS`,
+`FRAME_ANCESTORS`, `TRUST_PROXY` and `PROXY_HOPS`.
+
+### Deployment
+
+```powershell
+# 1. assemble deploy/hf_space/build/ (code, configs, the five app indexes, SOURCES.csv files,
+#    vendored assets, Dockerfile, Space README); prints a size summary and checks that it
+#    contains no PDFs, no .env files and no LLM_API_KEY / HF_TOKEN values
+python scripts/build_space.py
+
+# 2. create or update <username>/agentic-rag-assistant (username from the token)
+$env:HF_TOKEN = "hf_..."              # write token; read from the environment only
+python scripts/deploy_space.py --dry-run
+python scripts/deploy_space.py --set-llm-secret   # also stores this shell's LLM_API_KEY as the Space secret
+
+# without --set-llm-secret: Space -> Settings -> Variables and secrets -> New secret LLM_API_KEY
+```
+
+The Space builds the Docker image itself (python:3.11-slim, CPU torch from the PyTorch CPU index,
+bge-small downloaded at build time, non-root user, port 7860). Docker is not needed locally.
+Several collections are licensed for non-commercial use, so the demo is non-commercial; the app's
+"About & sources" panel lists every document's licence as recorded in its `SOURCES.csv`.
+
+## Research page: modes, backends and app collections
+
+The research page (`/research`) keeps the original grounded interface with the evaluated systems.
+
+### Answer modes
+
+| mode | what it does | grounding |
+|---|---|---|
+| Grounded | the pipeline described under [Answering](#answering) (synthesizer + guards + critic, G4 by default) | only from the passages, one citation per sentence; otherwise "Not found in these documents" with the three closest sections |
+| Hybrid | grounded first; only when it abstains, a short general-knowledge answer from the same backend | the general answer is shown separately under the banner "General knowledge — not from these documents. May be wrong; verify." with the closest passages as "Related reading"; it is never merged into a grounded answer and carries no citations |
+| Chat & Code | a multi-turn conversation in Markdown with fenced, copyable code blocks | none by default; with "Use documents", passages retrieved for the latest message are added (delimited as untrusted data) and the reply cites them as [C1], [C2], ...; unknown labels are reported |
+
+Chat keeps the last 10 turns (a turn is a user message and its reply) and then drops the oldest
+until the history fits the backend's `chat_history_tokens` (estimated at four characters per
+token); the latest message is always sent. The coding assistant prompt (explain, write, review
+and debug code; state assumptions; prefer the standard library; complexity notes) is used for
+`cs_ai` and whenever the "Code" switch is on. **Code is never executed.** System prompts carry
+the collection's safety note (law collections: "Not legal advice"; `human_biology`:
+"Educational information, not medical advice; for symptoms or emergencies contact a doctor or
+local emergency services") and ask the model to refuse clearly harmful requests according to the
+provider's usage policies; there is no custom jailbreak handling.
+
+Citation tags written with fullwidth brackets ("【C3】", a habit of some hosted models) are read
+as [C3] in chat replies and in grounded answers; no answer of the local model contains them, so
+existing results are unaffected.
+
+Code: `src/ragsys/agents/modes.py` (modes, history capping), `src/ragsys/agents/chat_prompts.py`
+(system prompts), `src/ragsys/app/markdown.py` (the safe Markdown subset).
+
+### Generator backends and privacy
+
+`configs/llm.yaml` defines named backends; every script that calls a generator takes
+`--backend` (`ask.py`, `serve.py`, the generation and question-drafting scripts) and the web UI
+has a backend selector:
+
+| backend | model | where the text goes |
+|---|---|---|
+| `local` (default) | `qwen2.5:3b` through Ollama on this computer | questions, passages and answers stay on this computer |
+| `hosted` | an OpenAI-compatible provider (Groq); the model id, the date it was chosen and how it was chosen are recorded in `configs/llm.yaml` | **questions and the retrieved passages (and, in chat, the conversation) are sent to the API provider** |
+
+* The API key is read from the environment variable `LLM_API_KEY` only (PowerShell:
+  `$env:LLM_API_KEY = "..."`). It is sent to the hosted endpoint and nowhere else: it is not
+  sent to the local server, logged, cached, written to reports or shown in the UI; a test checks
+  logs, cache files and reprs.
+* Rate limits: a client-side token bucket (`requests_per_minute`, `tokens_per_minute`, shared by
+  all clients of the same endpoint and model), the provider's `Retry-After` on 429 responses and
+  exponential backoff; a requested wait longer than `max_retry_wait_s` (an exhausted daily
+  quota), or a rate limit that outlasts every retry, stops the run with a message (exit code 75)
+  instead of sleeping for hours; `eval_generation.py --max-retry-wait SECONDS` raises that limit
+  for unattended runs. The provider's daily quota (`tokens_per_day`, `requests_per_day`) is
+  recorded for time estimates. Resumable runs continue from the response cache when started
+  again. A hosted call that fails in the web UI is reported as an error naming the backend.
+* Responses are cached on disk by (backend, base URL, model, messages, parameters); the local
+  backend's keys are the ones used before backends existed, so its caches stay valid.
+* Context budgets: the hosted backend uses 2048 tokens for the first round and 3072 for the
+  revision round; the local backend keeps 1024 / 2048 (its 4096-token context window).
+* No silent fallback: evaluations check every backend they need before opening the test split
+  and stop when one is unavailable; a system's backend is part of its definition (`--backend`
+  only checks it). The web UI picks hosted as its default when the key is set and the endpoint
+  answers, else local, and names the model under every answer; a request for an unavailable
+  backend gets an error, not another model.
+
+### Frozen evaluation corpora and app-only documents
+
+`configs/collections.yaml` lists, per evaluated collection, `eval_docs` (the exact documents of
+every existing evaluation, frozen) and `app_docs` (what ask.py and the web UI serve). When they
+differ, the collection has a second index:
+
+| index | used by | cs_ai documents | location |
+|---|---|---|---|
+| eval (frozen) | every evaluation script | d2l, progit, ods | `collections/cs_ai/processed` |
+| app | ask.py, the web UI | + the Python Tutorial (whole tutorial) and Think Python 2e (whole book without front/back matter) | `collections/cs_ai/processed_app` |
+
+The app index has its own configs (`configs/collections/cs_ai/app/`; its first three document
+entries are identical to the evaluation config, which a test checks) and its retrieval config
+says `index: app`. Every evaluation script (`run_retrieval_grid`, `eval_retrieval`,
+`select_configs`, `build_auto_eval`, `spot_check`, `tune_abstention`, `run_generation`,
+`derive_systems`, `eval_generation`, `judge_sample`) refuses an app index and the collections that
+are not evaluated, and the retrieval and generation harnesses refuse it again at library level.
+Until the app index is built, ask.py and the UI serve the evaluation index and say so. The app
+ingest writes its provenance to `collections/cs_ai/raw/SOURCES_app.csv` (`paths.sources_file`),
+so the evaluation corpus's `SOURCES.csv` is never rewritten; the UI lists the app file while it
+serves the app index. `consumer_law` serves its evaluation documents (`app_docs = eval_docs`).
+
+`tests/test_frozen_results.py` proves that the existing results are untouched: every result
+table, per-question / per-query file and test-access log of `consumer_law` and `cs_ai` is
+recorded in `tests/data/frozen_results.json` and must be byte-identical (line endings
+normalised); the generator-scale ablation may only append rows to the `generation_test` tables
+and entries to the test-access log (their recorded bytes / entries must stay a prefix), and
+regenerating `SUMMARY.md` must keep every existing section. Re-ingesting and re-chunking both
+corpora with the current code reproduces their processed files byte for byte.
+
+### App-only collections (not evaluated)
+
+These collections are labelled "Not evaluated" in the UI: they have no evaluation set, no
+retrieval grid and no generation evaluation. Each uses the structural chunker and bge-small
+embeddings only (the fastest encoder on this CPU, and the best dev retriever of `cs_ai`); before
+the index is built, retrieval falls back to BM25 and says so. Example questions are written from
+real section headings and shown as chips. Licences, editions, source URLs, SHA-256 and pages are
+in each collection's `SOURCES.csv`, shown in the UI footer.
+
+| collection | documents | parser | licence |
+|---|---|---|---|
+| `indian_law` (Indian Law, Constitution & Tax) | Constitution of India (as on 10 September 2026); Income-tax Act, 2025 (as amended by the Finance Act, 2026); CGST Act, 2017; Bharatiya Nyaya Sanhita, 2023 | `constitution` (Constitution), `statute` (the Acts) | Acts of Parliament may be reproduced (Copyright Act, 1957, s. 52(1)(q)); the PDFs state no licence |
+| `human_biology` | OpenStax Anatomy and Physiology 2e (whole book without front matter, end-of-chapter glossaries and review material, references and index) | generic, textbook mode | CC BY-NC-SA 4.0 (read from the PDF) |
+| `physics_chemistry` | OpenStax College Physics 2e, University Physics Volume 3, Chemistry 2e, Organic Chemistry (same exclusions; appendices and answer keys left out) | generic, textbook mode | CC BY-NC-SA 4.0 (read from the PDFs) |
+| `cs_ai` app documents | Python Tutorial (release 3.13.0a0, `python_tutorial/tutorial.pdf` of the Python documentation PDF set); Think Python 2e (Allen B. Downey) | generic, textbook mode | PSF License Agreement (documentation; code examples also Zero-Clause BSD); CC BY-NC 3.0 Unported (read from the PDF) |
+
+Statute parsing for the Constitution (`src/ragsys/structure/constitution.py`): Parts with their
+titles, Chapters inside Parts, Articles including lettered ones (21A, 243ZH; the printed
+"243Z-I" is stored as 243ZI), omitted articles (kept with their "Omitted by ..." note, whichever
+side of the number the amendment bracket is printed), clauses, sub-clauses, provisos,
+Explanations, group headings ("Right to Equality") and the twelve Schedules; the appendices are
+back matter, and the editorial brackets of substituted headings are removed. Node IDs:
+`coi:part3`, `coi:part5-ch1`, `coi:a21A`, `coi:a21A(1)`, `coi:a19(1)(a)`, `coi:sch7`,
+`coi:preamble`. The Income-tax Act print sets each section heading on its own bold line above
+"1. (1) ..."; `section_heading_above: true` folds it in (also when the heading carries an
+amendment marker, "18[Deduction in respect of ...]"). Its amendment footnotes ("7. Sub. by Act
+No. 4 of 2026, w.e.f. ...") are set in the body font, so `footnote_start_pattern` finds them: per
+page, the first matching line below a gap of two line heights starts the footnote area. Textbooks are selected chapter by chapter
+from the PDF outline (`outline_chapters: '^Chapter\s+\d+\b'`); end-of-chapter matter is dropped
+from its first heading to the next chapter (`drop_to_chapter_end`: "Key Terms", "Glossary",
+"Chapter Review"), chapter-opening lists of section headings are dropped
+(`drop_outline_headings`) and wrapped chapter titles are joined from the outline. With
+`outline_chapters`, the outline names every chapter: a box heading set in the chapter style
+(Organic Chemistry's "CHEMISTRY MATTERS") stays a section of its chapter, and a Sphinx chapter
+opening ("CHAPTER" / "ONE" / "WHETTING YOUR APPETITE", the Python Tutorial) becomes chapter 1
+with its outline title. Licence sentences hyphenated across a line break ("Cre-/ative Commons")
+are read. All these options are off by default, so the existing collections ingest exactly as
+before. The ingest report lists, per document, the pages kept, sections/articles, numbering gaps
+and warnings.
+
+### Generator-scale ablation (evaluated collections, TEST split, no tuning)
+
+| system | definition |
+|---|---|
+| G2H | G2 with the hosted backend: same retrieval config, hosted context budgets |
+| G4H | G4 with the hosted backend: same retrieval config, guards + critic, hosted context budgets |
+
+The hosted model was chosen before any result was seen (`configs/llm.yaml`: model id, date and
+rationale). `eval_generation.py --split test --collection <consumer_law|cs_ai> --systems G2H G4H`
+needs the standard test evaluation to be complete (its G1, G2 and G4 outputs are read, never
+rewritten), logs the test access, uses the same NLI metrics and guards, and appends rows to
+`generation_test.csv`, `_by_type.csv` and `_bootstrap.csv` (existing rows untouched; the
+`label` column names the backend, model and selection date). The paired bootstrap compares each
+ablation system with G1, with G2 (same retrieval, local generator) and with the system it mirrors
+(G4 for G4H). `generation_test_ablation.meta.json` records the backend, the context budgets, the
+NLI model, tokens and API latency (cached calls report the latency measured when they were first
+made), and `SUMMARY.md` gains a "Generator-scale ablation" section.
+
+### App runner
+
+```powershell
+$env:LLM_API_KEY = "..."                       # for the ablation steps only
+.\scripts\run_app_collections.ps1               # or: python scripts\run_app_collections.py
+python scripts\run_app_collections.py --dry-run # plan + time and token estimate only
+python scripts\run_app_collections.py --no-ablation   # app indexes only, no API calls
+.\scripts\run_app_collections.ps1 -WaitForQuota # wait for the daily API quota (unattended)
+```
+
+Steps: ingest -> chunk -> bge-small structural index for `indian_law`, `human_biology` and
+`physics_chemistry`; the `cs_ai` app index; the G2H / G4H test evaluations of `consumer_law` and
+`cs_ai`; their `SUMMARY.md`. Each step is skipped when complete with unchanged inputs and resumes
+from its caches (embedding batches, LLM responses, per-question records). The dry run prints a
+time estimate per step and the expected API tokens of the ablation (per-call tokens measured on
+the hosted model, the hosted context budgets and the share of revisions of the local G4 run).
+
+The ablation needs more tokens than a free API account's daily token quota, so it spans several
+days. Without `--wait-for-quota` an ablation step stops when the day's quota is used up (exit code
+75, nothing falls back to the local model) and the same command continues it once the quota has
+renewed. With `--wait-for-quota` (`-WaitForQuota`) the run waits instead: each call waits out the
+provider's `Retry-After` (up to 6 hours) and a step stopped by the quota is started again every 30
+minutes for up to 5 days; the computer must stay on (the runner keeps it awake). The log is
+`collections/app_pipeline_log.txt`; the run ends with `ALL DONE` or names the failing step and the
+resume command.
 
 ## Setup (Windows 11, PowerShell)
 
@@ -532,14 +842,16 @@ refuses a second test evaluation unless you pass `--allow-repeat`, and the repea
 ## LLM client
 
 `src/ragsys/llm/client.py` is a single client for any OpenAI-compatible chat endpoint (the `openai`
-SDK with a `base_url`), configured in `configs/llm.yaml`. It builds and drafts evaluation
-questions and runs the answering agents (with the overrides of `configs/generation.yaml`:
-temperature 0, max_tokens 512).
+SDK with a `base_url`); `configs/llm.yaml` defines its named backends
+(`src/ragsys/llm/backends.py`, see
+[Generator backends and privacy](#generator-backends-and-privacy)). It builds and drafts
+evaluation questions and runs the answering agents (with the overrides of
+`configs/generation.yaml`: temperature 0, max_tokens 512 for the local backend).
 
-* **Ollama (default):** install Ollama, run `ollama pull qwen2.5:3b` and keep it running. The
-  default `base_url` is `http://localhost:11434/v1`; no key is needed.
-* **Any OpenAI-compatible provider:** set `base_url` and `model` in `configs/llm.yaml` and put the
-  key in the environment variable `LLM_API_KEY` (PowerShell: `$env:LLM_API_KEY = "..."`).
+* **Ollama (`local`, default):** install Ollama, run `ollama pull qwen2.5:3b` and keep it
+  running. The `base_url` is `http://localhost:11434/v1`; no key is needed or sent.
+* **Hosted (`hosted`):** an OpenAI-compatible provider; put the key in the environment variable
+  `LLM_API_KEY` (PowerShell: `$env:LLM_API_KEY = "..."`).
   * The key is read from the environment only.
   * It is never logged, printed, cached or written to reports.
   * `.env` and key files are git-ignored.
@@ -548,10 +860,14 @@ Features:
 * temperature, max_tokens and seed;
 * JSON mode, with a tolerant JSON extractor as fallback;
 * retries with exponential backoff (at most 5) on rate limits, timeouts, connection errors and
-  5xx responses;
+  5xx responses; the provider's `Retry-After` is respected, and a longer wait than
+  `max_retry_wait_s` stops the call (`QuotaExceeded`);
+* an optional client-side token bucket (requests and tokens per minute) and the rate-limit
+  headers of the last response;
 * per-call latency and token usage;
-* an on-disk response cache in `data/processed/llm_cache/`, keyed by (base_url, model, messages,
-  parameters), so reruns are free and reproducible. A cache hit reports `latency_ms = 0` (no
+* an on-disk response cache in `<processed_dir>/llm_cache/`, keyed by (backend, base_url, model,
+  messages, parameters; the `local` backend's keys carry no backend name, as before backends
+  existed), so reruns are free and reproducible. A cache hit reports `latency_ms = 0` (no
   model time spent now) and carries the latency measured on the original call in
   `stored_latency_ms`; `reported_latency_ms` is what latency figures use, so they do not depend
   on whether the cache was warm.
@@ -908,7 +1224,8 @@ ollama pull qwen2.5:3b                  # once; keep Ollama running
 python scripts/ask.py "Within how many days must a complaint be decided if no testing of goods is needed?" --system G4
 python scripts/ask.py "Who can file a complaint?" --system G5 --plain
 
-# local web UI on http://127.0.0.1:8000 (loopback only; Ctrl+C to stop)
+# web app on http://127.0.0.1:8000: the assistant at /, the research page at /research
+# (loopback only; Ctrl+C to stop)
 python scripts/serve.py
 
 # 1. dev runs (resumable; one record per question as it is answered)
@@ -943,15 +1260,24 @@ Outputs:
 ### Web UI
 
 `scripts/serve.py` starts a FastAPI app (`src/ragsys/app/`) bound to 127.0.0.1, port 8000 by
-default, serving every collection:
+default. The chat assistant is served at `/` (see [Assistant](#assistant)); the research page
+described here is served at `/research` and covers every collection:
 
-* a collection selector (shown first: `cs_ai`, also "Indian Consumer Law"); per collection the
-  heading, the documents with titles, authors, licence and source links (from its
-  `SOURCES.csv`), five example questions from its dev split as clickable chips, its disclaimer
-  (consumer_law: "Not legal advice"; cs_ai: "Answers come only from the listed open
-  textbooks") and its systems (consumer_law: G2, G4, G5, G6, default G5; cs_ai: G2, G4, default
-  G4). A collection's models are loaded on its first question; switching releases the other
+* a collection selector in this order: "Computer Science, AI & Coding" (`cs_ai`, shown first),
+  "Indian Consumer Law", "Indian Law, Constitution & Tax", "Human Biology", "Physics &
+  Chemistry", each with an "Evaluated" badge (linking to its `SUMMARY.md` rendered as a page,
+  `/summary?collection=...`) or a "Not evaluated" badge; per collection the heading, the
+  documents with titles, authors, licence and source links (from its `SOURCES.csv`), example
+  questions as clickable chips (dev-split questions for evaluated collections, six written from
+  real section headings for the others), its disclaimer and safety note and its systems. A
+  collection's models are loaded on its first question; switching releases the other
   collection's encoders. A collection that is not built yet is listed as such;
+* a mode selector (Grounded / Hybrid / Chat & Code), a backend selector with the model and its
+  privacy note, and "Answered by <backend> — model <id>" under every answer;
+* Chat & Code: a conversation panel with the chat history, "New chat", a "Use documents" switch
+  (citations open the passage panel) and a "Code" switch; Markdown is rendered safely (the server
+  parses a small Markdown subset into a block tree and the page builds it from text nodes: no
+  HTML, no links, `javascript:` targets stay text), code blocks are monospace with a copy button;
 * ask box, system selector and a plain-language switch;
 * the answer with a superscript citation chip after each sentence; a chip opens a side panel
   with the passage's heading path, section id, pages and text, with the cited sentence's key
@@ -964,13 +1290,23 @@ default, serving every collection:
   `collections/cs_ai/feedback.jsonl`; git-ignored, stays on this machine);
 * footer: the collection's disclaimer and documents with their versions (file hash and pages).
 
-Endpoints: `GET /`, `GET /api/collections`, `GET /api/meta?collection=`, `POST /ask`
-(`{"question", "system", "plain", "collection"}`), `GET /passage?chunk_id=...&collection=`,
-`POST /feedback`. The page loads no external resources and has no inline script (strict
-Content-Security-Policy), and all document and model text is inserted as text. Requests are
-answered one at a time, and only loopback host names are accepted. The page is keyboard
-accessible (labelled controls, visible focus, Esc closes the passage panel) and works at 360 px
-width.
+Endpoints of the research page: `GET /research`, `GET /api/collections`, `GET /api/backends`, `GET /api/meta?collection=`,
+`POST /ask` (`{"question", "system", "plain", "collection", "mode": "grounded"|"hybrid",
+"backend"}`), `POST /chat` (`{"messages", "collection", "backend", "use_documents", "code"}`),
+`GET /passage?chunk_id=...&collection=`, `POST /feedback`, `GET /summary?collection=` and
+`GET /api/summary?collection=`. The page loads no external resources and has no inline script
+(strict Content-Security-Policy), and all document and model text is inserted as text. Requests
+are answered one at a time, and only loopback host names are accepted. The page is keyboard
+accessible (labelled controls, a radio group for the mode, visible focus, Ctrl+Enter sends, Esc
+closes the passage panel) and works at 360 px width.
+
+```powershell
+python scripts/serve.py                     # backend: hosted if LLM_API_KEY is set and reachable, else local
+python scripts/serve.py --backend local     # everything stays on this computer
+python scripts/ask.py --collection indian_law "What does Article 21 of the Constitution protect?" --mode grounded --backend hosted
+python scripts/ask.py --collection cs_ai "Write a Python function that checks whether a string is a palindrome" --mode chat --backend hosted
+python scripts/ask.py --collection human_biology "How does the body regulate acid-base balance?" --mode hybrid
+```
 
 ## Tests and CI
 
@@ -985,7 +1321,19 @@ non-legal report and a textbook with an outline, numbered and unnumbered heading
 an equation line, running headers, an Exercises section, references and an index). Collection
 tests check the consumer-law paths, prompts, fingerprints and result tables against the state
 before collections existed, the isolation of caches and test-access logs between collections,
-the runner's skip/resume logic with fake steps and collection switching in the web UI.
+the runner's skip/resume logic with fake steps and collection switching in the web UI. Further
+tests cover backend selection and the absence of fallbacks in evaluations, the rate limiter and
+Retry-After, the API key never appearing in logs or caches, the three modes (the hybrid banner
+path, chat history capping, "Use documents" citations, the coding prompt), the separation and
+refusal of app indexes, the frozen results (`tests/data/frozen_results.json`), the Constitution
+parser on a synthetic PDF, the Markdown sanitiser and every UI endpoint in every mode; FakeLLM
+stands in for both backends.
+The assistant's tests (`tests/test_assistant_*.py`, `tests/test_build_space.py`) use a fake
+streaming LLM and the hashing encoder: token order and Stop, the gate above and below its
+threshold, citation parsing and stripping, Verify, Grounded only, upload limits, rejections and
+in-memory cleanup, rate limits, the HOST binding, history capping and the summary trigger, the
+Markdown sanitiser of the chat page (run under Node when it is installed) and a Space build
+without PDFs or secrets.
 `pytest -q -m corpus` also re-ingests and re-chunks the consumer-law PDFs and compares the
 outputs byte for byte with `data/processed/`. GitHub Actions runs lint, type checks and tests on `ubuntu-latest` and
 `windows-latest` with Python 3.11, installs CPU torch from the PyTorch CPU index and caches the
@@ -1033,6 +1381,14 @@ HuggingFace model directory.
   not resolved; d2l and ODS references into chapters that were not ingested are `external`.
 * The `cs_ai` licences of d2l and ODS are not stated (with a version) in the PDFs themselves;
   they come from the publishers' pages, as recorded in SOURCES.csv.
+* App-only collections are not evaluated: their retrieval and answers have no measured quality.
+  Statute parsing leaves numbering gaps where a heading is not recognised (reported per document
+  by `ingest.py`); amendment notes printed in the body font of the Income-tax Act print stay in
+  the text of the provision they follow; tables in the Acts and schedules are kept as plain
+  text. OpenStax end-of-chapter material (glossaries, summaries, review questions) is dropped, as
+  are two-column layouts that would interleave; equations are kept as extracted text.
+* Hybrid and chat answers from general knowledge are not grounded and can be wrong; the hosted
+  backend sends questions and passages to the API provider and is limited by its quotas.
 
 ## License
 

@@ -1,0 +1,66 @@
+# Answer generation for the indian_law collection (served in the app; not evaluated).
+# Grounded mode uses G4 (synthesizer + deterministic guards + critic with one revision round)
+# on structural chunks with dense bge-small retrieval. Before the index is built, ask.py and the
+# web UI fall back to BM25 over the same chunks (selection_fallback) and say so.
+
+profile: indian_law
+llm_config: configs/llm.yaml
+llm_overrides:
+  temperature: 0.0
+  max_tokens: 512
+  cache_dir: collections/indian_law/processed/llm_cache
+llm_context_window: 4096
+retrieval_config: configs/collections/indian_law/retrieval.yaml
+results_dir: collections/indian_law/results
+seed: 42
+
+context:
+  budget_tokens: 1024
+  revision_budget_tokens: 2048
+  min_passages: 1
+
+loop:
+  max_synth_calls: 2
+  max_critic_calls: 2
+  critic_on_guard_fail: false
+  on_final_revise: abstain
+
+systems:
+  G2:
+    description: "structural chunks, dense bge-small, synthesizer only"
+    retrieval: "structural|dense|bge-small"
+  G4:
+    description: "grounded: synthesizer + guards + critic (structural chunks, dense bge-small)"
+    retrieval: "structural|dense|bge-small"
+    guards: true
+    critic: true
+
+# interactive use while the embeddings are not built: the first available config is used
+selection_fallback:
+  - "structural|dense|bge-small"
+  - "structural|bm25"
+
+abstention:
+  threshold_file: collections/indian_law/results/tables/abstention_threshold.json
+  tuned_system: null
+
+nli:
+  model: cross-encoder/nli-deberta-v3-base
+  fallback_model: cross-encoder/nli-distilroberta-base
+  entailment_threshold: 0.5
+  window_tokens: 400
+  window_stride: 300
+  batch_size: 8
+  cache_dir: collections/indian_law/processed/nli_cache
+
+eval:
+  bootstrap_resamples: 1000
+  seed: 42
+  reference_system: G2
+
+ui:
+  port: 8000
+  systems: [G4, G2]
+  default_system: G4
+  feedback_file: collections/indian_law/feedback.jsonl
+  sources_csv: collections/indian_law/raw/SOURCES.csv

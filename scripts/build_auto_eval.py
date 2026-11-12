@@ -43,7 +43,12 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from ragsys.collections import add_collection_arguments, collection_from_args, config_path
+from ragsys.collections import (
+    add_collection_arguments,
+    collection_from_args,
+    config_path,
+    eval_index_refusal,
+)
 from ragsys.config import load_ingest_config, resolve_path
 from ragsys.eval.autogen import AutoEvalBuilder
 from ragsys.eval.schema import AUTO_ORIGIN, EvalQuestion
@@ -135,6 +140,9 @@ def main(argv: list[str] | None = None, llm: ChatModel | None = None) -> int:
         "--report", default=None, help="default: <results_dir>/tables/eval_construction.json"
     )
     ap.add_argument("--threads", type=int, default=4, help="torch CPU threads (default 4)")
+    ap.add_argument(
+        "--backend", default=None, help="LLM backend of configs/llm.yaml (default: local)"
+    )
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
@@ -159,6 +167,10 @@ def main(argv: list[str] | None = None, llm: ChatModel | None = None) -> int:
     settings = load_retrieval_settings(
         resolve_path(config_path(args.config, coll.retrieval_config))
     )
+    refusal = eval_index_refusal(coll, settings)
+    if refusal:
+        emit(f"refusing to run: {refusal}")
+        return 2
     set_torch_threads(args.threads)
     qpath = resolve_path(Path(args.questions) if args.questions else settings.paths.questions)
     report_path = (
@@ -195,7 +207,9 @@ def main(argv: list[str] | None = None, llm: ChatModel | None = None) -> int:
     base_url: str | None = None
     if llm is None:
         cfg = (
-            load_llm_config(resolve_path(Path(args.llm_config))) if args.llm_config else coll.llm()
+            load_llm_config(resolve_path(Path(args.llm_config)), args.backend)
+            if args.llm_config
+            else coll.llm(args.backend)
         )
         client = LLMClient(cfg)
         if not client.is_reachable():

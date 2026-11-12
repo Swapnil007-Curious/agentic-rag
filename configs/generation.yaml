@@ -48,6 +48,21 @@ systems:
     retrieval: "fixed_256|hybrid_linear|bge-base|a0.5|rerank-minilm"
     guards: true
     critic: true
+  # Generator-scale ablation (TEST split only, no tuning): G2 and G4 with the hosted backend
+  # (configs/llm.yaml: its model and the date it was chosen), the same retrieval config and the
+  # hosted context budgets (2048 / 3072 tokens).
+  G2H:
+    description: "G2 with the hosted generator (generator-scale ablation)"
+    retrieval: "structural|dense|bge-base"
+    backend: hosted
+    ablation_of: G2
+  G4H:
+    description: "G4 with the hosted generator (generator-scale ablation)"
+    retrieval: "structural|dense|bge-base"
+    guards: true
+    critic: true
+    backend: hosted
+    ablation_of: G4
 
 abstention:
   threshold_file: results/tables/abstention_threshold.json

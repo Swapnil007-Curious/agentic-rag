@@ -1,0 +1,16 @@
+# Chunking for the human_biology collection (app only, not evaluated): structural chunks only (bge-small tokenizer for counting).
+
+paths:
+  processed_dir: collections/human_biology/processed
+  cache_dir: collections/human_biology/processed/cache
+
+tokenizer_model: BAAI/bge-small-en-v1.5
+seed: 42
+
+chunkers: [structural]
+
+structural:
+  max_tokens: 384
+  min_tokens: 48
+  contextual_header: true
+  orphan_text: true

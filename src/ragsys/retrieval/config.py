@@ -190,6 +190,10 @@ class SelectionSettings(StrictModel):
 
 
 class RetrievalSettings(StrictModel):
+    # "eval": the frozen evaluation index (every evaluation script requires it); "app": an index
+    # served by ask.py and the web UI only (documents that are not evaluated); evaluation
+    # scripts refuse it
+    index: Literal["eval", "app"] = "eval"
     paths: RetrievalPaths = Field(default_factory=RetrievalPaths)
     seed: int = 42
     device: str = "cpu"

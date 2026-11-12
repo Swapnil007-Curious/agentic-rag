@@ -112,6 +112,21 @@ def _chapter_starts_by_headings(doc: Any) -> list[tuple[int, float, str]]:
     return starts
 
 
+def outline_chapter_titles(path: str | Path, pattern: str) -> list[str]:
+    """Titles of the level-1 outline entries matching ``pattern`` (in outline order), e.g.
+    ``^Chapter\\s+\\d+`` for every numbered chapter of a book without its front and back
+    matter. An empty list when the PDF has no outline."""
+    rx = re.compile(pattern)
+    with pymupdf.open(Path(path)) as doc:  # type: ignore[no-untyped-call]
+        toc = doc.get_toc(simple=True) or []
+    out: list[str] = []
+    for level, title, page in toc:
+        t = " ".join(str(title).split())
+        if int(level) == 1 and int(page) >= 1 and rx.search(t) and t not in out:
+            out.append(t)
+    return out
+
+
 def resolve_chapters(path: str | Path, titles: list[str]) -> list[ChapterRange]:
     """Resolve chapter titles to page ranges (outline first, then heading detection)."""
     out: list[ChapterRange] = []

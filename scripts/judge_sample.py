@@ -4,12 +4,15 @@ family (not part of the acceptance runs).
 Usage:
     ollama pull llama3.2:3b
     python scripts/judge_sample.py --model llama3.2:3b [--results results/generation/dev/G4] [--n 40] [--seed 0]
+    python scripts/judge_sample.py --backend hosted [--model MODEL]   # needs LLM_API_KEY
 Draws a seeded sample of answered items from <results>/eval.jsonl (written by run_generation.py,
 derive_systems.py or eval_generation.py), asks the judge whether every sentence of the answer is
 supported by the passages it cites (strict JSON {"supported": true|false, "unsupported_sentences":
 [...]}), and compares that with the NLI verdict (all sentences entailed). Reports the agreement
 rate and Cohen's kappa in results/tables/judge_agreement_<system>.json. The judge uses the
-endpoint of configs/llm.yaml with the given model and its own response cache entries.
+endpoint of a backend of configs/llm.yaml (--backend, default local) with --model (default: that
+backend's model; pick another model family than the generator) and its own response cache
+entries; an unavailable backend stops the run (no fallback).
 """
 
 from __future__ import annotations
@@ -24,8 +27,13 @@ from typing import Any
 
 from ragsys.agents.context import sanitize
 from ragsys.agents.llmcall import json_with_repair
-from ragsys.agents.runtime import load_settings
-from ragsys.collections import add_collection_arguments, collection_from_args, config_path
+from ragsys.agents.runtime import llm_unreachable_message, load_settings
+from ragsys.collections import (
+    add_collection_arguments,
+    collection_from_args,
+    config_path,
+    eval_index_refusal,
+)
 from ragsys.config import resolve_path
 from ragsys.eval.answers import chunker_of
 from ragsys.eval.generation import read_jsonl
@@ -61,7 +69,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("--model", required=True, help="judge model, e.g. llama3.2:3b")
+    ap.add_argument("--model", default=None, help="judge model (default: the backend's model)")
+    ap.add_argument("--backend", default=None, help="local | hosted (default: llm.yaml's default)")
     ap.add_argument("--results", default=None, help="default: <results_dir>/generation/dev/G4")
     ap.add_argument("--n", type=int, default=40)
     ap.add_argument("--seed", type=int, default=0)
@@ -73,6 +82,10 @@ def main(argv: list[str] | None = None) -> int:
 
     coll = collection_from_args(args)
     settings, rsettings = load_settings(config_path(args.config, coll.generation_config))
+    refusal = eval_index_refusal(coll, rsettings)
+    if refusal:
+        emit(f"refusing to run: {refusal}")
+        return 2
     rdir = resolve_path(
         Path(args.results) if args.results else settings.results_dir / "generation" / "dev" / "G4"
     )
@@ -82,10 +95,16 @@ def main(argv: list[str] | None = None) -> int:
         emit(f"no evaluated answered items in {rdir} (run the generation and evaluation first)")
         return 1
     sample = random.Random(args.seed).sample(evals, min(args.n, len(evals)))
-    cfg = LLMConfig.model_validate({**settings.llm().model_dump(), "model": args.model})
+    backend = args.backend or settings.default_backend
+    if backend not in settings.backends().names:
+        emit(f"unknown backend {backend!r}; configured: {', '.join(settings.backends().names)}")
+        return 2
+    base = settings.llm(backend)
+    cfg = LLMConfig.model_validate({**base.model_dump(), "model": args.model or base.model})
     judge = LLMClient(cfg)
-    if not judge.is_reachable():
-        emit(f"ERROR: {cfg.base_url} is not reachable (start Ollama, ollama pull {args.model})")
+    problem = llm_unreachable_message(judge)
+    if problem:
+        emit(f"ERROR: {problem}")
         return 1
     res = RetrievalResources(rsettings)
     rows = []
@@ -127,7 +146,8 @@ def main(argv: list[str] | None = None) -> int:
     out = {
         "created_utc": _dt.datetime.now(_dt.UTC).isoformat(timespec="seconds"),
         "results_dir": str(rdir),
-        "judge_model": args.model,
+        "judge_model": cfg.model,
+        "judge_backend": backend,
         "nli_model": settings.nli.model,
         "n_sampled": len(sample),
         "n_judged": len(pairs),

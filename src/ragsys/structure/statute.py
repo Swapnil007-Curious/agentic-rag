@@ -617,7 +617,9 @@ def _bold_ratio(head: str, bold_text: str) -> float:
 def numbering_report(nodes: list[Node]) -> dict[str, Any]:
     """Contiguity check of section/rule numbers: gaps, duplicates, count vs maximum."""
     units = [n for n in nodes if n.level in ("section", "rule")]
-    unit = units[0].level if units else "section"
+    unit: str = units[0].level if units else "section"
+    if units and units[0].doc_type == "constitution":
+        unit = "article"  # articles use the node level "section"
     numbers = [n.number or "" for n in units]
     ints = sorted({int(m.group(0)) for x in numbers if (m := re.match(r"\d+", x))})
     plain = [int(x) for x in numbers if x.isdigit()]

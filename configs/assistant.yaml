@@ -1,0 +1,86 @@
+# Chat assistant (the web app at "/", see src/ragsys/assistant/). The research pipelines, their
+# configs and results are not read or changed by it, except that the gate thresholds of the two
+# evaluated collections were initialised from their DEV retrieval outputs (read only).
+#
+# One streamed LLM call per user message. Grounding needs no extra LLM call: the latest user
+# message (plus the previous one for a short follow-up) is embedded with bge-small and searched
+# in the selected collection's app index and the session's uploaded PDFs. When the top-1 dense
+# cosine of a source reaches its gate threshold, the top passages of that source are packed into
+# the backend's context budget and the model is asked to use and cite them; otherwise the
+# message is answered as plain chat.
+
+embedding_model: BAAI/bge-small-en-v1.5
+query_instruction: "Represent this sentence for searching relevant passages: "
+chunker: structural            # the app indexes are structural chunks + bge-small embeddings
+
+# passages attached to one message, in index tokens (bge-small tokenizer)
+context_tokens:
+  hosted: 2048
+  local: 1024
+default_context_tokens: 1024
+
+gate:
+  default_threshold: 0.62      # collections without DEV score distributions (bge-small)
+  upload_threshold: 0.62       # uploaded PDFs
+  # Rule: the 5th percentile of the top-1 dense cosine of the ANSWERABLE DEV questions under
+  # structural|dense|bge-small, rounded down to two decimals (most in-domain questions pass;
+  # greetings and off-topic chat scored 0.42-0.60 in a probe on 2026-11-12). Recomputed by
+  # tests/test_assistant_gate.py from the files below and compared with these values.
+  percentile: 5.0
+  thresholds:
+    consumer_law: 0.61         # 24 answerable DEV questions: min 0.577, p5 0.619, median 0.719
+    cs_ai: 0.74                # 20 answerable DEV questions: min 0.676, p5 0.746, median 0.814
+  derived_from:
+    consumer_law: results/retrieval/dev/structural__dense__bge-small/per_query.jsonl
+    cs_ai: collections/cs_ai/results/retrieval/dev/structural__dense__bge-small/per_query.jsonl
+  follow_up_max_words: 12      # a message this short with a pronoun ("it", "that", ...) is a follow-up
+  search_k: 20                 # hits per source before packing
+  max_passages: 8
+
+history:
+  max_turns: 10                # the last 10 turns are kept verbatim when they fit
+  budget_tokens:               # conversation tokens per request (others: chat_history_tokens of llm.yaml)
+    hosted: 3000               # keeps a request (prompt + passages + history + 1500 output) under 8000 tokens/minute
+  summary_max_tokens: 400      # one summarisation call when the history is over the backend's budget
+  summary_target_share: 0.5    # after summarising, the verbatim part uses at most half the budget
+  summary_input_chars: 24000
+
+limits:
+  max_message_chars: 4000
+  max_output_tokens: 1500
+  max_messages: 100
+  max_concurrent_streams: 8
+  queue_wait_s: 5.0            # longest wait for the provider's per-minute budget before "busy"
+
+rate_limits:
+  per_ip:                      # messages, Verify and Grounded-only requests per client address
+    - {max: 20, window_s: 600}
+    - {max: 200, window_s: 86400}
+  uploads_per_ip:
+    - {max: 10, window_s: 3600}
+  global_daily_requests: 800   # all clients, per UTC day (the hosted account allows 1000 requests/day)
+
+uploads:
+  max_files: 3                 # per browser session
+  max_mb: 20
+  max_pages: 300
+  ttl_s: 7200                  # deleted after 2 hours of inactivity (or when the tab closes)
+  max_sessions: 100
+  max_chunks_per_file: 4000
+
+notices:
+  consumer_law: "Not legal advice."
+  indian_law: "Not legal advice."
+  human_biology: "Educational, not medical advice; for symptoms or emergencies contact a doctor or local emergency services."
+  physics_chemistry: "Do not attempt hazardous experiments based on these answers."
+  cs_ai: "Code is not executed here; test it before use."
+
+# shown in "About & sources" when a SOURCES.csv records no licence for a document
+licence_fallbacks:
+  consumer_law: "Indian government publication (Act and Rules published by the Government of India)"
+
+general_examples:
+  - "Explain big-O notation with examples"
+  - "Debug this Python error: TypeError: 'NoneType' object is not subscriptable"
+  - "Derive the kinematic equations"
+  - "What does Article 21 protect?"

@@ -7,6 +7,8 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
+import pytest
+
 from ragsys.collections import get_collection
 from ragsys.pipeline_plan import build_steps, estimate_steps, plan_context, write_summary
 from ragsys.pipeline_runner import Log, Step, read_state, run_steps
@@ -172,3 +174,60 @@ def test_summary_writes_without_results(tmp_path: Path) -> None:
     assert out.name == "SUMMARY.md" and "# CS / AI textbooks: pipeline summary" in out.read_text(
         encoding="utf-8"
     )
+
+
+def test_quota_exit_code_is_retried_after_waiting(tmp_path: Path) -> None:
+    """A step stopped by the API quota (exit 75) is started again after a pause when it opts
+    in; otherwise exit 75 fails the step like any other code."""
+    w = FakeWorld(tmp_path)
+    w.codes = {"abl": [75, 75, 0]}
+    slept: list[float] = []
+    log = Log(tmp_path / "log.txt", echo=False)
+    step = w.step("abl", retry_codes=(75,), retry_wait_s=1800.0, max_retries=3)
+    rep = run_steps([step], tmp_path / "state.json", log, executor=w.executor, sleep=slept.append)
+    log.close()
+    assert rep.complete and slept == [1800.0, 1800.0] and w.ran == ["abl"] * 3
+    text = (tmp_path / "log.txt").read_text(encoding="utf-8")
+    assert "WAIT  abl exited with 75" in text and "RETRY abl" in text
+
+    w2 = FakeWorld(tmp_path / "b")
+    (tmp_path / "b").mkdir()
+    w2.codes = {"abl": [75]}
+    log2 = Log(tmp_path / "b" / "log.txt", echo=False)
+    capped = w2.step("abl", retry_codes=(75,), retry_wait_s=60.0, max_retries=2)
+    rep2 = run_steps(
+        [capped], tmp_path / "b" / "state.json", log2, executor=w2.executor, sleep=slept.append
+    )
+    log2.close()
+    assert rep2.failed == "abl" and w2.ran == ["abl"] * 3  # first run + 2 retries
+    assert rep2.outcomes[-1].returncode == 75
+
+
+def test_app_plan_quota_waiting_and_estimate() -> None:
+    from ragsys.app_plan import (
+        QUOTA_RETRY_WAIT_S,
+        ablation_tokens,
+        ablation_wall_s,
+        build_app_steps,
+    )
+
+    names = [s.name for s in build_app_steps("configs/collections.yaml")]
+    assert names[:3] == ["indian_law:ingest", "indian_law:chunk", "indian_law:index"]
+    assert names.index("cs_ai-app:index") < names.index("consumer_law:ablation")
+    assert names[-2:] == ["consumer_law:summary", "cs_ai:summary"]
+    plain = {s.name: s for s in build_app_steps("configs/collections.yaml")}["cs_ai:ablation"]
+    assert plain.retry_codes == () and "--max-retry-wait" not in plain.argv
+    waiting = {s.name: s for s in build_app_steps("configs/collections.yaml", wait_for_quota=True)}
+    abl = waiting["cs_ai:ablation"]
+    i = abl.argv.index("--max-retry-wait")
+    assert abl.argv[i + 1] == str(QUOTA_RETRY_WAIT_S) and abl.retry_codes == (75,)
+    assert abl.max_retries * abl.retry_wait_s >= 4 * 86400
+    assert abl.argv[abl.argv.index("--systems") :][:3] == ["--systems", "G2H", "G4H"]
+    # the daily quota dominates once more than a day's tokens are needed
+    tok = {"api_minutes": 30.0, "quota_days": 1.4}
+    assert ablation_wall_s(tok) == pytest.approx(0.4 * 86400)
+    assert ablation_wall_s(tok, quota_days_used=1.4) == pytest.approx(1.4 * 86400)
+    assert ablation_wall_s({"api_minutes": 30.0, "quota_days": 0.5}) == pytest.approx(1800.0)
+    est = ablation_tokens(get_collection("cs_ai"))
+    assert est["tpd"] == 200000 and est["model"] == "openai/gpt-oss-120b"
+    assert est["quota_days"] == pytest.approx(est["tokens"] / 200000)

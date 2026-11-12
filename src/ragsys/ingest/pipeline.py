@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ragsys.config import DocumentConfig, IngestConfig
-from ragsys.ingest.chapters import resolve_chapters
+from ragsys.ingest.chapters import outline_chapter_titles, resolve_chapters
 from ragsys.ingest.clean import CleanDocument, Footnote, clean_document
 from ragsys.ingest.extract import RawDocument, extract_pdf, pdf_page_count
 from ragsys.ingest.licence import resolve_licence
@@ -126,6 +126,8 @@ def run_ingest(
             "parser_stats": parsed.stats,
             "warnings": [*cd.warnings, *parsed.warnings],
         }
+        if cfg.sources_format == "textbook":  # statutes listed in a textbook-format SOURCES.csv
+            per_doc[d.doc_id]["pages_kept"] = len({p for _a, _b, p in cd.page_spans})
         if write:
             clean_dir.mkdir(parents=True, exist_ok=True)
             (clean_dir / f"{d.doc_id}.txt").write_text(cd.text, encoding="utf-8", newline="\n")
@@ -201,11 +203,17 @@ def _ingest_textbook(
     cfg: IngestConfig, d: DocumentConfig, path: Path
 ) -> tuple[CleanDocument, ParseResult, dict[str, Any]] | None:
     """Chapter selection -> extraction of those pages -> textbook cleaning -> structure."""
-    ranges = resolve_chapters(path, d.chapters) if d.chapters else []
-    warnings = [
+    titles = list(d.chapters)
+    warnings: list[str] = []
+    if not titles and d.outline_chapters:
+        titles = outline_chapter_titles(path, d.outline_chapters)
+        if not titles:
+            warnings.append(f"no level-1 outline entry matches {d.outline_chapters!r}")
+    ranges = resolve_chapters(path, titles) if titles else []
+    warnings += [
         f"chapter {r.title!r} not found in the outline or headings" for r in ranges if not r.found
     ]
-    pages = sorted({p for r in ranges for p in r.pages}) if d.chapters else None
+    pages = sorted({p for r in ranges for p in r.pages}) if titles else None
     raw = extract_pdf(path, cfg.cleaning.marker_max_size_ratio, pages=pages, scripts="caret")
     if not raw.has_text_layer:
         return None

@@ -1,0 +1,43 @@
+# Ingestion for the human_biology collection (served in the app; not evaluated): OpenStax
+# Anatomy and Physiology 2e, the whole book without its front matter, end-of-chapter glossaries
+# and review material, the references and the index. Equations and figure captions are kept as
+# extracted text.
+
+paths:
+  raw_dir: collections/human_biology/raw
+  processed_dir: collections/human_biology/processed
+
+sources_format: textbook
+
+documents:
+  - file: anatomy_physiology_2e.pdf
+    doc_id: ap2e
+    title: "Anatomy and Physiology 2e"
+    short_title: "Anatomy and Physiology 2e"
+    doc_type: textbook
+    parser: generic
+    authors: "J. Gordon Betts, Peter DeSaix, Eddie Johnson, Jody E. Johnson, Oksana Korol, Dean Kruse, Brandon Poe, James A. Wise, Mark Womble, Kelly A. Young"
+    edition: "2nd edition, OpenStax (original publication year 2022)"
+    downloaded_on: "2026-11-12"
+    source_url: "https://openstax.org/details/books/anatomy-and-physiology-2e"
+    licence: "CC BY-NC-SA 4.0 International"
+    licence_url: "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+    licence_note: "OpenStax licence statement on the PDF's copyright page"
+    # every numbered chapter; preface, appendices, answer key, references and index are left out
+    outline_chapters: '^Chapter\s+\d+\b'
+
+cleaning:
+  page_number_band: 0.12
+  footnote_max_size_ratio: 0.90
+  paragraph_gap_ratio: 0.35
+  toc_markers: []
+  drop_line_patterns: []
+
+textbook:
+  heading_size_delta: 0.8
+  code_min_mono_fraction: 0.8
+  # OpenStax end-of-chapter matter (glossary, summaries, review questions, problems) is dropped
+  # from its first heading to the next chapter: A&P starts it with "Key Terms" (then Chapter Review, Interactive Link Questions, Review Questions, Critical Thinking Questions)
+  drop_to_chapter_end:
+    - '^Key Terms$'
+  drop_outline_headings: true     # chapter-opening lists of the sections ("1.1 ... 1.12")

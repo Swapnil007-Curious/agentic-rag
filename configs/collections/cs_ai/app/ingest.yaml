@@ -1,0 +1,123 @@
+# Ingestion for the APP index of the cs_ai collection (ask.py and the web UI; never evaluated).
+# The first three documents are copied verbatim from configs/collections/cs_ai/ingest.yaml (the
+# frozen evaluation corpus; a test checks that the entries are identical); the app adds the
+# Python Tutorial and Think Python 2e (whole books without front/back matter). Outputs go to
+# collections/cs_ai/processed_app, so the evaluation corpus in collections/cs_ai/processed is
+# never touched.
+
+paths:
+  raw_dir: collections/cs_ai/raw
+  processed_dir: collections/cs_ai/processed_app
+  sources_file: SOURCES_app.csv   # the evaluation corpus's SOURCES.csv is never rewritten
+
+sources_format: textbook        # SOURCES.csv with authors, edition, licence and chapters
+
+documents:
+  - file: d2l.pdf
+    doc_id: d2l
+    title: "Dive into Deep Learning"
+    doc_type: textbook
+    parser: generic
+    authors: "Aston Zhang, Zachary C. Lipton, Mu Li, Alexander J. Smola"
+    edition: "PyTorch edition, PDF built 2023-08-18"
+    downloaded_on: "2026-11-11"
+    source_url: "https://d2l.ai/d2l-en.pdf"
+    licence: "CC BY-SA 4.0 International"
+    licence_url: "https://creativecommons.org/licenses/by-sa/4.0/"
+    licence_note: "book text licence from the d2l-en repository README (https://github.com/d2l-ai/d2l-en); its sample code is under a modified MIT licence"
+    chapters:
+      - "Multilayer Perceptrons"
+      - "Convolutional Neural Networks"
+      - "Recurrent Neural Networks"
+      - "Attention Mechanisms and Transformers"
+      - "Optimization Algorithms"
+
+  - file: progit.pdf
+    doc_id: progit
+    title: "Pro Git"
+    doc_type: textbook
+    parser: generic
+    authors: "Scott Chacon, Ben Straub"
+    edition: "Second edition, version 2.1.450 (2026-05-25)"
+    downloaded_on: "2026-11-11"
+    source_url: "https://git-scm.com/book/en/v2"
+    licence: "CC BY-NC-SA 3.0 Unported"
+    licence_url: "https://creativecommons.org/licenses/by-nc-sa/3.0/"
+    chapters:
+      - "Getting Started"
+      - "Git Basics"
+      - "Git Branching"
+
+  - file: ods.pdf
+    doc_id: ods
+    title: "Open Data Structures (in pseudocode)"
+    short_title: "Open Data Structures"
+    doc_type: textbook
+    parser: generic
+    authors: "Pat Morin"
+    edition: "Edition 0.1G-beta (pseudocode)"
+    downloaded_on: "2026-11-11"
+    source_url: "https://opendatastructures.org/"
+    licence: "CC BY 2.5 Canada"
+    licence_url: "https://creativecommons.org/licenses/by/2.5/ca/"
+    licence_note: "version from the licence link on https://opendatastructures.org/"
+    chapters:
+      - "Array-Based Lists"
+      - "Linked Lists"
+      - "Hash Tables"
+      - "Binary Trees"
+      - "Heaps"
+      - "Sorting Algorithms"
+      - "Graphs"
+    pseudocode_by_indent: true      # pseudocode is set in the text font, indented
+    # running headers "§2.1 Array-Based Lists" / "ArrayStack: ... §2.1" carry no page number
+    header_footer_patterns:
+      - '^§\d+(?:\.\d+)*\s+\S.*$'
+      - '^\S.*\s+§\d+(?:\.\d+)*$'
+
+  # ---- app-only documents
+  - file: python_tutorial/tutorial.pdf
+    doc_id: python_tutorial
+    title: "The Python Tutorial"
+    short_title: "Python Tutorial"
+    doc_type: textbook
+    parser: generic
+    authors: "Guido van Rossum and the Python development team"
+    edition: "Release 3.13.0a0 (tutorial.pdf of the Python documentation PDF set)"
+    downloaded_on: "2026-11-12"
+    source_url: "https://docs.python.org/3/download.html"
+    licence: "PSF License Agreement (code examples also Zero-Clause BSD)"
+    licence_url: "https://docs.python.org/3/license.html"
+    licence_note: "PDF p.138 (History and License): \"Python software and documentation are licensed under the PSF License Agreement.\" Examples, recipes and other code in the documentation are dual licensed under the PSF License Agreement and the Zero-Clause BSD license"
+    # every chapter of the tutorial (incl. the appendix on interactive mode); the glossary,
+    # About these documents, History and License, Copyright and the index are left out
+    outline_chapters: '^(?!(?:Glossary|About these documents|History and License|Copyright|Index)$).+'
+
+  - file: think_python_2e.pdf
+    doc_id: think_python_2e
+    title: "Think Python: How to Think Like a Computer Scientist"
+    short_title: "Think Python 2e"
+    doc_type: textbook
+    parser: generic
+    authors: "Allen B. Downey"
+    edition: "2nd edition, Version 2.4.1"
+    downloaded_on: "2026-11-12"
+    source_url: "https://greenteapress.com/wp/think-python-2e/"
+    licence: "CC BY-NC 3.0 Unported"
+    licence_url: "https://creativecommons.org/licenses/by-nc/3.0/"
+    # all chapters and the two content appendices (Debugging, Analysis of Algorithms); the
+    # preface is front matter and the index is dropped as a section
+    outline_chapters: '^(?!Preface$).+'
+
+cleaning:
+  page_number_band: 0.12
+  footnote_max_size_ratio: 0.90
+  paragraph_gap_ratio: 0.35
+  toc_markers: []
+  drop_line_patterns:
+    - '^Discussions\s*\^?\d*\.?$'     # d2l forum links at the end of each section
+    - '^\(continue[sd] (?:on next|from previous) page\)$'   # d2l code-listing markers
+
+textbook:
+  heading_size_delta: 0.8
+  code_min_mono_fraction: 0.8

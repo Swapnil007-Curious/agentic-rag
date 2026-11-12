@@ -28,6 +28,12 @@ def _check_regex(value: str | None) -> str | None:
 class IngestPaths(StrictModel):
     raw_dir: Path = Path("data/raw")
     processed_dir: Path = Path("data/processed")
+    # the SOURCES.csv this ingest writes, relative to raw_dir (an app index of an evaluated
+    # collection writes its own file, so the evaluation corpus's record is never rewritten)
+    sources_file: str = Field(default="SOURCES.csv", pattern=r"^[A-Za-z0-9_.-]+\.csv$")
+
+    def sources_path(self) -> Path:
+        return self.raw_dir / self.sources_file
 
 
 class DocumentConfig(StrictModel):
@@ -35,8 +41,9 @@ class DocumentConfig(StrictModel):
     doc_id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     title: str
     short_title: str | None = None
-    doc_type: Literal["act", "rules", "generic", "textbook"]
-    parser: Literal["statute", "generic"] = "statute"
+    doc_type: Literal["act", "rules", "generic", "textbook", "constitution"]
+    # "constitution": the statute parser with Parts, Chapters inside Parts and Articles
+    parser: Literal["statute", "generic", "constitution"] = "statute"
     parent_act: str | None = None
     source_url: str = ""
     start_marker: str | None = None
@@ -49,6 +56,10 @@ class DocumentConfig(StrictModel):
     downloaded_on: str = ""
     # chapters to keep, by title; page ranges come from the PDF outline (or heading detection)
     chapters: list[str] = Field(default_factory=list)
+    # alternatively: every level-1 outline entry whose title matches this regex is a chapter
+    # to keep (e.g. '^Chapter\s+\d+' keeps all numbered chapters and skips the front and back
+    # matter); used only when ``chapters`` is empty
+    outline_chapters: str | None = None
     # licence used when the PDF does not state one with a version (with where it comes from)
     licence: str = ""
     licence_url: str = ""
@@ -57,8 +68,20 @@ class DocumentConfig(StrictModel):
     header_footer_patterns: list[str] = Field(default_factory=list)
     # pseudocode set in the text font: short lines indented past the text margin are code lines
     pseudocode_by_indent: bool = False
+    # ---- statute layouts (all off by default; the consumer-law documents use none of them)
+    # a bold section heading printed on its own line above "12. (1) ..." is folded into the
+    # numbered line as an inline heading ("12. Heading.—(1) ..."), the form the parser expects
+    section_heading_above: bool = False
+    # private-use glyphs (symbol-font stars and bullets that mark amendment notes) are removed
+    strip_private_use: bool = False
+    # footnotes set in the body font (no size difference to detect them by): on each page, the
+    # first line matching this pattern below a vertical gap of at least two line heights starts
+    # the footnote area, which runs to the bottom of the page (e.g. '^\d{1,3}\.\s+(?:Sub|Ins)\.')
+    footnote_start_pattern: str | None = None
 
-    _v_start = field_validator("start_marker", "end_marker")(_check_regex)
+    _v_start = field_validator(
+        "start_marker", "end_marker", "outline_chapters", "footnote_start_pattern"
+    )(_check_regex)
 
     @field_validator("back_matter_markers", "header_footer_patterns")
     @classmethod
@@ -155,10 +178,16 @@ class TextbookConfig(StrictModel):
     drop_from_patterns: list[str] = Field(
         default_factory=lambda: [r"^Exercise\s+\d+(?:\.\d+)*\.?(?:\s|$)"]
     )
+    # a heading matching one of these starts end-of-chapter matter: everything up to the next
+    # chapter heading is dropped (OpenStax "Key Terms", "Review Questions", ...); empty: off
+    drop_to_chapter_end: list[str] = Field(default_factory=list)
+    # a numbered heading followed directly by another heading whose number is printed again as
+    # a heading later (a chapter-opening list of its sections) is dropped; off by default
+    drop_outline_headings: bool = False
     # standalone numbers in a font smaller than this fraction of the body size are margin markers
     small_number_ratio: float = Field(default=0.85, gt=0, le=1)
 
-    @field_validator("drop_sections", "drop_from_patterns")
+    @field_validator("drop_sections", "drop_from_patterns", "drop_to_chapter_end")
     @classmethod
     def _v_patterns(cls, value: list[str]) -> list[str]:
         for v in value:

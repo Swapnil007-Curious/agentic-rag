@@ -36,7 +36,7 @@ dev = ["pytest>=9.0", "ruff>=0.17", "mypy>=2.0", "types-PyYAML"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-ragsys = ["py.typed", "app/static/*"]
+ragsys = ["py.typed", "app/static/*", "app/static/vendor/*/*", "app/static/vendor/*/fonts/*"]
 
 [tool.ruff]
 line-length = 100

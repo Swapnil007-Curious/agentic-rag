@@ -1,0 +1,118 @@
+# Ingestion for the indian_law collection (served in the app; not evaluated).
+#   constitution.pdf        the Constitution of India (Legislative Department copy, as on
+#                           10 September 2026): parser "constitution" (Parts, Chapters inside
+#                           Parts, Articles incl. lettered ones such as 21A and 243ZH, clauses,
+#                           provisos, Explanations, Schedules; IDs coi:part3, coi:a21A(1), coi:sch7)
+#   income_tax_act_2025.pdf the Income-tax Act, 2025 as amended by the Finance Act, 2026
+#                           (incometaxindia.gov.in print): section headings are printed on their
+#                           own bold line above "1. (1) ...", folded in by section_heading_above
+#   cgst_act_2017.pdf       the Central Goods and Services Tax Act, 2017 (India Code copy)
+#   bns_2023.pdf            the Bharatiya Nyaya Sanhita, 2023 (India Code copy)
+# Licence: Acts of the Indian Parliament and the Constitution may be reproduced and published
+# (section 52(1)(q) of the Copyright Act, 1957); SOURCES.csv records this per document.
+
+paths:
+  raw_dir: collections/indian_law/raw
+  processed_dir: collections/indian_law/processed
+
+sources_format: textbook        # SOURCES.csv with title, authors, edition, licence, pages kept
+
+documents:
+  - file: constitution.pdf
+    doc_id: coi
+    title: "The Constitution of India"
+    short_title: "Constitution of India"
+    doc_type: constitution
+    parser: constitution
+    authors: "Government of India, Ministry of Law and Justice, Legislative Department"
+    edition: "As on 10th September, 2026 (sixth pocket size edition, diglot form)"
+    downloaded_on: "2026-11-12"
+    source_url: "https://legislative.gov.in/"
+    licence: "Reproduction permitted (Copyright Act, 1957, s. 52(1)(q))"
+    licence_url: ""
+    licence_note: "the PDF states no licence; the exact download URL was not recorded (the site is the one named in the PDF); section 52(1)(q) of the Copyright Act, 1957 permits the reproduction or publication of any Act of a Legislature"
+    # The 28-page table of contents repeats every heading; the body starts with the Preamble.
+    start_marker: '^WE, THE PEOPLE OF INDIA'
+    back_matter_markers:
+      - '^APPENDIX\s+[IVX]+$'
+    strip_private_use: true      # symbol-font stars that mark "shall stand substituted" notes
+
+  - file: income_tax_act_2025.pdf
+    doc_id: ita2025
+    title: "The Income-tax Act, 2025"
+    short_title: "Income-tax Act, 2025"
+    doc_type: act
+    parser: statute
+    authors: "Parliament of India (Act No. 30 of 2025)"
+    edition: "As amended by the Finance Act, 2026; printed 25 August 2026 from www.incometaxindia.gov.in"
+    downloaded_on: "2026-11-12"
+    source_url: "https://www.incometaxindia.gov.in/"
+    licence: "Reproduction permitted (Copyright Act, 1957, s. 52(1)(q))"
+    licence_url: ""
+    licence_note: "the PDF states no licence; the exact download URL was not recorded (the site is the one named in the PDF); section 52(1)(q) of the Copyright Act, 1957 permits the reproduction or publication of any Act of a Legislature"
+    section_heading_above: true
+    # amendment footnotes ("7. Sub. by Act No. 4 of 2026, w.e.f. ...") are set in the body font
+    # at the foot of the page, below a gap
+    footnote_start_pattern: '^\d{1,3}\.\s+(?:Subs?|Ins|Inserted|Omitted|Rep|Renumbered|Added|Substituted)\b'
+
+  - file: cgst_act_2017.pdf
+    doc_id: cgst2017
+    title: "The Central Goods and Services Tax Act, 2017"
+    short_title: "CGST Act, 2017"
+    doc_type: act
+    parser: statute
+    authors: "Parliament of India (Act No. 12 of 2017)"
+    edition: "India Code copy, as on 11th June, 2026"
+    downloaded_on: "2026-11-12"
+    source_url: "https://www.indiacode.nic.in/"
+    licence: "Reproduction permitted (Copyright Act, 1957, s. 52(1)(q))"
+    licence_url: ""
+    licence_note: "the PDF states no licence; the exact download URL was not recorded (the site is the one named in the PDF); section 52(1)(q) of the Copyright Act, 1957 permits the reproduction or publication of any Act of a Legislature"
+    # India Code copy: title page, amending Acts, abbreviations and the arrangement of
+    # sections precede the enacted text, which starts at "ACT NO. 12 OF 2017".
+    start_marker: '^ACT NO\. \d+ OF \d{4}$'
+
+  - file: bns_2023.pdf
+    doc_id: bns2023
+    title: "The Bharatiya Nyaya Sanhita, 2023"
+    short_title: "Bharatiya Nyaya Sanhita, 2023"
+    doc_type: act
+    parser: statute
+    authors: "Parliament of India (Act No. 45 of 2023)"
+    edition: "India Code copy, as on 6th October, 2025"
+    downloaded_on: "2026-11-12"
+    source_url: "https://www.indiacode.nic.in/"
+    licence: "Reproduction permitted (Copyright Act, 1957, s. 52(1)(q))"
+    licence_url: ""
+    licence_note: "the PDF states no licence; the exact download URL was not recorded (the site is the one named in the PDF); section 52(1)(q) of the Copyright Act, 1957 permits the reproduction or publication of any Act of a Legislature"
+    start_marker: '^ACT NO\. \d+ OF \d{4}$'
+
+cleaning:
+  header_footer_min_page_fraction: 0.5
+  header_footer_y_tolerance: 8.0
+  header_footer_min_pages: 3
+  header_footer_band: 0.15
+  page_number_band: 0.12
+  devanagari_line_threshold: 0.30
+  devanagari_page_threshold: 0.50
+  footnote_max_size_ratio: 0.90
+  marker_max_size_ratio: 0.80
+  paragraph_gap_ratio: 0.35
+  toc_markers:
+    - '^ARRANGEMENT OF (SECTIONS|RULES|CLAUSES|REGULATIONS)$'
+    - '^TABLE OF CONTENTS$'
+  header_footer_patterns:
+    # Constitution running headers: "(Part III.—Fundamental Rights)", "(Appendix I)", ...
+    - '^\((?:Part|Appendix|[A-Z][a-z]+ Schedule)\b[^()]{0,120}\)$'
+    # Income-tax Act print: site banner and print line on every page
+    - '^Income Tax Department$'
+    - '^Ministry of Finance, Government of India$'
+    - '^Downloaded/Printed on .* from www\.incometaxindia\.gov\.in$'
+  drop_line_patterns: []
+
+structure:
+  definitions_heading_pattern: '^(Definitions?|Interpretations?)\b'
+  act_aliases:
+    "Income-tax Act, 2025": ita2025
+    "Central Goods and Services Tax Act, 2017": cgst2017
+    "Bharatiya Nyaya Sanhita, 2023": bns2023

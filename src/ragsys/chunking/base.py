@@ -128,6 +128,16 @@ def node_label(node: Node, doc_type: str) -> str:
     if doc_type == "textbook":
         return textbook_label(node)
     lvl = node.level
+    if doc_type == "constitution":
+        if lvl == "section":
+            base = f"Article {node.number}"
+            return f"{base} — {node.heading}" if node.heading else base
+        if lvl == "chapter":
+            word = "Chapter" if "-ch" in node.node_id.rsplit(":", 1)[-1] else "Part"
+            base = f"{word} {node.number}"
+            return f"{base} — {node.heading}" if node.heading else base
+        if lvl in ("subsection", "clause", "subclause"):
+            return f"Clause ({node.number})" if lvl == "subsection" else f"({node.number})"
     if lvl in ("section", "rule"):
         base = f"{'Section' if lvl == 'section' else 'Rule'} {node.number}"
         return f"{base} — {node.heading}" if node.heading else base

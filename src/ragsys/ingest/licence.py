@@ -79,7 +79,9 @@ def detect_licence(path: str | Path, max_pages: int = 40) -> tuple[LicenceInfo |
     vague: str | None = None
     with pymupdf.open(Path(path)) as doc:  # type: ignore[no-untyped-call]
         for index in range(min(max_pages, doc.page_count)):
-            text = " ".join(doc[index].get_text().split())
+            # words hyphenated across a line break ("Cre-\native Commons") are joined first
+            raw = re.sub(r"(?<=\w)-\n(?=\w)", "", doc[index].get_text())
+            text = " ".join(raw.split())
             for m in CC_RE.finditer(text):
                 name, versioned = _cc_name(m)
                 quote = _sentence(text, m.start(), m.end())

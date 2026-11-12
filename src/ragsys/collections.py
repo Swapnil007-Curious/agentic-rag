@@ -16,6 +16,13 @@ roots; :func:`consistency_errors` checks that (and a test runs it for every coll
 The collection ``consumer_law`` maps to the original locations (``data/raw``, ``data/processed``,
 ``data/eval``, ``results``) and the original config files, so every command that existed before
 collections were introduced resolves exactly the same paths.
+
+Evaluated collections freeze the documents of their evaluations in ``eval_docs``; ``app_docs``
+is the superset served by ask.py and the web UI. When the two differ, the collection has a
+second index, the *app index* (``app_index``: its own ingest/chunking/retrieval configs and its
+own processed directory), so the evaluation corpus is never rebuilt or touched. Collections that
+are not evaluated (``evaluated: false``) have one index, which is an app index. Every evaluation
+script refuses an app index (:func:`eval_index_refusal`).
 """
 
 from __future__ import annotations
@@ -60,6 +67,24 @@ class CollectionUI(StrictModel):
     disclaimer: str
     abstention_message: str = "Not found in these documents"
     n_examples: int = Field(default=5, ge=0, le=20)
+    # example questions shown as chips; when empty, they come from the dev split
+    examples: list[str] = Field(default_factory=list)
+    # domain safety note, shown in the UI and added to the chat / general-knowledge prompts
+    safety_note: str = ""
+    # what the collection is about, for the chat prompt ("Indian law", "human biology", ...)
+    domain: str = ""
+    # chat uses the coding assistant prompt by default (cs_ai)
+    code_assistant: bool = False
+
+
+class AppIndexSpec(StrictModel):
+    """The app index of an evaluated collection whose app_docs extend its eval_docs."""
+
+    ingest: Path
+    chunking: Path
+    retrieval: Path
+    processed_dir: Path
+    index_models: list[str] = Field(default_factory=lambda: ["bge-small"])
 
 
 class AutoEvalDefaults(StrictModel):
@@ -76,6 +101,8 @@ class PipelineDefaults(StrictModel):
     chroma: bool = False
     dev_systems: list[str] = Field(default_factory=lambda: ["G2", "G4"])
     test_systems: list[str] = Field(default_factory=lambda: ["G1", "G2", "G3", "G4"])
+    # generator-scale ablation on the TEST split (run by scripts/run_app_collections.py)
+    ablation_systems: list[str] = Field(default_factory=list)
 
 
 class CollectionSpec(StrictModel):
@@ -87,19 +114,44 @@ class CollectionSpec(StrictModel):
     auto_eval: AutoEvalDefaults = Field(default_factory=AutoEvalDefaults)
     pipeline: PipelineDefaults = Field(default_factory=PipelineDefaults)
     notes: dict[str, str] = Field(default_factory=dict)
+    evaluated: bool = True  # False: served in the app only (no evaluation set, no results)
+    eval_docs: list[str] = Field(default_factory=list)  # frozen documents of the evaluations
+    app_docs: list[str] = Field(default_factory=list)  # documents served in the app
+    app_index: AppIndexSpec | None = None  # when app_docs extend eval_docs
+
+    @model_validator(mode="after")
+    def _docs(self) -> CollectionSpec:
+        if not self.evaluated and (self.eval_docs or self.app_index is not None):
+            raise ValueError("a collection that is not evaluated has no eval_docs or app_index")
+        if not self.app_docs:  # not declared: the app serves the evaluation documents
+            self.app_docs = list(self.eval_docs)
+        missing = [d for d in self.eval_docs if d not in self.app_docs]
+        if missing:
+            raise ValueError(f"app_docs must include every eval doc (missing {missing})")
+        differ = self.evaluated and set(self.app_docs) != set(self.eval_docs)
+        if differ and self.app_index is None:
+            raise ValueError("app_docs differ from eval_docs: an app_index is required")
+        if not differ and self.app_index is not None:
+            raise ValueError("app_index is only used when app_docs extend eval_docs")
+        return self
 
 
 class CollectionsFile(StrictModel):
     default: str = DEFAULT_COLLECTION
     ui_default: str | None = None  # collection selected first in the web UI
+    ui_order: list[str] = Field(default_factory=list)  # selector order (default: file order)
     collections: dict[str, CollectionSpec]
 
     @model_validator(mode="after")
     def _known_defaults(self) -> CollectionsFile:
-        for name in (self.default, self.ui_default):
+        for name in (self.default, self.ui_default, *self.ui_order):
             if name is not None and name not in self.collections:
                 raise ValueError(f"unknown collection {name!r} (known: {sorted(self.collections)})")
         return self
+
+    def ordered(self) -> list[str]:
+        """Collection names in the web UI's order (ui_order first, then the rest)."""
+        return [*self.ui_order, *[n for n in self.collections if n not in self.ui_order]]
 
 
 def _posix(path: Path) -> str:
@@ -297,9 +349,56 @@ class Collection:
         "feedback_file",
     )
 
+    # ---------------------------------------------------------------- index variants
+
+    @property
+    def evaluated(self) -> bool:
+        return self.spec.evaluated
+
+    @property
+    def has_app_index(self) -> bool:
+        """True when the app serves a separate index (app_docs extend eval_docs)."""
+        return self.spec.app_index is not None
+
+    @property
+    def app_ingest_config(self) -> Path:
+        a = self.spec.app_index
+        return a.ingest if a is not None else self.ingest_config
+
+    @property
+    def app_chunking_config(self) -> Path:
+        a = self.spec.app_index
+        return a.chunking if a is not None else self.chunking_config
+
+    @property
+    def app_retrieval_config(self) -> Path:
+        a = self.spec.app_index
+        return a.retrieval if a is not None else self.retrieval_config
+
+    @property
+    def app_processed_dir(self) -> Path:
+        a = self.spec.app_index
+        return a.processed_dir if a is not None else self.processed_dir
+
+    @property
+    def app_index_models(self) -> list[str]:
+        a = self.spec.app_index
+        return list(a.index_models) if a is not None else list(self.spec.pipeline.index_models)
+
+    APP_PATH_NAMES = (
+        "app_ingest_config",
+        "app_chunking_config",
+        "app_retrieval_config",
+        "app_processed_dir",
+    )
+
     def paths(self) -> dict[str, str]:
-        """Every location of this collection as a repository-relative POSIX string."""
-        return {name: _posix(getattr(self, name)) for name in self.PATH_NAMES}
+        """Every location of this collection as a repository-relative POSIX string (with the
+        app index's configs and processed directory when the collection has one)."""
+        out = {name: _posix(getattr(self, name)) for name in self.PATH_NAMES}
+        if self.has_app_index:
+            out.update({name: _posix(getattr(self, name)) for name in self.APP_PATH_NAMES})
+        return out
 
     @staticmethod
     def abs(path: Path) -> Path:
@@ -307,11 +406,12 @@ class Collection:
 
     # ---------------------------------------------------------------- config loading
 
-    def llm(self) -> Any:
-        """configs/llm.yaml (or the collection's LLM config) with this collection's cache."""
+    def llm(self, backend: str | None = None) -> Any:
+        """A backend of configs/llm.yaml (default: its default backend) with this collection's
+        cache."""
         from ragsys.llm.client import load_llm_config
 
-        cfg = load_llm_config(resolve_path(self.llm_config))
+        cfg = load_llm_config(resolve_path(self.llm_config), backend)
         return cfg.model_copy(update={"cache_dir": self.llm_cache_dir})
 
 
@@ -401,4 +501,54 @@ def consistency_errors(coll: Collection) -> list[str]:
     same("generation LLM cache_dir", gen.llm().cache_dir, coll.llm_cache_dir)
     if gen.profile != coll.profile:
         errs.append(f"{coll.name}: generation profile {gen.profile!r} != {coll.profile!r}")
+
+    # ---- frozen evaluation corpus vs app documents
+    enabled = [d.doc_id for d in ing.enabled_documents()]
+    want_index = "eval" if coll.evaluated else "app"
+    if rs.index != want_index:
+        errs.append(f"{coll.name}: retrieval index is {rs.index!r}, expected {want_index!r}")
+    if coll.evaluated and coll.spec.eval_docs and enabled != list(coll.spec.eval_docs):
+        errs.append(f"{coll.name}: eval_docs {coll.spec.eval_docs} != ingest documents {enabled}")
+    if not coll.has_app_index:
+        if coll.spec.app_docs and enabled != list(coll.spec.app_docs):
+            errs.append(f"{coll.name}: app_docs {coll.spec.app_docs} != ingest documents {enabled}")
+        return errs
+    app_ing = load_ingest_config(resolve_path(coll.app_ingest_config))
+    same("app ingest paths.raw_dir", app_ing.paths.raw_dir, coll.raw_dir)
+    same("app ingest paths.processed_dir", app_ing.paths.processed_dir, coll.app_processed_dir)
+    app_ch = load_chunking_config(resolve_path(coll.app_chunking_config))
+    same("app chunking paths.processed_dir", app_ch.paths.processed_dir, coll.app_processed_dir)
+    same("app chunking paths.cache_dir", app_ch.paths.cache_dir, coll.app_processed_dir / "cache")
+    app_rs = load_retrieval_settings(resolve_path(coll.app_retrieval_config))
+    same("app retrieval paths.processed_dir", app_rs.paths.processed_dir, coll.app_processed_dir)
+    same("app retrieval paths.emb_dir", app_rs.paths.emb_dir, coll.app_processed_dir / "emb")
+    if app_rs.index != "app":
+        errs.append(f"{coll.name}: the app retrieval config must say index: app")
+    app_enabled = [d.doc_id for d in app_ing.enabled_documents()]
+    if app_enabled != list(coll.spec.app_docs):
+        errs.append(f"{coll.name}: app_docs {coll.spec.app_docs} != app ingest {app_enabled}")
+    eval_entries = {d.doc_id: d.model_dump() for d in ing.enabled_documents()}
+    for d in app_ing.enabled_documents():
+        if d.doc_id in eval_entries and d.model_dump() != eval_entries[d.doc_id]:
+            errs.append(f"{coll.name}: app ingest entry of {d.doc_id} differs from the eval one")
     return errs
+
+
+class AppIndexRefused(PermissionError):
+    """An evaluation was asked to run on an app index (or a collection that is not evaluated)."""
+
+
+def eval_index_refusal(coll: Collection | None, retrieval_settings: Any) -> str | None:
+    """Why an evaluation script must not run with these settings, or None. Evaluations use the
+    frozen evaluation index only: never an app index, never a collection that is not evaluated."""
+    if coll is not None and not coll.evaluated:
+        return (
+            f"collection {coll.name!r} is served in the app only and is not evaluated; "
+            "evaluation scripts do not run on it"
+        )
+    if getattr(retrieval_settings, "index", "eval") == "app":
+        return (
+            "these retrieval settings describe an app index (index: app), which is served by "
+            "ask.py and the web UI only; evaluations use the frozen evaluation index"
+        )
+    return None

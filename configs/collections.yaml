@@ -5,17 +5,30 @@
 # <results_dir>/test_access_log.json. Paths inside each collection's config files must agree
 # with these roots (checked by the test suite).
 #
-# Adding a collection: put the PDFs in collections/<name>/raw/, copy the four YAML files of
-# configs/collections/cs_ai/ to configs/collections/<name>/, adjust the documents and paths,
-# and add an entry below.
+# evaluated: true   the collection has an evaluation set and results; eval_docs are the exact
+#                   documents of every existing evaluation (frozen). When app_docs extend them,
+#                   the app (ask.py, web UI) serves a separate app_index with its own configs and
+#                   processed directory, and evaluation scripts refuse that index.
+# evaluated: false  served in the app only (labelled "Not evaluated"): no evaluation set, no
+#                   grids, no generation evaluation; its single index is an app index.
+#
+# Adding a collection: put the PDFs in collections/<name>/raw/, copy the four YAML files of a
+# similar collection (configs/collections/human_biology/ for textbooks, indian_law/ for
+# statutes) to configs/collections/<name>/, adjust the documents and paths, add an entry below
+# (and to ui_order), then run scripts/run_app_collections.py (app only) or
+# scripts/run_collection_pipeline.py (evaluated).
 
 default: consumer_law       # used when --collection is not given
 ui_default: cs_ai           # collection shown first in the web UI
+ui_order: [cs_ai, consumer_law, indian_law, human_biology, physics_chemistry]
 
 collections:
   consumer_law:
     title: "Indian Consumer Law"
     profile: consumer_law
+    evaluated: true
+    eval_docs: [cpa2019, ecom2020, commissions2020, jurisdiction2021, mediation2020]
+    app_docs: [cpa2019, ecom2020, commissions2020, jurisdiction2021, mediation2020]
     configs:
       ingest: configs/ingest.yaml
       chunking: configs/chunking.yaml
@@ -36,6 +49,8 @@ collections:
       placeholder: "For example: Within how many days must a complaint be decided if no testing of goods is needed?"
       disclaimer: "Information from the Consumer Protection Act, 2019 and four Rules. Not legal advice."
       abstention_message: "Not found in these documents"
+      safety_note: "Not legal advice. For your own case, consult a lawyer or the consumer commission."
+      domain: "Indian consumer protection law"
     auto_eval:
       n_candidates: 200
       target_answerable: 90
@@ -46,10 +61,20 @@ collections:
       chroma: true
       dev_systems: [G1, G2, G4, G6]
       test_systems: [G1, G2, G3, G4, G5, G6]
+      ablation_systems: [G2H, G4H]
 
   cs_ai:
     title: "CS / AI textbooks"
     profile: cs_ai
+    evaluated: true
+    eval_docs: [d2l, progit, ods]
+    app_docs: [d2l, progit, ods, python_tutorial, think_python_2e]
+    app_index:
+      ingest: configs/collections/cs_ai/app/ingest.yaml
+      chunking: configs/collections/cs_ai/app/chunking.yaml
+      retrieval: configs/collections/cs_ai/app/retrieval.yaml
+      processed_dir: collections/cs_ai/processed_app
+      index_models: [bge-small]
     configs:
       ingest: configs/collections/cs_ai/ingest.yaml
       chunking: configs/collections/cs_ai/chunking.yaml
@@ -63,13 +88,15 @@ collections:
       results_dir: collections/cs_ai/results
       feedback_file: collections/cs_ai/feedback.jsonl
     ui:
-      label: "CS / AI textbooks"
-      eyebrow: "Dive into Deep Learning · Pro Git · Open Data Structures"
-      heading: "Ask the open textbooks"
-      lede: "Answers come only from selected chapters of three open-licensed textbooks. Every sentence links to the passage it rests on, and when the books do not say, you are told so."
+      label: "Computer Science, AI & Coding"
+      eyebrow: "Dive into Deep Learning · Pro Git · Open Data Structures · Python Tutorial · Think Python"
+      heading: "Ask the open textbooks, or get help with code"
+      lede: "Grounded answers come only from open-licensed textbooks, with every sentence linked to its passage. Chat & Code mode explains, writes, reviews and debugs code."
       placeholder: "For example: What problem does the attention mechanism solve in sequence models?"
-      disclaimer: "Answers come only from the listed open textbooks."
+      disclaimer: "Grounded answers come only from the listed open textbooks. Code is not executed; test it before use."
       abstention_message: "Not found in these documents"
+      domain: "computer science, machine learning, data structures, Git and Python programming"
+      code_assistant: true
     auto_eval:
       n_candidates: 140
       target_answerable: 60
@@ -80,5 +107,126 @@ collections:
       chroma: false                          # NumPy exact search is used for retrieval
       dev_systems: [G2, G4]
       test_systems: [G1, G2, G3, G4]
+      ablation_systems: [G2H, G4H]
     notes:
       skipped_systems: "G5 (retrieval-score threshold) underperformed on consumer_law and the cs_ai dev split is small (about 24 questions), so a tuned threshold would be unreliable; G6 (fixed_256 hybrid + reranking, guards + critic) is the slowest system. Both are skipped for cs_ai."
+
+  indian_law:
+    title: "Indian Law, Constitution & Tax"
+    profile: indian_law
+    evaluated: false
+    app_docs: [coi, ita2025, cgst2017, bns2023]
+    configs:
+      ingest: configs/collections/indian_law/ingest.yaml
+      chunking: configs/collections/indian_law/chunking.yaml
+      retrieval: configs/collections/indian_law/retrieval.yaml
+      generation: configs/collections/indian_law/generation.yaml
+      llm: configs/llm.yaml
+    roots:
+      raw_dir: collections/indian_law/raw
+      processed_dir: collections/indian_law/processed
+      eval_dir: collections/indian_law/eval
+      results_dir: collections/indian_law/results
+      feedback_file: collections/indian_law/feedback.jsonl
+    ui:
+      label: "Indian Law, Constitution & Tax"
+      eyebrow: "Constitution of India · Income-tax Act, 2025 · CGST Act, 2017 · Bharatiya Nyaya Sanhita, 2023"
+      heading: "Ask the Constitution, tax and criminal law texts"
+      lede: "Answers come only from the official texts, with every sentence linked to the article or section it rests on. When the texts do not say, you are told so."
+      placeholder: "For example: What does Article 21 of the Constitution protect?"
+      disclaimer: "Information from the text of the Constitution and three Acts. Not legal advice."
+      abstention_message: "Not found in these documents"
+      safety_note: "Not legal advice. For your own case, consult a qualified lawyer or chartered accountant."
+      domain: "Indian law (the Constitution of India, income tax, GST and criminal law)"
+      examples:
+        - "What does Article 21 of the Constitution protect?"
+        - "What are the fundamental duties of every citizen under Article 51A?"
+        - "How can Parliament amend the Constitution under Article 368?"
+        - "Who is liable to be registered under the CGST Act, 2017?"
+        - "What are the instalments and due dates for paying advance tax under the Income-tax Act, 2025?"
+        - "What is the punishment for murder under the Bharatiya Nyaya Sanhita, 2023?"
+    pipeline:
+      index_models: [bge-small]
+      chroma: false
+      dev_systems: []
+      test_systems: []
+
+  human_biology:
+    title: "Human Biology"
+    profile: human_biology
+    evaluated: false
+    app_docs: [ap2e]
+    configs:
+      ingest: configs/collections/human_biology/ingest.yaml
+      chunking: configs/collections/human_biology/chunking.yaml
+      retrieval: configs/collections/human_biology/retrieval.yaml
+      generation: configs/collections/human_biology/generation.yaml
+      llm: configs/llm.yaml
+    roots:
+      raw_dir: collections/human_biology/raw
+      processed_dir: collections/human_biology/processed
+      eval_dir: collections/human_biology/eval
+      results_dir: collections/human_biology/results
+      feedback_file: collections/human_biology/feedback.jsonl
+    ui:
+      label: "Human Biology"
+      eyebrow: "OpenStax Anatomy and Physiology 2e"
+      heading: "Ask the anatomy and physiology textbook"
+      lede: "Answers come only from an open textbook, with every sentence linked to the passage it rests on. When the book does not say, you are told so."
+      placeholder: "For example: How does a muscle fiber contract and relax?"
+      disclaimer: "Educational information from an open textbook, not medical advice."
+      abstention_message: "Not found in these documents"
+      safety_note: "Educational information, not medical advice; for symptoms or emergencies contact a doctor or local emergency services."
+      domain: "human anatomy and physiology"
+      examples:
+        - "What is the structure of the cell membrane?"
+        - "How does a muscle fiber contract and relax?"
+        - "What are the chambers and valves of the heart?"
+        - "How does the body regulate acid-base balance?"
+        - "What happens during the process of breathing?"
+        - "How are bones formed and how do they develop?"
+    pipeline:
+      index_models: [bge-small]
+      chroma: false
+      dev_systems: []
+      test_systems: []
+
+  physics_chemistry:
+    title: "Physics & Chemistry"
+    profile: physics_chemistry
+    evaluated: false
+    app_docs: [cp2e, up3, chem2e, orgchem]
+    configs:
+      ingest: configs/collections/physics_chemistry/ingest.yaml
+      chunking: configs/collections/physics_chemistry/chunking.yaml
+      retrieval: configs/collections/physics_chemistry/retrieval.yaml
+      generation: configs/collections/physics_chemistry/generation.yaml
+      llm: configs/llm.yaml
+    roots:
+      raw_dir: collections/physics_chemistry/raw
+      processed_dir: collections/physics_chemistry/processed
+      eval_dir: collections/physics_chemistry/eval
+      results_dir: collections/physics_chemistry/results
+      feedback_file: collections/physics_chemistry/feedback.jsonl
+    ui:
+      label: "Physics & Chemistry"
+      eyebrow: "OpenStax College Physics 2e · University Physics Vol. 3 · Chemistry 2e · Organic Chemistry"
+      heading: "Ask the physics and chemistry textbooks"
+      lede: "Answers come only from four open textbooks, with every sentence linked to the passage it rests on. When the books do not say, you are told so."
+      placeholder: "For example: What does Archimedes' principle state?"
+      disclaimer: "Educational information from open textbooks. Equations are shown as extracted text."
+      abstention_message: "Not found in these documents"
+      safety_note: "Do not attempt hazardous experiments based on these answers."
+      domain: "physics and chemistry"
+      examples:
+        - "What does Archimedes' principle state?"
+        - "How does Newton's second law relate force, mass and acceleration?"
+        - "What is time dilation in special relativity?"
+        - "How does the ideal gas law relate pressure, volume, amount and temperature?"
+        - "What is a Brønsted-Lowry acid?"
+        - "How does an SN2 reaction proceed?"
+    pipeline:
+      index_models: [bge-small]
+      chroma: false
+      dev_systems: []
+      test_systems: []

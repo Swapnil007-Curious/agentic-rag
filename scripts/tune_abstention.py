@@ -24,7 +24,12 @@ from pathlib import Path
 from ragsys.agents.abstention import tune_threshold
 from ragsys.agents.orchestrator import abstention_score
 from ragsys.agents.runtime import load_settings
-from ragsys.collections import add_collection_arguments, collection_from_args, config_path
+from ragsys.collections import (
+    add_collection_arguments,
+    collection_from_args,
+    config_path,
+    eval_index_refusal,
+)
 from ragsys.config import resolve_path
 from ragsys.eval.generation import questions_digest
 from ragsys.eval.split import questions_for_split
@@ -54,6 +59,10 @@ def main(argv: list[str] | None = None) -> int:
     settings, rsettings = load_settings(
         config_path(args.config, coll.generation_config), args.retrieval_config
     )
+    refusal = eval_index_refusal(coll, rsettings)
+    if refusal:
+        emit(f"refusing to run: {refusal}")
+        return 2
     set_seed(settings.seed)
     set_torch_threads(args.threads)
     system = settings.abstention.tuned_system

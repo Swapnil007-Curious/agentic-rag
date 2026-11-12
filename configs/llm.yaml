@@ -1,17 +1,93 @@
-# OpenAI-compatible chat endpoint (used only for drafting evaluation questions).
+# Generator backends: OpenAI-compatible chat endpoints, selected with --backend (scripts) or the
+# backend selector (web UI). A system of configs/generation.yaml runs on default_backend unless
+# it names another one (G2H / G4H: the hosted generator-scale ablation).
 #
-# Ollama (default): install Ollama, run `ollama pull qwen2.5:3b`, keep it running; no key needed.
-# Any other OpenAI-compatible provider: set base_url and model here and put the key in the
-# environment variable LLM_API_KEY (PowerShell: $env:LLM_API_KEY = "..."). Never write a key in
-# this file; it is read from the environment only and never logged, cached or stored.
-base_url: http://localhost:11434/v1
-model: qwen2.5:3b
-temperature: 0.2
-max_tokens: 512
-seed: 0               # sent with each request; set to null if a provider rejects it
-json_mode: true       # response_format={"type": "json_object"}; replies are also parsed leniently
-timeout_s: 120
-max_retries: 5        # exponential backoff on rate limits / timeouts / connection errors / 5xx
-backoff_initial_s: 1.0
-backoff_max_s: 30.0
-cache_dir: data/processed/llm_cache   # responses cached by (base_url, model, messages, params)
+# The API key is read from the environment variable LLM_API_KEY only (PowerShell:
+# $env:LLM_API_KEY = "..."). Never write a key in this file; it is never logged, cached or
+# stored. The local backend does not receive it.
+#
+# Per backend: the client settings (base_url, model, temperature, max_tokens, seed, json_mode,
+# timeout and retries, cache_dir), provider request options (extra_body), client-side rate
+# limits (requests_per_minute, tokens_per_minute; Retry-After is always respected and a wait
+# longer than max_retry_wait_s stops the run instead of sleeping), the grounded pipeline's
+# context budgets and the model's context window (null: the collection's generation config),
+# generation_overrides applied over a collection's llm_overrides (non-default backends only),
+# chat settings and where the model choice is recorded. Responses are cached on disk by
+# (backend, base_url, model, messages, parameters); local keys predate backends and carry no
+# backend name.
+
+default_backend: local
+
+backends:
+  local:
+    label: "Local: qwen2.5:3b (Ollama on this computer)"
+    provider: "Ollama"
+    privacy: "Questions and passages stay on this computer."
+    base_url: http://localhost:11434/v1
+    model: qwen2.5:3b
+    temperature: 0.2
+    max_tokens: 512
+    seed: 0               # sent with each request; set to null if a provider rejects it
+    json_mode: true       # response_format={"type": "json_object"}; replies are also parsed leniently
+    timeout_s: 120
+    max_retries: 5        # exponential backoff on rate limits / timeouts / connection errors / 5xx
+    backoff_initial_s: 1.0
+    backoff_max_s: 30.0
+    cache_dir: data/processed/llm_cache   # collections override it with their own cache
+    send_api_key: false
+    # grounded pipeline: the collection's budgets (1024 / 2048 tokens) and context window (4096)
+    context_budget_tokens: null
+    revision_budget_tokens: null
+    llm_context_window: null
+    chat_max_tokens: 768
+    chat_temperature: 0.3
+    chat_history_tokens: 1800   # qwen2.5:3b runs with a 4096-token context under Ollama here
+
+  hosted:
+    label: "Hosted: openai/gpt-oss-120b (Groq)"
+    provider: "Groq"
+    privacy: "Questions and the retrieved passages are sent to the API provider (Groq)."
+    base_url: https://api.groq.com/openai/v1
+    model: openai/gpt-oss-120b
+    model_selected_on: "2026-11-12"
+    model_selection: >-
+      Chosen on 2026-11-12, before any result was seen, from the provider's models endpoint
+      (GET /models with this account). The intended rule was the largest available general
+      instruction-tuned Llama-family model, but the endpoint listed none (its only Meta models
+      were the llama-prompt-guard-2 22m/86m safety classifiers); the largest general
+      instruction-tuned open-weight model it listed, openai/gpt-oss-120b, was chosen instead.
+      Response headers on that date: 8000 tokens per minute, 1000 requests per day.
+    requires_key: true
+    send_api_key: true
+    temperature: 0.2
+    max_tokens: 1024
+    seed: 0
+    json_mode: true
+    timeout_s: 120
+    max_retries: 5
+    backoff_initial_s: 2.0
+    backoff_max_s: 60.0
+    max_retry_wait_s: 180   # a longer Retry-After (an exhausted daily quota) stops the run;
+                            # eval_generation.py --max-retry-wait raises it for unattended runs
+    cache_dir: data/processed/llm_cache
+    # reasoning model: low effort, reasoning not returned (only the final answer is used)
+    extra_body:
+      reasoning_effort: low
+      include_reasoning: false
+    requests_per_minute: 30
+    tokens_per_minute: 8000
+    # daily quota of this model on the provider's published rate-limit page on 2026-11-12
+    # (https://console.groq.com/docs/rate-limits); check the account's own limits page. Not
+    # enforced here: a request over it gets a 429 with a long Retry-After (see above).
+    tokens_per_day: 200000
+    requests_per_day: 1000
+    context_budget_tokens: 2048
+    revision_budget_tokens: 3072
+    llm_context_window: 131072
+    # completion tokens include hidden reasoning, so the 512-token limit of the local
+    # generator would cut answers short
+    generation_overrides:
+      max_tokens: 1024
+    chat_max_tokens: 2048
+    chat_temperature: 0.3
+    chat_history_tokens: 6000

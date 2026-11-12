@@ -89,6 +89,34 @@ def code_normalise(text: str) -> str:
 # --------------------------------------------------------------------------- patterns
 
 NUMBERED_RE = re.compile(r"^(?P<num>\d{1,2}(?:\.\d{1,2}){0,4})\.?\s+(?P<title>\S.*)$")
+NUMBER_WORDS = {
+    w: i
+    for i, w in enumerate(
+        [
+            "ONE",
+            "TWO",
+            "THREE",
+            "FOUR",
+            "FIVE",
+            "SIX",
+            "SEVEN",
+            "EIGHT",
+            "NINE",
+            "TEN",
+            "ELEVEN",
+            "TWELVE",
+            "THIRTEEN",
+            "FOURTEEN",
+            "FIFTEEN",
+            "SIXTEEN",
+            "SEVENTEEN",
+            "EIGHTEEN",
+            "NINETEEN",
+            "TWENTY",
+        ],
+        start=1,
+    )
+}
 CHAPTER_WORD_RE = re.compile(r"^(?:Chapter|CHAPTER)\s+(?P<num>\d{1,2})\b[.:]?\s*(?P<title>.*)$")
 _CAPTION_RE = re.compile(r"^(?:Fig\.|Figs\.|Figure|Table|Listing)\s*\d", re.IGNORECASE)
 _LIST_START_RE = re.compile(r"^(?:\d{1,2}[.)]|[•▪◦∙*]|-|\([a-z0-9]{1,3}\))\s+\S")
@@ -228,6 +256,7 @@ class TextbookCleaner(Cleaner):
         self.header_res += [re.compile(p) for p in doc.header_footer_patterns]
         self.drop_section_res = [re.compile(p) for p in tcfg.drop_sections]
         self.drop_from_res = [re.compile(p) for p in tcfg.drop_from_patterns]
+        self.drop_to_end_res = [re.compile(p) for p in tcfg.drop_to_chapter_end]
 
     # ---------------------------------------------------------------- page edges
 
@@ -340,17 +369,64 @@ class TextbookCleaner(Cleaner):
             else:
                 ln.level = min(6, unnumbered_sizes.index(round(ln.size, 1)) + 1)
         # the first heading on a selected chapter's first page is that chapter
+        chapter_heads: set[int] = set()
         for ch in self.chapters:
             first = next((ln for ln in heads if ln.page == ch.start), None)
             if first is None:
                 self.warnings.append(f"no heading found on the first page of chapter {ch.title!r}")
                 continue
+            if self.doc.outline_chapters:
+                self._number_word_chapter(first, heads, ch)
+                self._complete_chapter_title(first, heads, ch)
             if normalise_title(first.title or first.text) != normalise_title(ch.title):
                 self.warnings.append(
                     f"chapter {ch.title!r}: first heading on p.{ch.start} is {first.text!r}"
                 )
             first.level = 1
+            chapter_heads.add(id(first))
             self.stats["chapters_detected"] += 1
+        if self.doc.outline_chapters:
+            # the outline names every chapter, so any other heading set in a chapter-sized
+            # style (OpenStax "CHEMISTRY MATTERS" boxes) is a section of the current chapter
+            for ln in heads:
+                if ln.level == 1 and id(ln) not in chapter_heads and ln.kind == "heading":
+                    ln.level = 2
+                    self.stats["headings_demoted_to_section"] += 1
+
+    @staticmethod
+    def _number_word_chapter(first: TLine, heads: list[TLine], ch: ChapterRange) -> None:
+        """Sphinx PDFs (the Python documentation) print "CHAPTER" / "ONE" / "WHETTING YOUR
+        APPETITE": a spelled-out number heading followed by the outline title on the same page
+        becomes chapter 1 with that title; the title line is marked "merged" (dropped)."""
+        number = NUMBER_WORDS.get((first.title or first.text).strip().upper())
+        k = heads.index(first) + 1
+        if number is None or k >= len(heads):
+            return
+        nxt = heads[k]
+        if nxt.page != ch.start or normalise_title(nxt.text) != normalise_title(ch.title):
+            return
+        first.number, first.title = str(number), ch.title
+        first.cline.text = f"{number} {ch.title}"
+        nxt.kind = "merged"
+
+    @staticmethod
+    def _complete_chapter_title(first: TLine, heads: list[TLine], ch: ChapterRange) -> None:
+        """A chapter title wrapped onto further heading lines of its first page ("... Newton's
+        Laws:" + "Friction, Drag, and Elasticity") is joined back while the outline title still
+        starts with the joined text; the continuation lines are marked "merged" (dropped)."""
+        want = normalise_title(ch.title)
+        k = heads.index(first) + 1
+        while normalise_title(first.title or first.text) != want and k < len(heads):
+            nxt = heads[k]
+            if nxt.page != ch.start:
+                break
+            joined = f"{first.title or first.text} {nxt.title or nxt.text}"
+            if not want.startswith(normalise_title(joined)):
+                break
+            first.title = joined
+            first.cline.text = f"{first.text} {nxt.text}"
+            nxt.kind = "merged"
+            k += 1
 
     def _mark_pseudocode(self, lines: list[TLine]) -> None:
         """Pseudocode set in the text font: a short line indented past the page's text margin
@@ -394,6 +470,12 @@ class TextbookCleaner(Cleaner):
                 drop_level = None
                 dropping_items = False
                 title = (ln.title or ln.text).strip()
+                if lvl > 1 and any(r.search(title) for r in self.drop_to_end_res):
+                    # end-of-chapter matter: drop everything up to the next chapter heading
+                    drop_level = 1
+                    dropped.append(f"{title} .. end of chapter (p.{ln.page})")
+                    self.stats["dropped_section_lines"] += 1
+                    continue
                 if any(r.search(title) for r in self.drop_section_res):
                     drop_level = lvl
                     dropped.append(f"{ln.number + ' ' if ln.number else ''}{title} (p.{ln.page})")
@@ -412,6 +494,33 @@ class TextbookCleaner(Cleaner):
             kept.append(ln)
         self.stats["sections_dropped"] = dropped
         return kept
+
+    def _drop_outline_headings(self, lines: list[TLine]) -> list[TLine]:
+        """Drop runs of at least three consecutive numbered headings (no text between them) whose
+        numbers are all printed again as headings later: a chapter-opening list of sections."""
+        positions: dict[str, list[int]] = defaultdict(list)
+        for i, ln in enumerate(lines):
+            if ln.kind == "heading" and ln.number:
+                positions[str(ln.number)].append(i)
+        drop: set[int] = set()
+        i = 0
+        while i < len(lines):
+            j = i
+            while (
+                j < len(lines)
+                and lines[j].kind == "heading"
+                and lines[j].number
+                and (lines[j].level or 6) > 1
+            ):
+                j += 1
+            run = range(i, j)
+            if len(run) >= 3 and all(
+                any(p > k for p in positions[str(lines[k].number)]) for k in run
+            ):
+                drop.update(run)
+            i = j + 1 if j == i else j
+        self.stats["outline_headings_dropped"] += len(drop)
+        return [ln for k, ln in enumerate(lines) if k not in drop]
 
     # ---------------------------------------------------------------- main
 
@@ -480,9 +589,12 @@ class TextbookCleaner(Cleaner):
         self._heading_candidates(stream, body, body_family)
         stream = self._merge_headings(stream)
         self._assign_levels(stream)
+        stream = [ln for ln in stream if ln.kind != "merged"]
         if self.doc.pseudocode_by_indent:
             self._mark_pseudocode(stream)
         stream = self._drop_sections(stream)
+        if t.drop_outline_headings:
+            stream = self._drop_outline_headings(stream)
 
         heads = [ln for ln in stream if ln.kind == "heading"]
         st["headings"] = len(heads)

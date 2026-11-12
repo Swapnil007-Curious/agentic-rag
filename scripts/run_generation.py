@@ -23,7 +23,12 @@ import time
 from pathlib import Path
 
 from ragsys.agents.runtime import build_engine, llm_unreachable_message, load_settings, make_llm
-from ragsys.collections import add_collection_arguments, collection_from_args, config_path
+from ragsys.collections import (
+    add_collection_arguments,
+    collection_from_args,
+    config_path,
+    eval_index_refusal,
+)
 from ragsys.config import resolve_path
 from ragsys.eval.generation import (
     evaluate_systems,
@@ -51,6 +56,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--questions", default=None, help="override the question file")
     ap.add_argument("--overwrite", action="store_true", help="recompute existing records")
     ap.add_argument("--no-eval", action="store_true", help="skip the NLI evaluation and tables")
+    ap.add_argument(
+        "--backend", default=None, help="check that every requested system runs on this backend"
+    )
     ap.add_argument("--fake-llm", action="store_true", help="offline deterministic stand-in")
     ap.add_argument("--threads", type=int, default=4, help="torch CPU threads (default 4)")
     args = ap.parse_args(argv)
@@ -62,7 +70,23 @@ def main(argv: list[str] | None = None) -> int:
     settings, rsettings = load_settings(
         config_path(args.config, coll.generation_config), args.retrieval_config
     )
+    refusal = eval_index_refusal(coll, rsettings)
+    if refusal:
+        emit(f"refusing to run: {refusal}")
+        return 2
     systems = ordered_systems(settings, args.systems or coll.spec.pipeline.dev_systems)
+    hosted = [s for s in systems if settings.backend_of(s) != settings.default_backend]
+    if hosted:
+        emit(
+            f"refusing to run: {', '.join(hosted)} belong(s) to the generator-scale ablation, "
+            "which runs on the TEST split only (no tuning): scripts/eval_generation.py"
+        )
+        return 2
+    if args.backend is not None and args.backend != settings.default_backend:
+        emit(
+            f"refusing to run: the dev systems run on {settings.default_backend}, not {args.backend}"
+        )
+        return 2
     derived = [s for s in systems if settings.is_derived(s)]
     if derived:
         emit(f"derived system(s) {', '.join(derived)} are computed by scripts/derive_systems.py")
@@ -104,6 +128,8 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_eval:
         records = {}
         for s in settings.systems:  # every system with complete dev outputs, in config order
+            if settings.backend_of(s) != settings.default_backend:
+                continue
             recs = load_system_records(out_dir, s, questions)
             if recs is not None:
                 records[s] = recs

@@ -1,0 +1,16 @@
+# Chunking for the physics_chemistry collection (app only, not evaluated): structural chunks only (bge-small tokenizer for counting).
+
+paths:
+  processed_dir: collections/physics_chemistry/processed
+  cache_dir: collections/physics_chemistry/processed/cache
+
+tokenizer_model: BAAI/bge-small-en-v1.5
+seed: 42
+
+chunkers: [structural]
+
+structural:
+  max_tokens: 384
+  min_tokens: 48
+  contextual_header: true
+  orphan_text: true

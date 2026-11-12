@@ -112,6 +112,22 @@ def build_textbook_rows(
         present = path.exists()
         rep = docs.get(d.doc_id, {})
         lic = rep.get("licence") or {}
+        chapters = _chapters_cell(rep.get("chapter_ranges", []))
+        if d.doc_type != "textbook":
+            # statutes in a textbook-format SOURCES.csv: licence from the config (the PDFs
+            # state none) and a structure summary instead of chapter ranges
+            lic = {
+                "licence": d.licence or "unknown",
+                "licence_url": d.licence_url,
+                "source": d.licence_note or "not stated in the PDF",
+            }
+            num = rep.get("numbering") or {}
+            if rep:
+                chapters = (
+                    f"{num.get('count', 0)} {num.get('unit', 'section')}s (highest number "
+                    f"{num.get('max_number')}); {rep.get('chapters', 0)} parts/chapters; "
+                    f"{rep.get('schedules', 0)} schedules"
+                )
         rows.append(
             {
                 "file_name": d.file,
@@ -127,7 +143,7 @@ def build_textbook_rows(
                 "bytes": str(path.stat().st_size) if present else "",
                 "pages": str(pdf_page_count(path)) if present else "",
                 "pages_kept": str(rep.get("pages_kept", "")),
-                "chapters": _chapters_cell(rep.get("chapter_ranges", [])),
+                "chapters": chapters,
                 "downloaded_on": d.downloaded_on,
             }
         )

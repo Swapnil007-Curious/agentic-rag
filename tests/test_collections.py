@@ -102,15 +102,25 @@ def test_collections_share_no_output_or_cache() -> None:
 
 
 def test_consumer_law_tables_are_untouched() -> None:
-    """results/tables and the test-access log hold exactly the files (and bytes, line endings
-    normalised) they held before collections were introduced."""
+    """The files results/tables and the test-access log held before collections were introduced
+    are still there with the same bytes (line endings normalised). Since the generator-scale
+    ablation, the generation_test tables may only gain appended rows and the log appended
+    entries; tests/test_frozen_results.py checks every frozen file of both evaluated collections
+    (and that no other file appears in their tables directories)."""
     expected = json.loads((DATA / "consumer_law_tables.sha256.json").read_text(encoding="utf-8"))
-    tables = REPO_ROOT / "results" / "tables"
-    present = {f"results/tables/{p.name}" for p in tables.iterdir() if p.is_file()}
-    assert present == {k for k in expected if k.startswith("results/tables/")}
+    frozen = json.loads((DATA / "frozen_results.json").read_text(encoding="utf-8"))["files"]
     for rel, digest in expected.items():
+        mode = frozen[rel]["mode"]
+        assert mode in ("exact", "prefix", "json_prefix"), rel
         data = (REPO_ROOT / rel).read_bytes().replace(b"\r\n", b"\n")
-        assert hashlib.sha256(data).hexdigest() == digest, rel
+        if mode == "exact":
+            assert frozen[rel]["sha256"] == digest == hashlib.sha256(data).hexdigest(), rel
+        elif mode == "prefix":  # the same pin, extended: existing bytes are a fixed prefix
+            n = frozen[rel]["bytes"]
+            assert frozen[rel]["sha256"] == digest == hashlib.sha256(data[:n]).hexdigest(), rel
+        else:  # the test-access log: the entries logged so far are unchanged
+            entries = json.loads(data.decode("utf-8"))
+            assert len(entries) >= frozen[rel]["entries"], rel
 
 
 def test_consumer_law_prompts_and_fingerprints_are_unchanged() -> None:

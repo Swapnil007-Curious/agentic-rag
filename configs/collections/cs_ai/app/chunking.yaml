@@ -1,0 +1,16 @@
+# Chunking for the app index of cs_ai (collections/cs_ai/processed_app): structural chunks only (bge-small tokenizer for counting).
+
+paths:
+  processed_dir: collections/cs_ai/processed_app
+  cache_dir: collections/cs_ai/processed_app/cache
+
+tokenizer_model: BAAI/bge-small-en-v1.5
+seed: 42
+
+chunkers: [structural]
+
+structural:
+  max_tokens: 384
+  min_tokens: 48
+  contextual_header: true
+  orphan_text: true

@@ -75,14 +75,28 @@ def prompt_digest(prompts: GenerationPrompts | None = None) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
-def system_fingerprint(settings: GenerationSettings, system: str, llm: LLMConfig) -> str:
-    """Hash of everything that determines a runnable system's outputs."""
+SYSTEM_KEYS_ADDED_LATER = ("backend", "ablation_of")  # left out of the hash when unset
+
+
+def system_fingerprint(
+    settings: GenerationSettings, system: str, llm: LLMConfig | None = None
+) -> str:
+    """Hash of everything that determines a runnable system's outputs. ``llm`` defaults to the
+    LLM config of the system's backend. Keys added to the system definition after the first
+    runs are hashed only when set, so existing systems keep their fingerprints."""
     base = settings.runnable_base(system)
+    backend = settings.backend_of(base)
+    if llm is None:
+        llm = settings.llm(backend)
+    spec = settings.system(base).model_dump(mode="json")
+    for key in SYSTEM_KEYS_ADDED_LATER:
+        if spec.get(key) is None:
+            spec.pop(key, None)
     blob = json.dumps(
         {
-            "system": settings.system(base).model_dump(mode="json"),
+            "system": spec,
             "retrieval": settings.retrieval_cfg(base).model_dump(mode="json"),
-            "context": settings.context.model_dump(mode="json"),
+            "context": settings.context_for(backend).model_dump(mode="json"),
             "loop": settings.loop.model_dump(mode="json"),
             "prompts": prompt_digest(get_profile(settings.profile).generation),
             "llm": {
@@ -151,6 +165,10 @@ def run_system(
     log: Log = print,
 ) -> list[dict[str, Any]]:
     """Answer every question with ``system`` (resumable); returns records in question order."""
+    if getattr(engine.retrieval_settings, "index", "eval") == "app":
+        from ragsys.collections import AppIndexRefused
+
+        raise AppIndexRefused("generation evaluations run on the frozen evaluation index only")
     path = out_dir / system / "per_question.jsonl"
     wanted = {q.id: question_digest(q) for q in questions}
     done: dict[str, dict[str, Any]] = {}
@@ -240,30 +258,13 @@ def evaluate_systems(
     own_cache: NLICache | None = None
     if scorer is None:
         scorer, own_cache = make_scorer(settings)
-    evaluator = AnswerEvaluator(resources, scorer, settings.nli.entailment_threshold)
-    qmap = {q.id: q for q in questions}
-    rows_by_system: dict[str, list[dict[str, Any]]] = {}
-    for system, recs in records_by_system.items():
-        t0 = time.perf_counter()
-        rows = evaluator.evaluate(recs, qmap)
-        write_jsonl(out_dir / system / "eval.jsonl", rows)
-        rows_by_system[system] = rows
-        log(
-            f"   evaluated {system}: {len(rows)} question(s) in {time.perf_counter() - t0:.1f}s "
-            f"(NLI pairs computed so far: {scorer.computed_pairs}) | RSS {fmt_mb(rss_bytes())}"
-        )
-    model = scorer.model
+    rows_by_system, nli_meta = score_systems(
+        settings, resources, records_by_system, questions, out_dir, scorer, log=log
+    )
     meta = {
         "split": split,
         "questions_digest": questions_digest(questions),
-        "nli": {
-            "model": model.name,
-            "requested_model": getattr(model, "requested", model.name),
-            "fallback_reason": getattr(model, "fallback_reason", None),
-            "entailment_threshold": settings.nli.entailment_threshold,
-            "window_tokens": settings.nli.window_tokens,
-            "window_stride": settings.nli.window_stride,
-        },
+        "nli": nli_meta,
         "systems": {s: settings.system(s).model_dump(mode="json") for s in records_by_system},
         "settings": settings.model_dump(mode="json"),
         **(extra_meta or {}),
@@ -281,6 +282,42 @@ def evaluate_systems(
     if own_cache is not None:
         own_cache.close()
     return paths
+
+
+def score_systems(
+    settings: GenerationSettings,
+    resources: RetrievalResources,
+    records_by_system: dict[str, list[dict[str, Any]]],
+    questions: Sequence[EvalQuestion],
+    out_dir: Path,
+    scorer: NLIScorer,
+    *,
+    log: Log = print,
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
+    """Answer metrics per system (writes ``<out_dir>/<system>/eval.jsonl``) and the NLI
+    settings actually used."""
+    evaluator = AnswerEvaluator(resources, scorer, settings.nli.entailment_threshold)
+    qmap = {q.id: q for q in questions}
+    rows_by_system: dict[str, list[dict[str, Any]]] = {}
+    for system, recs in records_by_system.items():
+        t0 = time.perf_counter()
+        rows = evaluator.evaluate(recs, qmap)
+        write_jsonl(out_dir / system / "eval.jsonl", rows)
+        rows_by_system[system] = rows
+        log(
+            f"   evaluated {system}: {len(rows)} question(s) in {time.perf_counter() - t0:.1f}s "
+            f"(NLI pairs computed so far: {scorer.computed_pairs}) | RSS {fmt_mb(rss_bytes())}"
+        )
+    model = scorer.model
+    nli_meta = {
+        "model": model.name,
+        "requested_model": getattr(model, "requested", model.name),
+        "fallback_reason": getattr(model, "fallback_reason", None),
+        "entailment_threshold": settings.nli.entailment_threshold,
+        "window_tokens": settings.nli.window_tokens,
+        "window_stride": settings.nli.window_stride,
+    }
+    return rows_by_system, nli_meta
 
 
 def ordered_systems(settings: GenerationSettings, names: Sequence[str]) -> list[str]:

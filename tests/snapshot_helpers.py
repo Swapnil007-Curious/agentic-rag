@@ -73,5 +73,7 @@ def consumer_law_snapshot() -> dict[str, str]:
     s = default_generation_settings()
     llm = s.llm()
     for name in s.systems:
+        if s.system(name).backend is not None:
+            continue  # systems added later on another backend (G2H, G4H) are not part of it
         out[f"fingerprint:{name}"] = system_fingerprint(s, name, llm)
     return out

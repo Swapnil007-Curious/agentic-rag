@@ -1,0 +1,598 @@
+[2026-11-12 19:49:19] === app collections run started; estimate 59h14m
+[2026-11-12 19:49:19] START indian_law:ingest (estimate 29s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\ingest.py --collection indian_law --collections-file configs\collections.yaml
+    wrote C:\Users\Admin\agentic-rag\collections\indian_law\raw\SOURCES.csv (4 rows)
+    coi               pages=402 dropped_deva= 0 chapters=43 articles=503 (max no. 395) definitions= 53 nodes=2371 xrefs node/doc/ext/unres=322/6/442/173
+        parts=21 chapters inside parts=22 articles=503 (lettered 109) schedules=12 pages kept=371
+        WARNING: gaps in article numbering: missing [238]
+        note: 2 repeated label(s) stored with ~2 suffixes, 1 embedded table(s) kept as plain text (details in structure_report.json)
+    ita2025           pages=674 dropped_deva= 0 chapters=23 sections=528 (max no. 536) definitions=196 nodes=6380 xrefs node/doc/ext/unres=4801/615/581/571
+        pages kept=674 schedules=15
+        WARNING: gaps in section numbering: missing [30, 32, 94, 95, 98, 206, 236, 338, 421]
+        note: 54 repeated label(s) stored with ~2 suffixes, 39 embedded table(s) kept as plain text (details in structure_report.json)
+    cgst2017          pages=131 dropped_deva= 0 chapters=21 sections=190 (max no. 174) definitions= 71 nodes=1600 xrefs node/doc/ext/unres=860/355/113/143
+        pages kept=122 schedules=3
+        note: 5 repeated label(s) stored with ~2 suffixes, 6 embedded table(s) kept as plain text (details in structure_report.json)
+    bns2023           pages=112 dropped_deva= 0 chapters=20 sections=357 (max no. 358) definitions= 19 nodes=1279 xrefs node/doc/ext/unres=286/0/19/5
+        pages kept=97 schedules=0
+        WARNING: gaps in section numbering: missing [255]
+        note: 0 repeated label(s) stored with ~2 suffixes, 8 embedded table(s) kept as plain text (details in structure_report.json)
+    pages kept in total: 1264
+    total nodes=11630 xrefs=9292 footnotes=1145 in 20.8s
+    outputs in C:\Users\Admin\agentic-rag\collections\indian_law\processed
+[2026-11-12 19:49:49] DONE  indian_law:ingest in 30s (exit 0, peak RSS 542 MB)
+[2026-11-12 19:49:49] START indian_law:chunk (estimate 28s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\chunk.py --chunker all --collection indian_law --collections-file configs\collections.yaml
+    structural  chunks=4367 tokens min/med/p95/max=31/149/385/424 crossing_sections=  0 sections_split=0.267 time=7.81s
+    wrote C:\Users\Admin\agentic-rag\collections\indian_law\processed\chunks
+[2026-11-12 19:50:20] DONE  indian_law:chunk in 31s (exit 0, peak RSS 420 MB)
+[2026-11-12 19:50:20] START indian_law:index (estimate 12m38s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\build_index.py --chunker all --models bge-small --no-chroma --collection indian_law --collections-file configs\collections.yaml
+    structural  chunks=4367  BM25 built in 914 ms (vocab 11214, avg 76 tokens/chunk)
+          BAAI/bge-small-en-v1.5 / structural: 64/4367 chunks (4.12 chunks/s, ETA 17.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 128/4367 chunks (5.97 chunks/s, ETA 11.8 min)
+          BAAI/bge-small-en-v1.5 / structural: 192/4367 chunks (6.87 chunks/s, ETA 10.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 256/4367 chunks (7.34 chunks/s, ETA 9.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 320/4367 chunks (7.51 chunks/s, ETA 9.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 384/4367 chunks (7.88 chunks/s, ETA 8.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 448/4367 chunks (8.06 chunks/s, ETA 8.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 512/4367 chunks (8.08 chunks/s, ETA 8.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 576/4367 chunks (8.20 chunks/s, ETA 7.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 640/4367 chunks (8.28 chunks/s, ETA 7.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 704/4367 chunks (8.47 chunks/s, ETA 7.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 768/4367 chunks (8.26 chunks/s, ETA 7.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 832/4367 chunks (7.88 chunks/s, ETA 7.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 896/4367 chunks (7.76 chunks/s, ETA 7.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 960/4367 chunks (7.76 chunks/s, ETA 7.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 1024/4367 chunks (7.74 chunks/s, ETA 7.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 1088/4367 chunks (7.77 chunks/s, ETA 7.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 1152/4367 chunks (7.85 chunks/s, ETA 6.8 min)
+          BAAI/bge-small-en-v1.5 / structural: 1216/4367 chunks (7.88 chunks/s, ETA 6.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 1280/4367 chunks (8.01 chunks/s, ETA 6.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 1344/4367 chunks (8.04 chunks/s, ETA 6.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 1408/4367 chunks (8.05 chunks/s, ETA 6.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 1472/4367 chunks (8.01 chunks/s, ETA 6.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 1536/4367 chunks (7.99 chunks/s, ETA 5.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 1600/4367 chunks (8.03 chunks/s, ETA 5.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 1664/4367 chunks (8.01 chunks/s, ETA 5.6 min)
+          BAAI/bge-small-en-v1.5 / structural: 1728/4367 chunks (8.03 chunks/s, ETA 5.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 1792/4367 chunks (8.10 chunks/s, ETA 5.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 1856/4367 chunks (8.12 chunks/s, ETA 5.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 1920/4367 chunks (8.07 chunks/s, ETA 5.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 1984/4367 chunks (8.11 chunks/s, ETA 4.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 2048/4367 chunks (8.16 chunks/s, ETA 4.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 2112/4367 chunks (8.18 chunks/s, ETA 4.6 min)
+          BAAI/bge-small-en-v1.5 / structural: 2176/4367 chunks (8.17 chunks/s, ETA 4.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 2240/4367 chunks (8.21 chunks/s, ETA 4.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 2304/4367 chunks (8.24 chunks/s, ETA 4.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 2368/4367 chunks (8.29 chunks/s, ETA 4.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 2432/4367 chunks (8.38 chunks/s, ETA 3.8 min)
+          BAAI/bge-small-en-v1.5 / structural: 2496/4367 chunks (8.39 chunks/s, ETA 3.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 2560/4367 chunks (8.42 chunks/s, ETA 3.6 min)
+          BAAI/bge-small-en-v1.5 / structural: 2624/4367 chunks (8.45 chunks/s, ETA 3.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 2688/4367 chunks (8.35 chunks/s, ETA 3.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 2752/4367 chunks (8.38 chunks/s, ETA 3.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 2816/4367 chunks (8.38 chunks/s, ETA 3.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 2880/4367 chunks (8.36 chunks/s, ETA 3.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 2944/4367 chunks (8.37 chunks/s, ETA 2.8 min)
+          BAAI/bge-small-en-v1.5 / structural: 3008/4367 chunks (8.38 chunks/s, ETA 2.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 3072/4367 chunks (8.25 chunks/s, ETA 2.6 min)
+          BAAI/bge-small-en-v1.5 / structural: 3136/4367 chunks (8.12 chunks/s, ETA 2.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 3200/4367 chunks (8.18 chunks/s, ETA 2.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 3264/4367 chunks (8.17 chunks/s, ETA 2.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 3328/4367 chunks (8.18 chunks/s, ETA 2.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 3392/4367 chunks (8.20 chunks/s, ETA 2.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 3456/4367 chunks (8.22 chunks/s, ETA 1.8 min)
+          BAAI/bge-small-en-v1.5 / structural: 3520/4367 chunks (8.23 chunks/s, ETA 1.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 3584/4367 chunks (8.24 chunks/s, ETA 1.6 min)
+          BAAI/bge-small-en-v1.5 / structural: 3648/4367 chunks (8.25 chunks/s, ETA 1.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 3712/4367 chunks (8.24 chunks/s, ETA 1.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 3776/4367 chunks (8.25 chunks/s, ETA 1.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 3840/4367 chunks (8.26 chunks/s, ETA 1.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 3904/4367 chunks (8.25 chunks/s, ETA 0.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 3968/4367 chunks (8.26 chunks/s, ETA 0.8 min)
+          BAAI/bge-small-en-v1.5 / structural: 4032/4367 chunks (8.27 chunks/s, ETA 0.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 4096/4367 chunks (8.28 chunks/s, ETA 0.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 4160/4367 chunks (8.28 chunks/s, ETA 0.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 4224/4367 chunks (8.29 chunks/s, ETA 0.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 4288/4367 chunks (8.31 chunks/s, ETA 0.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 4352/4367 chunks (8.32 chunks/s, ETA 0.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 4367/4367 chunks (8.30 chunks/s, ETA 0.0 min)
+        bge-small  computed (missing)             526.0 s  dim= 384    6.71 MB  BAAI_bge-small-en-v1.5/structural.npy
+    total 527.1 s
+    wrote C:\Users\Admin\agentic-rag\collections\indian_law\processed\emb\index_report.json
+[2026-11-12 19:59:14] DONE  indian_law:index in 8m54s (exit 0, peak RSS 823 MB)
+[2026-11-12 19:59:14] START human_biology:ingest (estimate 29s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\ingest.py --collection human_biology --collections-file configs\collections.yaml
+    wrote C:\Users\Admin\agentic-rag\collections\human_biology\raw\SOURCES.csv (1 rows)
+    ap2e     pages kept 1298 of 1347  nodes=1224 (chapters 28, sections 774, subsections 422, headings 0, code 0)  xrefs node/doc/ext/unres=1/0/0/1072
+        chapter 'Chapter 1 An Introduction to the Human Body': pp. 23-56 (34 pages, outline)
+        chapter 'Chapter 2 The Chemical Level of Organization': pp. 57-100 (44 pages, outline)
+        chapter 'Chapter 3 The Cellular Level of Organization': pp. 101-144 (44 pages, outline)
+        chapter 'Chapter 4 The Tissue Level of Organization': pp. 145-182 (38 pages, outline)
+        chapter 'Chapter 5 The Integumentary System': pp. 183-212 (30 pages, outline)
+        chapter 'Chapter 6 Bone Tissue and the Skeletal System': pp. 213-250 (38 pages, outline)
+        chapter 'Chapter 7 Axial Skeleton': pp. 251-298 (48 pages, outline)
+        chapter 'Chapter 8 The Appendicular Skeleton': pp. 299-338 (40 pages, outline)
+        chapter 'Chapter 9 Joints': pp. 339-384 (46 pages, outline)
+        chapter 'Chapter 10 Muscle Tissue': pp. 385-424 (40 pages, outline)
+        chapter 'Chapter 11 The Muscular System': pp. 425-482 (58 pages, outline)
+        chapter 'Chapter 12 The Nervous System and Nervous Tissue': pp. 483-524 (42 pages, outline)
+        chapter 'Chapter 13 Anatomy of the Nervous System': pp. 525-570 (46 pages, outline)
+        chapter 'Chapter 14 The Somatic Nervous System': pp. 571-620 (50 pages, outline)
+        chapter 'Chapter 15 The Autonomic Nervous System': pp. 621-656 (36 pages, outline)
+        chapter 'Chapter 16 The Neurological Exam': pp. 657-694 (38 pages, outline)
+        chapter 'Chapter 17 The Endocrine System': pp. 695-746 (52 pages, outline)
+        chapter 'Chapter 18 The Cardiovascular System: Blood': pp. 747-788 (42 pages, outline)
+        chapter 'Chapter 19 The Cardiovascular System: The Heart': pp. 789-848 (60 pages, outline)
+        chapter 'Chapter 20 The Cardiovascular System: Blood Vessels and Circulation': pp. 849-932 (84 pages, outline)
+        chapter 'Chapter 21 The Lymphatic and Immune System': pp. 933-988 (56 pages, outline)
+        chapter 'Chapter 22 The Respiratory System': pp. 989-1038 (50 pages, outline)
+        chapter 'Chapter 23 The Digestive System': pp. 1039-1100 (62 pages, outline)
+        chapter 'Chapter 24 Metabolism and Nutrition': pp. 1101-1152 (52 pages, outline)
+        chapter 'Chapter 25 The Urinary System': pp. 1153-1200 (48 pages, outline)
+        chapter 'Chapter 26 Fluid, Electrolyte, and Acid-Base Balance': pp. 1201-1230 (30 pages, outline)
+        chapter 'Chapter 27 The Reproductive System': pp. 1231-1268 (38 pages, outline)
+        chapter 'Chapter 28 Development and Inheritance': pp. 1269-1320 (52 pages, outline)
+        licence: CC BY-NC-SA 4.0 International  [PDF p.4: "Textbook content produced by OpenStax is licensed under a Creative Commons Attribution Non-Commercial ShareAlike 4.0 International]
+        dropped sections: 28 (e.g. Key Terms .. end of chapter (p.49), Key Terms .. end of chapter (p.93), Key Terms .. end of chapter (p.136))
+    pages kept in total: 1298
+    total nodes=1224 xrefs=1073 footnotes=132 in 19.6s
+    outputs in C:\Users\Admin\agentic-rag\collections\human_biology\processed
+[2026-11-12 19:59:39] DONE  human_biology:ingest in 26s (exit 0, peak RSS 698 MB)
+[2026-11-12 19:59:39] START human_biology:chunk (estimate 28s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\chunk.py --chunker all --collection human_biology --collections-file configs\collections.yaml
+    structural  chunks=2089 tokens min/med/p95/max=20/368/403/421 crossing_sections=  0 sections_split=0.618 time=13.11s
+    wrote C:\Users\Admin\agentic-rag\collections\human_biology\processed\chunks
+[2026-11-12 20:00:02] DONE  human_biology:chunk in 23s (exit 0, peak RSS 382 MB)
+[2026-11-12 20:00:03] START human_biology:index (estimate 8m38s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\build_index.py --chunker all --models bge-small --no-chroma --collection human_biology --collections-file configs\collections.yaml
+    structural  chunks=2089  BM25 built in 720 ms (vocab 15182, avg 129 tokens/chunk)
+    Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+          BAAI/bge-small-en-v1.5 / structural: 64/2089 chunks (3.97 chunks/s, ETA 8.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 128/2089 chunks (4.44 chunks/s, ETA 7.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 192/2089 chunks (4.69 chunks/s, ETA 6.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 256/2089 chunks (4.87 chunks/s, ETA 6.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 320/2089 chunks (5.11 chunks/s, ETA 5.8 min)
+          BAAI/bge-small-en-v1.5 / structural: 384/2089 chunks (5.17 chunks/s, ETA 5.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 448/2089 chunks (5.19 chunks/s, ETA 5.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 512/2089 chunks (5.25 chunks/s, ETA 5.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 576/2089 chunks (5.33 chunks/s, ETA 4.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 640/2089 chunks (5.31 chunks/s, ETA 4.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 704/2089 chunks (5.33 chunks/s, ETA 4.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 768/2089 chunks (5.36 chunks/s, ETA 4.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 832/2089 chunks (5.40 chunks/s, ETA 3.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 896/2089 chunks (5.41 chunks/s, ETA 3.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 960/2089 chunks (5.41 chunks/s, ETA 3.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 1024/2089 chunks (5.39 chunks/s, ETA 3.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 1088/2089 chunks (5.34 chunks/s, ETA 3.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 1152/2089 chunks (5.35 chunks/s, ETA 2.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 1216/2089 chunks (5.31 chunks/s, ETA 2.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 1280/2089 chunks (5.27 chunks/s, ETA 2.6 min)
+          BAAI/bge-small-en-v1.5 / structural: 1344/2089 chunks (5.25 chunks/s, ETA 2.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 1408/2089 chunks (5.20 chunks/s, ETA 2.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 1472/2089 chunks (5.17 chunks/s, ETA 2.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 1536/2089 chunks (5.17 chunks/s, ETA 1.8 min)
+          BAAI/bge-small-en-v1.5 / structural: 1600/2089 chunks (5.16 chunks/s, ETA 1.6 min)
+          BAAI/bge-small-en-v1.5 / structural: 1664/2089 chunks (5.17 chunks/s, ETA 1.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 1728/2089 chunks (5.16 chunks/s, ETA 1.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 1792/2089 chunks (5.16 chunks/s, ETA 1.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 1856/2089 chunks (5.16 chunks/s, ETA 0.8 min)
+          BAAI/bge-small-en-v1.5 / structural: 1920/2089 chunks (5.14 chunks/s, ETA 0.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 1984/2089 chunks (5.13 chunks/s, ETA 0.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 2048/2089 chunks (5.14 chunks/s, ETA 0.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 2089/2089 chunks (5.13 chunks/s, ETA 0.0 min)
+        bge-small  computed (missing)             407.1 s  dim= 384    3.21 MB  BAAI_bge-small-en-v1.5/structural.npy
+    total 408.0 s
+    wrote C:\Users\Admin\agentic-rag\collections\human_biology\processed\emb\index_report.json
+[2026-11-12 20:06:57] DONE  human_biology:index in 6m54s (exit 0, peak RSS 836 MB)
+[2026-11-12 20:06:57] START physics_chemistry:ingest (estimate 1m14s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\ingest.py --collection physics_chemistry --collections-file configs\collections.yaml
+    wrote C:\Users\Admin\agentic-rag\collections\physics_chemistry\raw\SOURCES.csv (4 rows)
+    cp2e     pages kept 1544 of 1671  nodes=1817 (chapters 34, sections 598, subsections 1151, headings 0, code 34)  xrefs node/doc/ext/unres=17/0/0/1556
+        chapter 'Chapter 1 Introduction: The Nature of Science and Physics': pp. 25-56 (32 pages, outline)
+        chapter 'Chapter 2 Kinematics': pp. 57-118 (62 pages, outline)
+        chapter 'Chapter 3 Two-Dimensional Kinematics': pp. 119-166 (48 pages, outline)
+        chapter "Chapter 4 Dynamics: Force and Newton's Laws of Motion": pp. 167-216 (50 pages, outline)
+        chapter "Chapter 5 Further Applications of Newton's Laws: Friction, Drag, and Elasticity": pp. 217-246 (30 pages, outline)
+        chapter 'Chapter 6 Uniform Circular Motion and Gravitation': pp. 247-288 (42 pages, outline)
+        chapter 'Chapter 7 Work, Energy, and Energy Resources': pp. 289-342 (54 pages, outline)
+        chapter 'Chapter 8 Linear Momentum and Collisions': pp. 343-378 (36 pages, outline)
+        chapter 'Chapter 9 Statics and Torque': pp. 379-412 (34 pages, outline)
+        chapter 'Chapter 10 Rotational Motion and Angular Momentum': pp. 413-460 (48 pages, outline)
+        chapter 'Chapter 11 Fluid Statics': pp. 461-510 (50 pages, outline)
+        chapter 'Chapter 12 Fluid Dynamics and Its Biological and Medical Applications': pp. 511-550 (40 pages, outline)
+        chapter 'Chapter 13 Temperature, Kinetic Theory, and the Gas Laws': pp. 551-600 (50 pages, outline)
+        chapter 'Chapter 14 Heat and Heat Transfer Methods': pp. 601-646 (46 pages, outline)
+        chapter 'Chapter 15 Thermodynamics': pp. 647-702 (56 pages, outline)
+        chapter 'Chapter 16 Oscillatory Motion and Waves': pp. 703-752 (50 pages, outline)
+        chapter 'Chapter 17 Physics of Hearing': pp. 753-802 (50 pages, outline)
+        chapter 'Chapter 18 Electric Charge and Electric Field': pp. 803-846 (44 pages, outline)
+        chapter 'Chapter 19 Electric Potential and Electric Field': pp. 847-886 (40 pages, outline)
+        chapter "Chapter 20 Electric Current, Resistance, and Ohm's Law": pp. 887-932 (46 pages, outline)
+        chapter 'Chapter 21 Circuits and DC Instruments': pp. 933-982 (50 pages, outline)
+        chapter 'Chapter 22 Magnetism': pp. 983-1032 (50 pages, outline)
+        chapter 'Chapter 23 Electromagnetic Induction, AC Circuits, and Electrical Technologies': pp. 1033-1092 (60 pages, outline)
+        chapter 'Chapter 24 Electromagnetic Waves': pp. 1093-1126 (34 pages, outline)
+        chapter 'Chapter 25 Geometric Optics': pp. 1127-1180 (54 pages, outline)
+        chapter 'Chapter 26 Vision and Optical Instruments': pp. 1181-1214 (34 pages, outline)
+        chapter 'Chapter 27 Wave Optics': pp. 1215-1266 (52 pages, outline)
+        chapter 'Chapter 28 Special Relativity': pp. 1267-1306 (40 pages, outline)
+        chapter 'Chapter 29 Quantum Physics': pp. 1307-1348 (42 pages, outline)
+        chapter 'Chapter 30 Atomic Physics': pp. 1349-1410 (62 pages, outline)
+        chapter 'Chapter 31 Radioactivity and Nuclear Physics': pp. 1411-1454 (44 pages, outline)
+        chapter 'Chapter 32 Medical Applications of Nuclear Physics': pp. 1455-1498 (44 pages, outline)
+        chapter 'Chapter 33 Particle Physics': pp. 1499-1534 (36 pages, outline)
+        chapter 'Chapter 34 Frontiers of Physics': pp. 1535-1568 (34 pages, outline)
+        licence: CC BY-NC-SA 4.0 International  [PDF p.4: "Textbook content produced by OpenStax is licensed under a Creative Commons Attribution Non-Commercial ShareAlike 4.0 International]
+        dropped sections: 34 (e.g. Glossary .. end of chapter (p.52), Glossary .. end of chapter (p.108), Glossary .. end of chapter (p.155))
+    up3      pages kept 526 of  597  nodes= 635 (chapters 11, sections 76, subsections 490, headings 0, code 58)  xrefs node/doc/ext/unres=0/0/0/491
+        chapter 'Chapter 1 The Nature of Light': pp. 15-58 (44 pages, outline)
+        chapter 'Chapter 2 Geometric Optics and Image Formation': pp. 59-118 (60 pages, outline)
+        chapter 'Chapter 3 Interference': pp. 119-144 (26 pages, outline)
+        chapter 'Chapter 4 Diffraction': pp. 145-182 (38 pages, outline)
+        chapter 'Chapter 5 Relativity': pp. 183-240 (58 pages, outline)
+        chapter 'Chapter 6 Photons and Matter Waves': pp. 241-294 (54 pages, outline)
+        chapter 'Chapter 7 Quantum Mechanics': pp. 295-346 (52 pages, outline)
+        chapter 'Chapter 8 Atomic Structure': pp. 347-392 (46 pages, outline)
+        chapter 'Chapter 9 Condensed Matter Physics': pp. 393-440 (48 pages, outline)
+        chapter 'Chapter 10 Nuclear Physics': pp. 441-492 (52 pages, outline)
+        chapter 'Chapter 11 Particle Physics and Cosmology': pp. 493-540 (48 pages, outline)
+        licence: CC BY-NC-SA 4.0 International  [PDF p.4: "Textbook content produced by OpenStax is licensed under a Creative Commons Attribution Non-Commercial ShareAlike 4.0 International]
+        dropped sections: 11 (e.g. Chapter Review .. end of chapter (p.50), Chapter Review .. end of chapter (p.107), Chapter Review .. end of chapter (p.138))
+    chem2e   pages kept 1048 of 1203  nodes=1247 (chapters 21, sections 406, subsections 811, headings 0, code 9)  xrefs node/doc/ext/unres=0/0/0/858
+        chapter 'Chapter 1 Essential Ideas': pp. 23-72 (50 pages, outline)
+        chapter 'Chapter 2 Atoms, Molecules, and Ions': pp. 73-128 (56 pages, outline)
+        chapter 'Chapter 3 Composition of Substances and Solutions': pp. 129-168 (40 pages, outline)
+        chapter 'Chapter 4 Stoichiometry of Chemical Reactions': pp. 169-218 (50 pages, outline)
+        chapter 'Chapter 5 Thermochemistry': pp. 219-262 (44 pages, outline)
+        chapter 'Chapter 6 Electronic Structure and Periodic Properties of Elements': pp. 263-320 (58 pages, outline)
+        chapter 'Chapter 7 Chemical Bonding and Molecular Geometry': pp. 321-380 (60 pages, outline)
+        chapter 'Chapter 8 Advanced Theories of Covalent Bonding': pp. 381-418 (38 pages, outline)
+        chapter 'Chapter 9 Gases': pp. 419-476 (58 pages, outline)
+        chapter 'Chapter 10 Liquids and Solids': pp. 477-546 (70 pages, outline)
+        chapter 'Chapter 11 Solutions and Colloids': pp. 547-598 (52 pages, outline)
+        chapter 'Chapter 12 Kinetics': pp. 599-656 (58 pages, outline)
+        chapter 'Chapter 13 Fundamental Equilibrium Concepts': pp. 657-692 (36 pages, outline)
+        chapter 'Chapter 14 Acid-Base Equilibria': pp. 693-746 (54 pages, outline)
+        chapter 'Chapter 15 Equilibria of Other Reaction Classes': pp. 747-780 (34 pages, outline)
+        chapter 'Chapter 16 Thermodynamics': pp. 781-814 (34 pages, outline)
+        chapter 'Chapter 17 Electrochemistry': pp. 815-852 (38 pages, outline)
+        chapter 'Chapter 18 Representative Metals, Metalloids, and Nonmetals': pp. 853-930 (78 pages, outline)
+        chapter 'Chapter 19 Transition Metals and Coordination Chemistry': pp. 931-972 (42 pages, outline)
+        chapter 'Chapter 20 Organic Chemistry': pp. 973-1016 (44 pages, outline)
+        chapter 'Chapter 21 Nuclear Chemistry': pp. 1017-1070 (54 pages, outline)
+        licence: CC BY-NC-SA 4.0 International  [PDF p.4: "Textbook content produced by OpenStax is licensed under a Creative Commons Attribution Non-Commercial ShareAlike 4.0 International]
+        dropped sections: 22 (e.g. Key Terms .. end of chapter (p.60), Key Terms .. end of chapter (p.116), Solutions (p.148))
+    orgchem  pages kept 1140 of 1245  nodes= 767 (chapters 31, sections 369, subsections 367, headings 0, code 0)  xrefs node/doc/ext/unres=484/0/0/30
+        chapter 'Chapter 1 Structure and Bonding': pp. 25-54 (30 pages, outline)
+        chapter 'Chapter 2 Polar Covalent Bonds; Acids and Bases': pp. 55-88 (34 pages, outline)
+        chapter 'Chapter 3 Organic Compounds: Alkanes and Their Stereochemistry': pp. 89-122 (34 pages, outline)
+        chapter 'Chapter 4 Organic Compounds: Cycloalkanes and Their Stereochemistry': pp. 123-152 (30 pages, outline)
+        chapter 'Chapter 5 Stereochemistry at Tetrahedral Centers': pp. 153-188 (36 pages, outline)
+        chapter 'Chapter 6 An Overview of Organic Reactions': pp. 189-224 (36 pages, outline)
+        chapter 'Chapter 7 Alkenes: Structure and Reactivity': pp. 225-260 (36 pages, outline)
+        chapter 'Chapter 8 Alkenes: Reactions and Synthesis': pp. 261-304 (44 pages, outline)
+        chapter 'Chapter 9 Alkynes: An Introduction to Organic Synthesis': pp. 305-332 (28 pages, outline)
+        chapter 'Chapter 10 Organohalides': pp. 333-356 (24 pages, outline)
+        chapter 'Chapter 11 Reactions of Alkyl Halides: Nucleophilic Substitutions and Eliminations': pp. 357-400 (44 pages, outline)
+        chapter 'Chapter 12 Structure Determination: Mass Spectrometry and Infrared Spectroscopy': pp. 401-434 (34 pages, outline)
+        chapter 'Chapter 13 Structure Determination: Nuclear Magnetic Resonance Spectroscopy': pp. 435-472 (38 pages, outline)
+        chapter 'Chapter 14 Conjugated Compounds and Ultraviolet Spectroscopy': pp. 473-506 (34 pages, outline)
+        chapter 'Chapter 15 Benzene and Aromaticity': pp. 507-536 (30 pages, outline)
+        chapter 'Chapter 16 Chemistry of Benzene: Electrophilic Aromatic Substitution': pp. 537-586 (50 pages, outline)
+        chapter 'Chapter 17 Alcohols and Phenols': pp. 587-632 (46 pages, outline)
+        chapter 'Chapter 18 Ethers and Epoxides; Thiols and Sulfides': pp. 633-672 (40 pages, outline)
+        chapter 'Chapter 19 Aldehydes and Ketones: Nucleophilic Addition Reactions': pp. 673-726 (54 pages, outline)
+        chapter 'Chapter 20 Carboxylic Acids and Nitriles': pp. 727-758 (32 pages, outline)
+        chapter 'Chapter 21 Carboxylic Acid Derivatives: Nucleophilic Acyl Substitution Reactions': pp. 759-810 (52 pages, outline)
+        chapter 'Chapter 22 Carbonyl Alpha-Substitution Reactions': pp. 811-840 (30 pages, outline)
+        chapter 'Chapter 23 Carbonyl Condensation Reactions': pp. 841-876 (36 pages, outline)
+        chapter 'Chapter 24 Amines and Heterocycles': pp. 877-926 (50 pages, outline)
+        chapter 'Chapter 25 Biomolecules: Carbohydrates': pp. 927-964 (38 pages, outline)
+        chapter 'Chapter 26 Biomolecules: Amino Acids, Peptides, and Proteins': pp. 965-1004 (40 pages, outline)
+        chapter 'Chapter 27 Biomolecules: Lipids': pp. 1005-1040 (36 pages, outline)
+        chapter 'Chapter 28 Biomolecules: Nucleic Acids': pp. 1041-1064 (24 pages, outline)
+        chapter 'Chapter 29 The Organic Chemistry of Metabolic Pathways': pp. 1065-1118 (54 pages, outline)
+        chapter 'Chapter 30 Orbitals and Organic Chemistry: Pericyclic Reactions': pp. 1119-1144 (26 pages, outline)
+        chapter 'Chapter 31 Synthetic Polymers': pp. 1145-1164 (20 pages, outline)
+        licence: CC BY-NC-SA 4.0 International  [PDF p.4: "Textbook content produced by OpenStax is licensed under a Creative Commons Attribution Non-Commercial ShareAlike 4.0 International]
+        dropped sections: 31 (e.g. Key Terms .. end of chapter (p.47), Key Terms .. end of chapter (p.80), Key Terms .. end of chapter (p.116))
+    pages kept in total: 4258
+    total nodes=4466 xrefs=3436 footnotes=321 in 45.1s
+    outputs in C:\Users\Admin\agentic-rag\collections\physics_chemistry\processed
+[2026-11-12 20:07:50] DONE  physics_chemistry:ingest in 53s (exit 0, peak RSS 807 MB)
+[2026-11-12 20:07:50] START physics_chemistry:chunk (estimate 58s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\chunk.py --chunker all --collection physics_chemistry --collections-file configs\collections.yaml
+    Could not reach the Hub ([Errno 11001] getaddrinfo failed). Using cached commit hash for 'BAAI/bge-small-en-v1.5'.
+    '[Errno 11001] getaddrinfo failed' thrown while requesting GET https://huggingface.co/api/models/BAAI/bge-small-en-v1.5/tree/main/additional_chat_templates
+    Retrying in 1s [Retry 1/5].
+    '[Errno 11001] getaddrinfo failed' thrown while requesting GET https://huggingface.co/api/models/BAAI/bge-small-en-v1.5/tree/main/additional_chat_templates
+    Retrying in 2s [Retry 2/5].
+    structural  chunks=5485 tokens min/med/p95/max=13/334/409/434 crossing_sections=  0 sections_split=0.787 time=33.8s
+    wrote C:\Users\Admin\agentic-rag\collections\physics_chemistry\processed\chunks
+[2026-11-12 20:09:12] DONE  physics_chemistry:chunk in 1m22s (exit 0, peak RSS 438 MB)
+[2026-11-12 20:09:12] START physics_chemistry:index (estimate 21m14s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\build_index.py --chunker all --models bge-small --no-chroma --collection physics_chemistry --collections-file configs\collections.yaml
+    structural  chunks=5485  BM25 built in 1883 ms (vocab 25195, avg 129 tokens/chunk)
+    Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+          BAAI/bge-small-en-v1.5 / structural: 64/5485 chunks (3.57 chunks/s, ETA 25.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 128/5485 chunks (4.50 chunks/s, ETA 19.8 min)
+          BAAI/bge-small-en-v1.5 / structural: 192/5485 chunks (4.91 chunks/s, ETA 18.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 256/5485 chunks (5.05 chunks/s, ETA 17.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 320/5485 chunks (5.09 chunks/s, ETA 16.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 384/5485 chunks (5.14 chunks/s, ETA 16.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 448/5485 chunks (5.14 chunks/s, ETA 16.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 512/5485 chunks (5.15 chunks/s, ETA 16.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 576/5485 chunks (5.22 chunks/s, ETA 15.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 640/5485 chunks (5.27 chunks/s, ETA 15.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 704/5485 chunks (5.33 chunks/s, ETA 14.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 768/5485 chunks (5.35 chunks/s, ETA 14.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 832/5485 chunks (5.33 chunks/s, ETA 14.6 min)
+          BAAI/bge-small-en-v1.5 / structural: 896/5485 chunks (5.30 chunks/s, ETA 14.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 960/5485 chunks (5.23 chunks/s, ETA 14.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 1024/5485 chunks (5.26 chunks/s, ETA 14.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 1088/5485 chunks (5.28 chunks/s, ETA 13.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 1152/5485 chunks (5.30 chunks/s, ETA 13.6 min)
+          BAAI/bge-small-en-v1.5 / structural: 1216/5485 chunks (5.32 chunks/s, ETA 13.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 1280/5485 chunks (5.37 chunks/s, ETA 13.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 1344/5485 chunks (5.39 chunks/s, ETA 12.8 min)
+          BAAI/bge-small-en-v1.5 / structural: 1408/5485 chunks (5.39 chunks/s, ETA 12.6 min)
+          BAAI/bge-small-en-v1.5 / structural: 1472/5485 chunks (5.37 chunks/s, ETA 12.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 1536/5485 chunks (5.41 chunks/s, ETA 12.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 1600/5485 chunks (5.43 chunks/s, ETA 11.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 1664/5485 chunks (5.44 chunks/s, ETA 11.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 1728/5485 chunks (5.42 chunks/s, ETA 11.6 min)
+          BAAI/bge-small-en-v1.5 / structural: 1792/5485 chunks (5.40 chunks/s, ETA 11.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 1856/5485 chunks (5.39 chunks/s, ETA 11.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 1920/5485 chunks (5.29 chunks/s, ETA 11.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 1984/5485 chunks (5.28 chunks/s, ETA 11.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 2048/5485 chunks (5.27 chunks/s, ETA 10.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 2112/5485 chunks (5.24 chunks/s, ETA 10.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 2176/5485 chunks (5.21 chunks/s, ETA 10.6 min)
+          BAAI/bge-small-en-v1.5 / structural: 2240/5485 chunks (5.22 chunks/s, ETA 10.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 2304/5485 chunks (5.23 chunks/s, ETA 10.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 2368/5485 chunks (5.21 chunks/s, ETA 10.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 2432/5485 chunks (5.21 chunks/s, ETA 9.8 min)
+          BAAI/bge-small-en-v1.5 / structural: 2496/5485 chunks (5.23 chunks/s, ETA 9.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 2560/5485 chunks (5.23 chunks/s, ETA 9.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 2624/5485 chunks (5.24 chunks/s, ETA 9.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 2688/5485 chunks (5.25 chunks/s, ETA 8.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 2752/5485 chunks (5.23 chunks/s, ETA 8.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 2816/5485 chunks (5.23 chunks/s, ETA 8.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 2880/5485 chunks (5.22 chunks/s, ETA 8.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 2944/5485 chunks (5.23 chunks/s, ETA 8.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 3008/5485 chunks (5.23 chunks/s, ETA 7.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 3072/5485 chunks (5.23 chunks/s, ETA 7.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 3136/5485 chunks (5.24 chunks/s, ETA 7.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 3200/5485 chunks (5.25 chunks/s, ETA 7.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 3264/5485 chunks (5.25 chunks/s, ETA 7.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 3328/5485 chunks (5.24 chunks/s, ETA 6.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 3392/5485 chunks (5.24 chunks/s, ETA 6.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 3456/5485 chunks (5.23 chunks/s, ETA 6.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 3520/5485 chunks (5.25 chunks/s, ETA 6.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 3584/5485 chunks (5.27 chunks/s, ETA 6.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 3648/5485 chunks (5.29 chunks/s, ETA 5.8 min)
+          BAAI/bge-small-en-v1.5 / structural: 3712/5485 chunks (5.31 chunks/s, ETA 5.6 min)
+          BAAI/bge-small-en-v1.5 / structural: 3776/5485 chunks (5.33 chunks/s, ETA 5.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 3840/5485 chunks (5.34 chunks/s, ETA 5.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 3904/5485 chunks (5.35 chunks/s, ETA 4.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 3968/5485 chunks (5.37 chunks/s, ETA 4.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 4032/5485 chunks (5.38 chunks/s, ETA 4.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 4096/5485 chunks (5.38 chunks/s, ETA 4.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 4160/5485 chunks (5.39 chunks/s, ETA 4.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 4224/5485 chunks (5.41 chunks/s, ETA 3.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 4288/5485 chunks (5.43 chunks/s, ETA 3.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 4352/5485 chunks (5.43 chunks/s, ETA 3.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 4416/5485 chunks (5.44 chunks/s, ETA 3.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 4480/5485 chunks (5.45 chunks/s, ETA 3.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 4544/5485 chunks (5.45 chunks/s, ETA 2.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 4608/5485 chunks (5.46 chunks/s, ETA 2.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 4672/5485 chunks (5.47 chunks/s, ETA 2.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 4736/5485 chunks (5.48 chunks/s, ETA 2.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 4800/5485 chunks (5.47 chunks/s, ETA 2.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 4864/5485 chunks (5.46 chunks/s, ETA 1.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 4928/5485 chunks (5.45 chunks/s, ETA 1.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 4992/5485 chunks (5.45 chunks/s, ETA 1.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 5056/5485 chunks (5.44 chunks/s, ETA 1.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 5120/5485 chunks (5.43 chunks/s, ETA 1.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 5184/5485 chunks (5.44 chunks/s, ETA 0.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 5248/5485 chunks (5.45 chunks/s, ETA 0.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 5312/5485 chunks (5.45 chunks/s, ETA 0.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 5376/5485 chunks (5.44 chunks/s, ETA 0.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 5440/5485 chunks (5.43 chunks/s, ETA 0.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 5485/5485 chunks (5.42 chunks/s, ETA 0.0 min)
+        bge-small  computed (missing)            1012.4 s  dim= 384    8.43 MB  BAAI_bge-small-en-v1.5/structural.npy
+    total 1014.5 s
+    wrote C:\Users\Admin\agentic-rag\collections\physics_chemistry\processed\emb\index_report.json
+[2026-11-12 20:26:14] DONE  physics_chemistry:index in 17m01s (exit 0, peak RSS 893 MB)
+[2026-11-12 20:26:14] START cs_ai-app:ingest (estimate 23s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\ingest.py --collection cs_ai --collections-file configs\collections.yaml --config configs\collections\cs_ai\app\ingest.yaml
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\raw\SOURCES_app.csv (5 rows)
+    d2l      pages kept 257 of 1151  nodes= 675 (chapters 5, sections 40, subsections 177, headings 73, code 380)  xrefs node/doc/ext/unres=90/0/52/117
+        chapter 'Multilayer Perceptrons': pp. 207-246 (40 pages, outline)
+        chapter 'Convolutional Neural Networks': pp. 273-307 (35 pages, outline)
+        chapter 'Recurrent Neural Networks': pp. 365-408 (44 pages, outline)
+        chapter 'Attention Mechanisms and Transformers': pp. 449-507 (59 pages, outline)
+        chapter 'Optimization Algorithms': pp. 508-586 (79 pages, outline)
+        licence: CC BY-SA 4.0 International  [not stated with a version in the PDF; book text licence from the d2l-en repository README (https://github.com/d2l-ai/d2l-en); its sample cod]
+        dropped sections: 40 (e.g. 5.1.4 Exercises (p.215), 5.2.4 Exercises (p.219), 5.3.6 Exercises (p.223))
+    progit   pages kept  95 of  501  nodes= 263 (chapters 3, sections 23, subsections 63, headings 0, code 174)  xrefs node/doc/ext/unres=0/0/0/51
+        chapter 'Getting Started': pp. 16-31 (16 pages, outline)
+        chapter 'Git Basics': pp. 32-68 (37 pages, outline)
+        chapter 'Git Branching': pp. 69-110 (42 pages, outline)
+        licence: CC BY-NC-SA 3.0 Unported  [PDF p.7: "License This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License."]
+    ods      pages kept 150 of  326  nodes= 320 (chapters 7, sections 28, subsections 45, headings 0, code 240)  xrefs node/doc/ext/unres=28/0/6/77
+        chapter 'Array-Based Lists': pp. 43-72 (30 pages, outline)
+        chapter 'Linked Lists': pp. 73-94 (22 pages, outline)
+        chapter 'Hash Tables': pp. 113-138 (26 pages, outline)
+        chapter 'Binary Trees': pp. 139-156 (18 pages, outline)
+        chapter 'Heaps': pp. 215-228 (14 pages, outline)
+        chapter 'Sorting Algorithms': pp. 229-250 (22 pages, outline)
+        chapter 'Graphs': pp. 251-268 (18 pages, outline)
+        licence: CC BY 2.5 Canada  [not stated with a version in the PDF; the PDF only says p.11: "...eliable source code management site.2 The source code available there is r]
+    python_tutorial pages kept 110 of  159  nodes= 480 (chapters 16, sections 74, subsections 41, headings 1, code 348)  xrefs node/doc/ext/unres=0/0/0/0
+        chapter 'Whetting Your Appetite': pp. 9-10 (2 pages, outline)
+        chapter 'Using the Python Interpreter': pp. 11-14 (4 pages, outline)
+        chapter 'An Informal Introduction to Python': pp. 15-22 (8 pages, outline)
+        chapter 'More Control Flow Tools': pp. 23-38 (16 pages, outline)
+        chapter 'Data Structures': pp. 39-48 (10 pages, outline)
+        chapter 'Modules': pp. 49-58 (10 pages, outline)
+        chapter 'Input and Output': pp. 59-66 (8 pages, outline)
+        chapter 'Errors and Exceptions': pp. 67-76 (10 pages, outline)
+        chapter 'Classes': pp. 77-90 (14 pages, outline)
+        chapter 'Brief Tour of the Standard Library': pp. 91-96 (6 pages, outline)
+        chapter 'Brief Tour of the Standard Library -- Part II': pp. 97-102 (6 pages, outline)
+        chapter 'Virtual Environments and Packages': pp. 103-106 (4 pages, outline)
+        chapter 'What Now?': pp. 107-108 (2 pages, outline)
+        chapter 'Interactive Input Editing and History Substitution': pp. 109-110 (2 pages, outline)
+        chapter 'Floating Point Arithmetic: Issues and Limitations': pp. 111-116 (6 pages, outline)
+        chapter 'Appendix': pp. 117-118 (2 pages, outline)
+        licence: PSF License Agreement (code examples also Zero-Clause BSD)  [not stated with a version in the PDF; PDF p.138 (History and License): "Python software and documentation are licensed under the PSF License]
+    think_python_2e pages kept 222 of  244  nodes= 229 (chapters 21, sections 198, subsections 10, headings 0, code 0)  xrefs node/doc/ext/unres=57/0/0/46
+        chapter 'The way of the program': pp. 23-30 (8 pages, outline)
+        chapter 'Variables, expressions and statements': pp. 31-38 (8 pages, outline)
+        chapter 'Functions': pp. 39-50 (12 pages, outline)
+        chapter 'Case study: interface design': pp. 51-60 (10 pages, outline)
+        chapter 'Conditionals and recursion': pp. 61-72 (12 pages, outline)
+        chapter 'Fruitful functions': pp. 73-84 (12 pages, outline)
+        chapter 'Iteration': pp. 85-92 (8 pages, outline)
+        chapter 'Strings': pp. 93-104 (12 pages, outline)
+        chapter 'Case study: word play': pp. 105-110 (6 pages, outline)
+        chapter 'Lists': pp. 111-124 (14 pages, outline)
+        chapter 'Dictionaries': pp. 125-136 (12 pages, outline)
+        chapter 'Tuples': pp. 137-146 (10 pages, outline)
+        chapter 'Case study: data structure selection': pp. 147-158 (12 pages, outline)
+        chapter 'Files': pp. 159-168 (10 pages, outline)
+        chapter 'Classes and objects': pp. 169-176 (8 pages, outline)
+        chapter 'Classes and functions': pp. 177-182 (6 pages, outline)
+        chapter 'Classes and methods': pp. 183-192 (10 pages, outline)
+        chapter 'Inheritance': pp. 193-204 (12 pages, outline)
+        chapter 'The Goodies': pp. 205-214 (10 pages, outline)
+        chapter 'Debugging': pp. 215-222 (8 pages, outline)
+        chapter 'Analysis of Algorithms': pp. 223-244 (22 pages, outline)
+        licence: CC BY-NC 3.0 Unported  [PDF p.4: "...ission is granted to copy, distribute, and/or modify this document under the terms of the Creative Commons Attribution-NonComme]
+        dropped sections: 22 (e.g. 1.9 Exercises (p.29), 2.10 Exercises (p.36), 3.14 Exercises (p.48))
+    pages kept in total: 834
+    total nodes=1967 xrefs=524 footnotes=32 in 11.2s
+    outputs in C:\Users\Admin\agentic-rag\collections\cs_ai\processed_app
+[2026-11-12 20:26:32] DONE  cs_ai-app:ingest in 18s (exit 0, peak RSS 629 MB)
+[2026-11-12 20:26:32] START cs_ai-app:chunk (estimate 23s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\chunk.py --chunker all --collection cs_ai --collections-file configs\collections.yaml --config configs\collections\cs_ai\app\chunking.yaml
+    structural  chunks=1797 tokens min/med/p95/max=8/203/404/426 crossing_sections=  0 sections_split=0.560 time=6.08s
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\processed_app\chunks
+[2026-11-12 20:26:49] DONE  cs_ai-app:chunk in 17s (exit 0, peak RSS 369 MB)
+[2026-11-12 20:26:49] START cs_ai-app:index (estimate 6m16s): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\build_index.py --chunker all --models bge-small --no-chroma --collection cs_ai --collections-file configs\collections.yaml --config configs\collections\cs_ai\app\retrieval.yaml --chunking-config configs\collections\cs_ai\app\chunking.yaml
+    structural  chunks=1797  BM25 built in 425 ms (vocab 9938, avg 96 tokens/chunk)
+          BAAI/bge-small-en-v1.5 / structural: 64/1797 chunks (3.04 chunks/s, ETA 9.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 128/1797 chunks (3.78 chunks/s, ETA 7.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 192/1797 chunks (4.19 chunks/s, ETA 6.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 256/1797 chunks (4.67 chunks/s, ETA 5.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 320/1797 chunks (4.69 chunks/s, ETA 5.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 384/1797 chunks (4.77 chunks/s, ETA 4.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 448/1797 chunks (4.90 chunks/s, ETA 4.6 min)
+          BAAI/bge-small-en-v1.5 / structural: 512/1797 chunks (5.02 chunks/s, ETA 4.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 576/1797 chunks (5.06 chunks/s, ETA 4.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 640/1797 chunks (5.18 chunks/s, ETA 3.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 704/1797 chunks (5.34 chunks/s, ETA 3.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 768/1797 chunks (5.42 chunks/s, ETA 3.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 832/1797 chunks (5.58 chunks/s, ETA 2.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 896/1797 chunks (5.62 chunks/s, ETA 2.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 960/1797 chunks (5.67 chunks/s, ETA 2.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 1024/1797 chunks (5.71 chunks/s, ETA 2.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 1088/1797 chunks (5.73 chunks/s, ETA 2.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 1152/1797 chunks (5.80 chunks/s, ETA 1.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 1216/1797 chunks (5.88 chunks/s, ETA 1.6 min)
+          BAAI/bge-small-en-v1.5 / structural: 1280/1797 chunks (5.89 chunks/s, ETA 1.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 1344/1797 chunks (5.96 chunks/s, ETA 1.3 min)
+          BAAI/bge-small-en-v1.5 / structural: 1408/1797 chunks (5.98 chunks/s, ETA 1.1 min)
+          BAAI/bge-small-en-v1.5 / structural: 1472/1797 chunks (6.01 chunks/s, ETA 0.9 min)
+          BAAI/bge-small-en-v1.5 / structural: 1536/1797 chunks (6.00 chunks/s, ETA 0.7 min)
+          BAAI/bge-small-en-v1.5 / structural: 1600/1797 chunks (5.99 chunks/s, ETA 0.5 min)
+          BAAI/bge-small-en-v1.5 / structural: 1664/1797 chunks (5.95 chunks/s, ETA 0.4 min)
+          BAAI/bge-small-en-v1.5 / structural: 1728/1797 chunks (5.93 chunks/s, ETA 0.2 min)
+          BAAI/bge-small-en-v1.5 / structural: 1792/1797 chunks (5.89 chunks/s, ETA 0.0 min)
+          BAAI/bge-small-en-v1.5 / structural: 1797/1797 chunks (5.88 chunks/s, ETA 0.0 min)
+        bge-small  computed (missing)             305.5 s  dim= 384    2.76 MB  BAAI_bge-small-en-v1.5/structural.npy
+    total 306.0 s
+    wrote C:\Users\Admin\agentic-rag\collections\cs_ai\processed_app\emb\index_report.json
+[2026-11-12 20:32:02] DONE  cs_ai-app:index in 5m13s (exit 0, peak RSS 794 MB)
+[2026-11-12 20:32:02] START consumer_law:ablation (estimate 24h24m): C:\Users\Admin\agentic-rag\.venv\Scripts\python.exe C:\Users\Admin\agentic-rag\scripts\eval_generation.py --split test --systems G2H G4H --collection consumer_law --collections-file configs\collections.yaml
+    TEST split opened (85 questions); access logged to C:\Users\Admin\agentic-rag\results\test_access_log.json
+    generator: Hosted: openai/gpt-oss-120b (Groq) (openai/gpt-oss-120b, chosen 2026-11-12); context 2048/3072 tokens
+    == G2H: 85 question(s), 0 done, 85 to run | RSS 343 MB
+    Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+    [G2H   1/85] q001 answered  calls=1 cached=0 e2e=1.7s wall=10.2s ETA 14m20s
+    [G2H   2/85] q002 answered  calls=1 cached=0 e2e=1.2s wall=1.2s ETA 7m55s
+    [G2H   3/85] q005 answered  calls=1 cached=0 e2e=1.5s wall=12.4s ETA 10m51s
+    [G2H   4/85] q006 answered  calls=1 cached=0 e2e=0.8s wall=20.8s ETA 15m03s
+    [G2H   5/85] q007 answered  calls=1 cached=0 e2e=0.9s wall=23.0s ETA 18m01s
+    [G2H   6/85] q008 answered  calls=1 cached=0 e2e=0.9s wall=21.4s ETA 19m31s
+    [G2H   7/85] q009 answered  calls=1 cached=0 e2e=1.0s wall=22.2s ETA 20m39s
+    [G2H   8/85] q011 answered  calls=1 cached=0 e2e=1.5s wall=21.8s ETA 21m20s
+    [G2H   9/85] q012 abstained (synth_abstain) calls=1 cached=0 e2e=2.5s wall=23.2s ETA 21m59s
+    [G2H  10/85] q013 answered  calls=1 cached=0 e2e=2.2s wall=21.0s ETA 22m09s
+    [G2H  11/85] q014 answered  calls=1 cached=0 e2e=0.9s wall=19.4s ETA 22m03s
+    [G2H  12/85] q016 answered  calls=1 cached=0 e2e=1.2s wall=21.3s ETA 22m05s
+    [G2H  13/85] q017 answered  calls=1 cached=0 e2e=1.2s wall=22.4s ETA 22m10s
+    [G2H  14/85] q019 answered  calls=1 cached=0 e2e=0.8s wall=21.3s ETA 22m06s
+    [G2H  15/85] q020 answered  calls=1 cached=0 e2e=1.4s wall=22.6s ETA 22m06s
+    [G2H  16/85] q021 answered  calls=1 cached=0 e2e=2.5s wall=22.8s ETA 22m03s
+    [G2H  17/85] q024 answered  calls=1 cached=0 e2e=1.0s wall=19.2s ETA 21m44s
+    [G2H  18/85] q025 answered  calls=1 cached=0 e2e=1.5s wall=23.5s ETA 21m41s
+    [G2H  19/85] q026 answered  calls=1 cached=0 e2e=0.8s wall=21.6s ETA 21m29s
+    [G2H  20/85] q027 answered  calls=1 cached=0 e2e=1.1s wall=21.9s ETA 21m17s
+    [G2H  21/85] q028 answered  calls=1 cached=0 e2e=1.5s wall=20.9s ETA 21m01s
+    LLM call attempt 1 failed (APIConnectionError); retrying in 2.0s
+    [G2H  22/85] q030 abstained (synth_abstain) calls=1 cached=0 e2e=0.9s wall=41.5s ETA 21m44s
+    LLM call attempt 1 failed (APIConnectionError); retrying in 2.0s
+    LLM call attempt 2 failed (APIConnectionError); retrying in 4.0s
+    LLM call attempt 3 failed (APIConnectionError); retrying in 8.0s
+    [G2H  23/85] q035 answered  calls=1 cached=0 e2e=4.6s wall=67.0s ETA 23m28s
+    [G2H  24/85] q036 answered  calls=1 cached=0 e2e=1.4s wall=1.4s ETA 22m11s
+    [G2H  25/85] q039 answered  calls=1 cached=0 e2e=1.9s wall=7.3s ETA 21m14s
+    [G2H  26/85] q040 abstained (synth_abstain) calls=1 cached=0 e2e=0.7s wall=19.3s ETA 20m49s
+    [G2H  27/85] q041 answered  calls=1 cached=0 e2e=1.4s wall=20.8s ETA 20m27s
+    [G2H  28/85] q042 answered  calls=1 cached=0 e2e=1.4s wall=23.1s ETA 20m10s
+    [G2H  29/85] q044 answered  calls=1 cached=0 e2e=6.3s wall=28.0s ETA 20m02s
+    [G2H  30/85] q046 answered  calls=1 cached=0 e2e=2.7s wall=18.8s ETA 19m35s
+    [G2H  31/85] q047 answered  calls=1 cached=0 e2e=1.2s wall=18.9s ETA 19m10s
+    [G2H  32/85] q048 answered  calls=1 cached=0 e2e=0.8s wall=19.5s ETA 18m46s
+    [G2H  33/85] q050 answered  calls=1 cached=0 e2e=1.5s wall=20.2s ETA 18m23s
+    [G2H  34/85] q051 answered  calls=1 cached=0 e2e=14.9s wall=35.4s ETA 18m23s
+    [G2H  35/85] q053 answered  calls=1 cached=0 e2e=2.2s wall=7.4s ETA 17m41s
+    [G2H  36/85] q055 answered  calls=1 cached=0 e2e=2.9s wall=22.0s ETA 17m21s
+    [G2H  37/85] q056 answered  calls=1 cached=0 e2e=22.1s wall=41.0s ETA 17m25s
+    [G2H  38/85] q057 answered  calls=1 cached=0 e2e=1.1s wall=1.2s ETA 16m38s
+    [G2H  39/85] q058 answered  calls=1 cached=0 e2e=2.9s wall=24.4s ETA 16m20s
+    [G2H  40/85] q059 answered  calls=1 cached=0 e2e=4.1s wall=22.6s ETA 16m01s
+    [G2H  41/85] q061 answered  calls=1 cached=0 e2e=3.7s wall=20.7s ETA 15m39s
+    [G2H  42/85] q062 answered  calls=1 cached=0 e2e=1.9s wall=21.5s ETA 15m17s
+    [G2H  43/85] q063 answered  calls=1 cached=0 e2e=1.6s wall=21.1s ETA 14m56s
+    [G2H  44/85] q064 answered  calls=1 cached=0 e2e=1.2s wall=22.1s ETA 14m35s
+    [G2H  45/85] q065 answered  calls=1 cached=0 e2e=1.1s wall=21.9s ETA 14m14s
+    [G2H  46/85] q066 answered  calls=1 cached=0 e2e=1.8s wall=19.6s ETA 13m51s
+    [G2H  47/85] q068 answered  calls=1 cached=0 e2e=1.9s wall=23.5s ETA 13m32s
+    [G2H  48/85] q070 answered  calls=1 cached=0 e2e=0.9s wall=20.3s ETA 13m10s
+    [G2H  49/85] q071 answered  calls=1 cached=0 e2e=2.3s wall=21.8s ETA 12m49s
+    [G2H  50/85] q072 answered  calls=1 cached=0 e2e=1.3s wall=23.0s ETA 12m29s
+    [G2H  51/85] q073 answered  calls=1 cached=0 e2e=1.6s wall=22.3s ETA 12m08s
+    [G2H  52/85] q074 answered  calls=1 cached=0 e2e=1.0s wall=22.6s ETA 11m47s
+    [G2H  53/85] q076 answered  calls=1 cached=0 e2e=1.6s wall=22.6s ETA 11m26s
+    [G2H  54/85] q077 answered  calls=1 cached=0 e2e=1.2s wall=22.0s ETA 11m05s
+    [G2H  55/85] q078 answered  calls=1 cached=0 e2e=4.5s wall=25.2s ETA 10m46s
+    [G2H  56/85] q080 answered  calls=1 cached=0 e2e=0.7s wall=17.9s ETA 10m22s
+    [G2H  57/85] q081 answered  calls=1 cached=0 e2e=1.0s wall=20.6s ETA 10m00s
+    [G2H  58/85] q082 answered  calls=1 cached=0 e2e=4.8s wall=24.5s ETA 9m40s
+    [G2H  59/85] q083 abstained (synth_abstain) calls=1 cached=0 e2e=3.1s wall=21.1s ETA 9m19s
+    [G2H  60/85] q084 answered  calls=1 cached=0 e2e=1.5s wall=18.8s ETA 8m56s
+    [G2H  61/85] q085 answered  calls=1 cached=0 e2e=1.3s wall=19.4s ETA 8m34s
+    [G2H  62/85] q086 answered  calls=1 cached=0 e2e=1.7s wall=21.5s ETA 8m13s
+    [G2H  63/85] q087 answered  calls=1 cached=0 e2e=1.0s wall=21.0s ETA 7m51s
+    [G2H  64/85] q088 answered  calls=1 cached=0 e2e=0.8s wall=20.0s ETA 7m29s
+    [G2H  65/85] q089 answered  calls=1 cached=0 e2e=1.2s wall=21.4s ETA 7m08s
+    [G2H  66/85] q091 answered  calls=1 cached=0 e2e=1.3s wall=20.6s ETA 6m46s
+    [G2H  67/85] q092 answered  calls=1 cached=0 e2e=0.9s wall=22.9s ETA 6m25s
+    [G2H  68/85] q093 answered  calls=1 cached=0 e2e=0.9s wall=20.3s ETA 6m04s
+    [G2H  69/85] q095 abstained (synth_abstain) calls=1 cached=0 e2e=0.7s wall=22.8s ETA 5m42s
+    [G2H  70/85] q097 abstained (synth_abstain) calls=1 cached=0 e2e=0.9s wall=20.5s ETA 5m21s
+    [G2H  71/85] q098 abstained (synth_abstain) calls=1 cached=0 e2e=1.4s wall=20.2s ETA 4m59s
+    [G2H  72/85] q099 abstained (synth_abstain) calls=1 cached=0 e2e=3.3s wall=22.7s ETA 4m38s
+    [G2H  73/85] q100 answered  calls=1 cached=0 e2e=5.1s wall=22.9s ETA 4m17s
+    [G2H  74/85] q101 abstained (synth_abstain) calls=1 cached=0 e2e=0.9s wall=16.4s ETA 3m55s
+    [G2H  75/85] q103 abstained (synth_abstain) calls=1 cached=0 e2e=0.7s wall=18.2s ETA 3m33s
+    ERROR: QuotaExceeded: https://api.groq.com/openai/v1 (openai/gpt-oss-120b) asks to wait 1012 s (more than max_retry_wait_s = 180 s); the provider's quota is probably exhausted. No other model was used instead; run the same command again later (finished calls come from the cache).
+    Finished questions are kept; resume with: python scripts/eval_generation.py --split test --systems G2H G4H --collection consumer_law --collections-file configs\collections.yaml
+[2026-11-12 20:59:14] FAIL  consumer_law:ablation (exit 75) after 27m12s, peak RSS 908 MB
+[2026-11-12 20:59:14] PIPELINE STOPPED at step 'consumer_law:ablation' after 1h09m
+[2026-11-12 20:59:14] Fix the problem above, then resume with: python scripts/run_app_collections.py
+[2026-11-12 20:59:14] === total wall time 1h09m

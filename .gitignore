@@ -48,6 +48,7 @@ data/feedback.jsonl
 # the evaluation set, result tables, the test-access log and the pipeline log are tracked.
 collections/*/raw/*
 !collections/*/raw/SOURCES.csv
+!collections/*/raw/SOURCES_app.csv
 collections/*/processed/
 collections/*/results/retrieval/
 collections/*/results/generation/
@@ -55,3 +56,7 @@ collections/*/results/smoke/
 collections/*/results/pipeline_state.json
 collections/*/feedback.jsonl
 results/pipeline_state.json
+
+# app indexes (scripts/run_app_collections.py): state file and processed data are regenerable
+collections/app_pipeline_state.json
+collections/*/processed_app/

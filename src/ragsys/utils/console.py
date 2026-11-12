@@ -7,6 +7,14 @@ import unicodedata
 _ASCII = {
     "—": "--",
     "–": "-",
+    "‐": "-",  # hyphen
+    "‑": "-",  # non-breaking hyphen (common in model replies)
+    "−": "-",  # minus sign
+    " ": " ",  # narrow no-break space
+    "→": "->",
+    "≤": "<=",
+    "≥": ">=",
+    "×": "x",
     "‘": "'",
     "’": "'",
     "“": '"',

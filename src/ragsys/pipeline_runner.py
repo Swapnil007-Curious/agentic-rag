@@ -45,6 +45,11 @@ class Step:
     always: bool = False  # run on every pipeline run (cheap checks); never "complete"
     # called before running when the step is not complete; may return replacement argv
     prepare: Callable[[list[str]], list[str]] | None = None
+    # exit codes after which the step is started again after retry_wait_s (an exhausted API
+    # quota: the step resumes from its caches), at most max_retries times
+    retry_codes: tuple[int, ...] = ()
+    retry_wait_s: float = 0.0
+    max_retries: int = 0
 
     def command(self) -> str:
         return " ".join(_quote(a) for a in self.argv)
@@ -217,6 +222,7 @@ def run_steps(
     *,
     executor: Executor = subprocess_executor,
     resume_hint: str = "",
+    sleep: Callable[[float], None] = time.sleep,
 ) -> RunReport:
     report = RunReport()
     state = read_state(state_path)
@@ -236,11 +242,22 @@ def run_steps(
         est = f" (estimate {fmt_duration(step.estimate_s)})" if step.estimate_s else ""
         log.line(f"START {step.name}{est}: {run.command()}")
         t0 = time.perf_counter()
-        try:
-            rc, peak = executor(run, lambda s: log.line("    " + s, stamp=False))
-        except OSError as exc:
-            log.line(f"    could not start: {exc}")
-            rc, peak = 127, 0
+        retries = 0
+        while True:
+            try:
+                rc, peak = executor(run, lambda s: log.line("    " + s, stamp=False))
+            except OSError as exc:
+                log.line(f"    could not start: {exc}")
+                rc, peak = 127, 0
+            if rc not in step.retry_codes or retries >= step.max_retries:
+                break
+            retries += 1
+            log.line(
+                f"WAIT  {step.name} exited with {rc} (API quota); starting it again in "
+                f"{fmt_duration(step.retry_wait_s)} (retry {retries} of {step.max_retries})"
+            )
+            sleep(step.retry_wait_s)
+            log.line(f"RETRY {step.name}: {run.command()}")
         secs = time.perf_counter() - t0
         mb = round(peak / 1024**2)
         ok = rc in step.accept_codes

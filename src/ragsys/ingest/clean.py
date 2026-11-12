@@ -238,6 +238,46 @@ _COMPOUND_PREFIXES = frozenset({
 # fmt: on
 
 
+# opt-in statute layouts (DocumentConfig.section_heading_above / strip_private_use)
+_PRIVATE_USE_RE = re.compile("[-]")
+_NUMBERED_LINE_RE = re.compile(r"^((?:\[\s*)*\d{1,3}[A-Z]{0,2}\.)\s*(.*)$")
+_INLINE_HEADING_RE = re.compile(r"^(?:\[\s*)*\d{1,3}[A-Z]{0,2}\.\s*[A-Z\[][^—(]{1,250}?[.:]\s*—")
+
+
+# an amendment marker before a heading: "18[Deduction in respect of ..." (footnote 18, inserted text)
+_AMEND_LEAD_RE = re.compile(r"^(?:\d{1,3})?\[(?=[A-Z])")
+FOOTNOTE_GAP_LINES = 2.0  # footnote_start_pattern: minimum gap above the footnote area
+
+
+def _heading_above_line(ln: CLine) -> bool:
+    """:func:`_heading_line`, also accepting a heading that starts with an amendment marker
+    ("18[Deduction in respect of income of federal co-operative.")."""
+    core = _AMEND_LEAD_RE.sub("", ln.text)
+    if core == ln.text:
+        return _heading_line(ln)
+    lead = len(ln.text) - len(core)
+    return (
+        3 <= len(core) <= 200
+        and ln.n_chars > lead
+        and ln.bold_chars >= 0.8 * (ln.n_chars - lead)
+        and not is_all_caps_heading(core)
+    )
+
+
+def _heading_line(ln: CLine) -> bool:
+    """A short, (mostly) bold line that is not itself numbered, a list item or a capital-letter
+    Part/Chapter heading."""
+    t = ln.text
+    return (
+        3 <= len(t) <= 200
+        and ln.n_chars > 0
+        and ln.bold_chars >= 0.8 * ln.n_chars
+        and not t[0].isdigit()
+        and not t.startswith(("(", "["))
+        and not is_all_caps_heading(t)
+    )
+
+
 def is_all_caps_heading(text: str, max_len: int = 120) -> bool:
     letters = [c for c in text if c.isalpha()]
     return len(letters) >= 3 and len(text) <= max_len and all(c.isupper() for c in letters)
@@ -284,6 +324,9 @@ class Cleaner:
         self.header_res = [re.compile(p) for p in cfg.header_footer_patterns]
         self.drop_res = [re.compile(p) for p in cfg.drop_line_patterns]
         self.start_re = re.compile(doc.start_marker) if doc.start_marker else None
+        self.footnote_start_re = (
+            re.compile(doc.footnote_start_pattern) if doc.footnote_start_pattern else None
+        )
         self.end_re = re.compile(doc.end_marker) if doc.end_marker else None
         self.stats: dict[str, Any] = defaultdict(int)
         self.warnings: list[str] = []
@@ -467,7 +510,89 @@ class Cleaner:
             self.stats["marginal_headings_attached"] += 1
         return [ln for ln in lines if id(ln) not in drop]
 
+    # ---------------------------------------------------------------- opt-in statute layouts
+
+    def _strip_private_use(self, lines: list[CLine]) -> list[CLine]:
+        """Remove private-use glyphs (symbol-font stars marking amendment notes)."""
+        out: list[CLine] = []
+        for ln in lines:
+            text = _PRIVATE_USE_RE.sub("", ln.text)
+            if text != ln.text:
+                self.stats["private_use_chars_removed"] += len(ln.text) - len(text)
+                ln.text = _WS_RE.sub(" ", text).strip()
+                ln.bold_text = _WS_RE.sub(" ", _PRIVATE_USE_RE.sub("", ln.bold_text)).strip()
+            if ln.text:
+                out.append(ln)
+        return out
+
+    def _attach_headings_above(self, lines: list[CLine]) -> list[CLine]:
+        """A bold section heading printed on its own line(s) directly above the numbered line
+        ("Short title, extent and commencement." over "1. (1) This Act ...") becomes an inline
+        heading of that line ("1. Short title, extent and commencement.—(1) This Act ..."), the
+        form the structure parser expects. At most three heading lines are joined."""
+        drop: set[int] = set()
+        for i, ln in enumerate(lines):
+            m = _NUMBERED_LINE_RE.match(ln.text)
+            if m is None or _INLINE_HEADING_RE.match(ln.text):
+                continue
+            block: list[CLine] = []
+            j = i - 1
+            while j >= 0 and len(block) < 3:
+                cand = lines[j]
+                if id(cand) in drop or not _heading_above_line(cand):
+                    break
+                if block and (cand.page != block[0].page or block[0].y0 - cand.y1 > cand.height):
+                    break
+                block.insert(0, cand)
+                if j > 0 and lines[j - 1].text.rstrip().endswith((".", ":", ";", "—")):
+                    break  # the previous line ends a sentence: the heading starts here
+                j -= 1
+            # the heading ends with a full stop, also inside an amendment bracket ("...action.]")
+            if not block or not block[-1].text.rstrip().rstrip("]").rstrip().endswith("."):
+                continue
+            if block[-1].page != ln.page and block[-1].page != ln.page - 1:
+                continue
+            heading = _AMEND_LEAD_RE.sub("", _join_simple([b.text for b in block]))
+            heading = heading.rstrip(" .:—]")
+            ln.text = f"{m.group(1)} {heading}.—{m.group(2)}"
+            ln.bold_text = f"{heading} {ln.bold_text}".strip()
+            drop.update(id(b) for b in block)
+            self.stats["headings_above_attached"] += 1
+        return [ln for ln in lines if id(ln) not in drop]
+
     # ---------------------------------------------------------------- footnotes
+
+    def _split_pattern_footnotes(
+        self, lines: list[CLine], rx: re.Pattern[str]
+    ) -> tuple[list[CLine], dict[int, list[CLine]]]:
+        """Footnotes in the body font (DocumentConfig.footnote_start_pattern): per page, the
+        first line matching ``rx`` below a gap of at least FOOTNOTE_GAP_LINES line heights starts
+        the footnote area; it and every line below it on the page are footnote lines."""
+        by_page: dict[int, list[CLine]] = defaultdict(list)
+        for ln in lines:
+            by_page[ln.page].append(ln)
+        fn_ids: set[int] = set()
+        fn_lines: dict[int, list[CLine]] = {}
+        for pno, plines in by_page.items():
+            ordered = sorted(plines, key=lambda c: (c.y0, c.x0))
+            start: float | None = None
+            bottom = None
+            for ln in ordered:
+                if (
+                    bottom is not None
+                    and rx.match(ln.text)
+                    and ln.y0 - bottom >= FOOTNOTE_GAP_LINES * max(ln.height, 1.0)
+                ):
+                    start = ln.y0
+                    break
+                bottom = ln.y1 if bottom is None else max(bottom, ln.y1)
+            if start is None:
+                continue
+            cand = [ln for ln in ordered if ln.y0 >= start - 1.0]
+            fn_lines[pno] = cand
+            fn_ids.update(id(ln) for ln in cand)
+        self.stats["pattern_footnote_pages"] = len(fn_lines)
+        return [ln for ln in lines if id(ln) not in fn_ids], fn_lines
 
     def _split_footnotes(
         self, lines: list[CLine], body_size: float
@@ -583,10 +708,21 @@ class Cleaner:
             stream = [ln for ln in stream if not any(r.search(ln.text) for r in self.drop_res)]
             st["pattern_lines_removed"] = before - len(stream)
 
-        # 4) marginal headings -> inline headings, then footnotes
+        if self.doc.strip_private_use:
+            stream = self._strip_private_use(stream)
+
+        # 4) marginal headings -> inline headings, then footnotes (footnotes in the body font
+        #    first, so that a heading pushed to the next page meets its numbered line)
         body_size = _dominant_size(stream)
         stream = self._attach_marginal_headings(stream, body_size)
+        pattern_fn: dict[int, list[CLine]] = {}
+        if self.footnote_start_re is not None:
+            stream, pattern_fn = self._split_pattern_footnotes(stream, self.footnote_start_re)
+        if self.doc.section_heading_above:
+            stream = self._attach_headings_above(stream)
         stream, fn_lines = self._split_footnotes(stream, body_size)
+        for pno, fls in pattern_fn.items():
+            fn_lines[pno] = sorted([*fls, *fn_lines.get(pno, [])], key=lambda c: (c.y0, c.x0))
         footnotes = self._group_footnotes(fn_lines)
         st["footnote_lines"] = sum(len(v) for v in fn_lines.values())
         st["footnotes"] = len(footnotes)

@@ -26,6 +26,7 @@ from typing import Any
 
 from ragsys.collections import Collection, get_collection
 from ragsys.config import REPO_ROOT, load_chunking_config, load_ingest_config, resolve_path
+from ragsys.eval.ablation import LABEL_PREFIX as ABLATION_LABEL_PREFIX
 from ragsys.eval.schema import AUTO_ORIGIN
 from ragsys.pipeline_runner import Step, combine, file_digest, read_state, stat_digest
 from ragsys.profiles import get_profile
@@ -402,10 +403,20 @@ def corpus_size(coll: Collection) -> dict[str, Any]:
         from ragsys.ingest.chapters import resolve_chapters
 
         ing = load_ingest_config(a(coll.ingest_config))
+        from ragsys.ingest.chapters import outline_chapter_titles
+        from ragsys.ingest.extract import pdf_page_count
+
         for d in ing.enabled_documents():
             path = a(ing.paths.raw_dir) / d.file
-            if path.exists() and d.chapters:
-                pages += sum(len(r.pages) for r in resolve_chapters(path, d.chapters))
+            if not path.exists():
+                continue
+            titles = list(d.chapters)
+            if not titles and d.outline_chapters:
+                titles = outline_chapter_titles(path, d.outline_chapters)
+            if titles:
+                pages += sum(len(r.pages) for r in resolve_chapters(path, titles))
+            else:
+                pages += pdf_page_count(path)
     crep = _read_json(a(coll.chunks_dir) / "chunk_report.json")
     chunks: dict[str, tuple[int, float]] = {}
     if crep:
@@ -502,7 +513,111 @@ def _table(rows: list[list[str]], header: list[str]) -> list[str]:
     return out
 
 
+def _ablation(row: dict[str, str]) -> bool:
+    return (row.get("label") or "").startswith(ABLATION_LABEL_PREFIX)
+
+
+def ablation_section(tables: Path, gen_cols: list[tuple[str, str]]) -> list[str]:
+    """The generator-scale ablation (rows labelled "ablation: ..."), or nothing."""
+    rows = _csv_rows(tables / "generation_test.csv")
+    abl = [r for r in rows if _ablation(r)]
+    if not abl:
+        return []
+    meta = _read_json(tables / "generation_test_ablation.meta.json") or {}
+    backend = meta.get("backend") or {}
+    comp: dict[str, list[str]] = meta.get("comparisons") or {}
+    ctx: dict[str, Any] = next(iter((meta.get("context") or {}).values()), {})
+    lines = ["## Generator-scale ablation (test)", ""]
+    lines += [
+        f"Hosted generator `{backend.get('model', 'n/a')}` ({backend.get('provider', '')}), "
+        f"chosen {backend.get('model_selected_on', 'n/a')} before any result was seen; same "
+        "retrieval configs as the mirrored systems, context "
+        f"{ctx.get('budget_tokens', 'n/a')} / {ctx.get('revision_budget_tokens', 'n/a')} tokens; "
+        "no tuning (test split only). Table label: "
+        f"`{abl[0].get('label', '')}`.",
+        "",
+    ]
+    if backend.get("model_selection"):
+        lines += [f"Model choice: {backend['model_selection']}", ""]
+    refs = {r for v in comp.values() for r in v}
+    shown = [r for r in rows if (r["system"] in refs and not _ablation(r)) or _ablation(r)]
+    lines += _table(
+        [
+            [r["system"], *[_fmt(r.get(k), 0 if k.endswith("_ms") else 3) for k, _l in gen_cols]]
+            for r in shown
+        ],
+        ["system", *[lbl for _k, lbl in gen_cols]],
+    )
+    lines.append("")
+    boot = [
+        b
+        for b in _csv_rows(tables / "generation_test_bootstrap.csv")
+        if _ablation(b) and b.get("metric") in ("overall_accuracy", "faithfulness")
+    ]
+    if boot:
+        lines += ["Paired bootstrap (ablation system - reference):", ""]
+        lines += _table(
+            [
+                [
+                    b["system"],
+                    b["reference"],
+                    b["metric"],
+                    b.get("scope", ""),
+                    _fmt(b["mean_diff"]),
+                    f"[{_fmt(b['ci_low'])}, {_fmt(b['ci_high'])}]",
+                ]
+                for b in boot
+            ],
+            ["system", "vs", "metric", "scope", "diff", "95% CI"],
+        )
+        lines.append("")
+    cost = meta.get("cost") or {}
+    if cost:
+        lines += [
+            "Cost of the hosted runs (API latency: per LLM call; cached calls report the "
+            "latency measured when they were first made):",
+            "",
+        ]
+        lines += _table(
+            [
+                [
+                    s,
+                    str(c.get("llm_calls", "")),
+                    str(c.get("cached_calls", "")),
+                    f"{c.get('prompt_tokens', 0):,}",
+                    f"{c.get('completion_tokens', 0):,}",
+                    _fmt(c.get("api_latency_ms_p50"), 0),
+                    _fmt(c.get("api_latency_ms_p95"), 0),
+                ]
+                for s, c in cost.items()
+            ],
+            [
+                "system",
+                "LLM calls",
+                "cached",
+                "prompt tokens",
+                "completion tokens",
+                "p50 ms",
+                "p95 ms",
+            ],
+        )
+        lines.append("")
+    return lines
+
+
+def render_summary(coll: Collection) -> str:
+    """The text of SUMMARY.md (see :func:`write_summary`)."""
+    return "\n".join(_summary_lines(coll)) + "\n"
+
+
 def write_summary(coll: Collection) -> Path:
+    out = resolve_path(coll.tables_dir) / "SUMMARY.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(render_summary(coll), encoding="utf-8", newline="\n")
+    return out
+
+
+def _summary_lines(coll: Collection) -> list[str]:
     a = resolve_path
     tables = a(coll.tables_dir)
     lines = [
@@ -610,7 +725,7 @@ def write_summary(coll: Collection) -> Path:
         ("latency_p50_ms", "p50 ms"),
     ]
     for split in ("dev", "test"):
-        rows = _csv_rows(tables / f"generation_{split}.csv")
+        rows = [r for r in _csv_rows(tables / f"generation_{split}.csv") if not _ablation(r)]
         if not rows:
             continue
         lines += [f"## Generation ({split})", ""]
@@ -625,7 +740,9 @@ def write_summary(coll: Collection) -> Path:
             ["system", *[lbl for _k, lbl in gen_cols]],
         )
         lines.append("")
-        boot = _csv_rows(tables / f"generation_{split}_bootstrap.csv")
+        boot = [
+            b for b in _csv_rows(tables / f"generation_{split}_bootstrap.csv") if not _ablation(b)
+        ]
         if boot and split == "test":
             keep = [b for b in boot if b.get("metric") in ("overall_accuracy", "faithfulness")]
             if keep:
@@ -652,6 +769,7 @@ def write_summary(coll: Collection) -> Path:
         lines += ["Systems not run for this collection:", ""]
         lines += [f"- {k}: {v}" for k, v in skipped.items()]
         lines.append("")
+    lines += ablation_section(tables, gen_cols)
     state = read_state(a(coll.pipeline_state))
     if state["steps"]:
         lines += ["## Pipeline steps", ""]
@@ -664,14 +782,12 @@ def write_summary(coll: Collection) -> Path:
                     str(v.get("completed_utc", "")),
                 ]
                 for name, v in state["steps"].items()
+                if name != "summary"  # recorded after the file it writes
             ],
             ["step", "time", "peak RSS MB", "completed (UTC)"],
         )
         lines.append("")
-    out = tables / "SUMMARY.md"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
-    return out
+    return lines
 
 
 def profile_targets(coll: Collection) -> tuple[int, int]:

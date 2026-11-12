@@ -1,0 +1,93 @@
+# Ingestion for the physics_chemistry collection (served in the app; not evaluated): four
+# OpenStax textbooks, each without its front matter, end-of-chapter glossaries and review
+# material, appendices, answer key and index. Equations and figure captions are kept as
+# extracted text.
+
+paths:
+  raw_dir: collections/physics_chemistry/raw
+  processed_dir: collections/physics_chemistry/processed
+
+sources_format: textbook
+
+documents:
+  - file: college_physics_2e.pdf
+    doc_id: cp2e
+    title: "College Physics 2e"
+    short_title: "College Physics 2e"
+    doc_type: textbook
+    parser: generic
+    authors: "Paul Peter Urone, Roger Hinrichs"
+    edition: "2nd edition, OpenStax (original publication year 2022)"
+    downloaded_on: "2026-11-12"
+    source_url: "https://openstax.org/details/books/college-physics-2e"
+    licence: "CC BY-NC-SA 4.0 International"
+    licence_url: "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+    licence_note: "OpenStax licence statement on the PDF's copyright page"
+    # every numbered chapter; preface, appendices, answer key, references and index are left out
+    outline_chapters: '^Chapter\s+\d+\b'
+
+  - file: university_physics_v3.pdf
+    doc_id: up3
+    title: "University Physics Volume 3"
+    short_title: "University Physics Vol. 3"
+    doc_type: textbook
+    parser: generic
+    authors: "William Moebs, Samuel J. Ling, Jeff Sanny"
+    edition: "OpenStax (original publication year 2016)"
+    downloaded_on: "2026-11-12"
+    source_url: "https://openstax.org/details/books/university-physics-volume-3"
+    licence: "CC BY-NC-SA 4.0 International"
+    licence_url: "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+    licence_note: "OpenStax licence statement on the PDF's copyright page"
+    # every numbered chapter; preface, appendices, answer key, references and index are left out
+    outline_chapters: '^Chapter\s+\d+\b'
+
+  - file: chemistry_2e.pdf
+    doc_id: chem2e
+    title: "Chemistry 2e"
+    short_title: "Chemistry 2e"
+    doc_type: textbook
+    parser: generic
+    authors: "Paul Flowers, Klaus Theopold, Richard Langley, William R. Robinson"
+    edition: "2nd edition, OpenStax (original publication year 2019)"
+    downloaded_on: "2026-11-12"
+    source_url: "https://openstax.org/details/books/chemistry-2e"
+    licence: "CC BY-NC-SA 4.0 International"
+    licence_url: "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+    licence_note: "OpenStax licence statement on the PDF's copyright page"
+    # every numbered chapter; preface, appendices, answer key, references and index are left out
+    outline_chapters: '^Chapter\s+\d+\b'
+
+  - file: organic_chemistry.pdf
+    doc_id: orgchem
+    title: "Organic Chemistry"
+    short_title: "Organic Chemistry"
+    doc_type: textbook
+    parser: generic
+    authors: "John McMurry"
+    edition: "OpenStax (original publication year 2023)"
+    downloaded_on: "2026-11-12"
+    source_url: "https://openstax.org/details/books/organic-chemistry"
+    licence: "CC BY-NC-SA 4.0 International"
+    licence_url: "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+    licence_note: "OpenStax licence statement on the PDF's copyright page"
+    # every numbered chapter; preface, appendices, answer key, references and index are left out
+    outline_chapters: '^Chapter\s+\d+\b'
+
+cleaning:
+  page_number_band: 0.12
+  footnote_max_size_ratio: 0.90
+  paragraph_gap_ratio: 0.35
+  toc_markers: []
+  drop_line_patterns: []
+
+textbook:
+  heading_size_delta: 0.8
+  code_min_mono_fraction: 0.8
+  # OpenStax end-of-chapter matter (glossary, summaries, review questions, problems) is dropped
+  # from its first heading to the next chapter: College Physics starts it with "Glossary", University Physics with "Chapter Review", Chemistry and Organic Chemistry with "Key Terms"
+  drop_to_chapter_end:
+    - '^Key Terms$'
+    - '^Glossary$'
+    - '^Chapter Review$'
+  drop_outline_headings: true     # chapter-opening lists of the sections ("1.1 ... 1.12")

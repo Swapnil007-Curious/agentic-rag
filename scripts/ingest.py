@@ -6,7 +6,8 @@ Usage:
 Outputs (under processed_dir):
     clean/<doc_id>.txt, clean/<doc_id>.pages.json
     structure/nodes.jsonl, xrefs.jsonl, footnotes.jsonl, structure_report.json
-Textbook collections (cs_ai) also (re)write <raw_dir>/SOURCES.csv with title, authors, edition,
+Textbook-format collections also (re)write <raw_dir>/SOURCES.csv (paths.sources_file; the cs_ai
+app index writes SOURCES_app.csv, so the evaluation corpus's file is untouched) with title, authors, edition,
 licence (read from the PDF's licence page when it states one), source URL, sha256, pages and
 the chapters kept; each document line shows the pages kept, the resolved chapter ranges, the
 nodes per level and the licence.
@@ -86,12 +87,13 @@ def main(argv: list[str] | None = None) -> int:
     t0 = time.perf_counter()
     result = run_ingest(cfg, raw_dir, processed_dir, write=True)
     elapsed = time.perf_counter() - t0
+    sources = raw_dir / cfg.paths.sources_file
     if cfg.sources_format == "textbook":
-        rows = write_textbook_sources_csv(cfg, raw_dir, raw_dir / "SOURCES.csv", result.report)
-        emit(f"wrote {raw_dir / 'SOURCES.csv'} ({len(rows)} rows)")
+        rows = write_textbook_sources_csv(cfg, raw_dir, sources, result.report)
+        emit(f"wrote {sources} ({len(rows)} rows)")
     elif args.write_sources:
-        rows = write_sources_csv(cfg, raw_dir, raw_dir / "SOURCES.csv")
-        emit(f"wrote {raw_dir / 'SOURCES.csv'} ({len(rows)} rows)")
+        rows = write_sources_csv(cfg, raw_dir, sources)
+        emit(f"wrote {sources} ({len(rows)} rows)")
 
     rep = result.report
     for s in rep["skipped"]:
@@ -109,8 +111,28 @@ def main(argv: list[str] | None = None) -> int:
             f"(max no. {num.get('max_number')}) definitions={d['definitions']:3d} "
             f"nodes={d['nodes_total']:4d} xrefs node/doc/ext/unres={_xref_cell(d)}"
         )
+        ps = d.get("parser_stats") or {}
+        if d.get("doc_type") == "constitution":
+            emit(
+                f"    parts={ps.get('parts')} chapters inside parts={ps.get('chapters_in_parts')} "
+                f"articles={ps.get('articles')} (lettered {ps.get('lettered_articles')}) "
+                f"schedules={d['schedules']} pages kept={d.get('pages_kept', '?')}"
+            )
+        elif d.get("pages_kept"):
+            emit(f"    pages kept={d['pages_kept']} schedules={d['schedules']}")
+        if d.get("pages_kept") and cfg.sources_format == "textbook":
+            total_kept += int(d["pages_kept"])
         for w in d["warnings"]:
+            if w.startswith(("duplicate label", "embedded table")):
+                continue  # counted below
             emit(f"    WARNING: {w}")
+        dup = sum(1 for w in d["warnings"] if w.startswith("duplicate label"))
+        tab = sum(1 for w in d["warnings"] if w.startswith("embedded table"))
+        if dup or tab:
+            emit(
+                f"    note: {dup} repeated label(s) stored with ~2 suffixes, {tab} embedded "
+                "table(s) kept as plain text (details in structure_report.json)"
+            )
     if total_kept:
         emit(f"pages kept in total: {total_kept}")
     emit(

@@ -143,6 +143,8 @@ class AnswerResult:
     e2e_ms: float  # measured wall time with stored latencies for cache hits
     measured_ms: float  # plain wall time of this call
     warnings: list[str] = field(default_factory=list)
+    backend: str | None = None  # generator backend (set by AnswerEngine.ask)
+    model: str | None = None  # the model that produced the answer
 
     # ------------------------------------------------------------------ accounting
 
@@ -244,6 +246,11 @@ class AnswerResult:
             "steps": [s.to_dict() for s in self.steps],
             "cost": self.cost(),
             "warnings": list(self.warnings),
+            **(
+                {"generator": {"backend": self.backend, "model": self.model}}
+                if self.backend
+                else {}
+            ),
         }
 
     def to_api(self) -> dict[str, Any]:

@@ -24,7 +24,12 @@ import sys
 import time
 from pathlib import Path
 
-from ragsys.collections import add_collection_arguments, collection_from_args, config_path
+from ragsys.collections import (
+    add_collection_arguments,
+    collection_from_args,
+    config_path,
+    eval_index_refusal,
+)
 from ragsys.config import resolve_path
 from ragsys.eval.harness import (
     SMOKE_LABEL,
@@ -66,6 +71,10 @@ def main(argv: list[str] | None = None) -> int:
     settings = load_retrieval_settings(
         resolve_path(config_path(args.config, coll.retrieval_config))
     )
+    refusal = eval_index_refusal(coll, settings)
+    if refusal:
+        emit(f"refusing to run: {refusal}")
+        return 2
     set_seed(settings.seed)
     threads = set_torch_threads(args.threads)
     qpath = resolve_path(Path(args.questions) if args.questions else settings.paths.questions)

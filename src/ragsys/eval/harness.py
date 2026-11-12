@@ -265,6 +265,10 @@ def run_configs(
     dense encoder first, then one group per encoder, which is released (``del`` +
     ``gc.collect()``) before the next group starts, so at most one encoder is in memory. The
     process RSS is logged at group boundaries and an ETA after each evaluated config."""
+    if getattr(evaluator.settings, "index", "eval") == "app":
+        from ragsys.collections import AppIndexRefused
+
+        raise AppIndexRefused("retrieval evaluations run on the frozen evaluation index only")
     questions = questions_for_split(all_questions, split, access)
     sha = questions_fingerprint(questions)
     total = len(configs)

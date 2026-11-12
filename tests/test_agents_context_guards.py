@@ -219,3 +219,23 @@ def test_passage_block_format() -> None:
     assert json.loads(json.dumps(ctx.passages[0].to_dict(include_text=True)))["text"].startswith(
         "Text"
     )
+
+
+def test_fullwidth_citation_tags_are_read_as_labels() -> None:
+    """Some hosted models write citation tags with fullwidth brackets; the synthesizer reads
+    them as [C1] labels (answers with ASCII brackets are unchanged)."""
+    from ragsys.agents.synthesizer import parse_synth
+    from ragsys.agents.text import labels_in, normalize_citation_brackets
+
+    out = parse_synth(
+        {
+            "abstain": False,
+            "answer": "Life is protected.【C3】 So is liberty.【C1†L2-L4】",
+            "citations": ["C3", "C1"],
+        }
+    )
+    assert out.answer == "Life is protected.[C3] So is liberty.[C1]"
+    assert labels_in(out.answer) == ["C3", "C1"]
+    assert normalize_citation_brackets("Both.【C1, C2】") == "Both.[C1, C2]"
+    plain = "Unchanged [C2] text."
+    assert normalize_citation_brackets(plain) is plain

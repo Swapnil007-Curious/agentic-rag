@@ -14,7 +14,12 @@ from typing import Any
 
 from ragsys.agents.context import PackedContext, sanitize
 from ragsys.agents.llmcall import LLMCall, json_with_repair
-from ragsys.agents.text import labels_in, normalize_label, strip_citations
+from ragsys.agents.text import (
+    labels_in,
+    normalize_citation_brackets,
+    normalize_label,
+    strip_citations,
+)
 from ragsys.llm.client import ChatModel, Message
 from ragsys.profiles import CONSUMER_LAW, GenerationPrompts
 
@@ -84,7 +89,7 @@ def parse_synth(data: dict[str, Any]) -> SynthOutput:
             raise ValueError(f'bad citation label {c!r} (use labels like "C1")')
         if lab not in cites:
             cites.append(lab)
-    answer = answer.strip()
+    answer = normalize_citation_brackets(answer.strip())
     note = None
     if abstain:
         answer, cites = "", []

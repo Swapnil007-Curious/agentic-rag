@@ -231,3 +231,36 @@ def write_generation_settings(tmp: Path, retrieval_yaml: Path) -> tuple[Path, Ge
 
 
 Responder = Callable[[Sequence[Message]], str]
+
+
+def write_two_backend_llm(tmp: Path, hosted_budgets: tuple[int, int] = (400, 800)) -> Path:
+    """An llm.yaml with a "local" and a "hosted" backend (fake endpoints, no network)."""
+    path = tmp / "llm_backends.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "default_backend": "local",
+                "backends": {
+                    "local": {
+                        "base_url": "http://local.invalid/v1",
+                        "model": "fake",
+                        "cache_dir": str(tmp / "llm_cache"),
+                    },
+                    "hosted": {
+                        "base_url": "http://hosted.invalid/v1",
+                        "model": "big-model",
+                        "requires_key": True,
+                        "label": "Hosted: big-model",
+                        "provider": "Test provider",
+                        "model_selected_on": "2026-11-12",
+                        "context_budget_tokens": hosted_budgets[0],
+                        "revision_budget_tokens": hosted_budgets[1],
+                        "generation_overrides": {"max_tokens": 1024},
+                        "cache_dir": str(tmp / "llm_cache"),
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path

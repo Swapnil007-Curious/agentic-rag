@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="A study assistant that searches open textbooks and Indian law in your browser and cites them.">
+  <title>Study Assistant</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <script type="module" src="/src/main.ts"></script>
+</head>
+<body>
+  <a class="skip-link" href="#composer-input">Skip to the message box</a>
+  <div class="app" id="app">
+    <aside id="sidebar" class="sidebar" aria-label="Conversations and settings">
+      <div class="sidebar-top">
+        <button type="button" id="new-chat" class="btn btn-primary btn-block">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z" fill="currentColor"/></svg>
+          <span>New chat</span>
+        </button>
+        <button type="button" id="close-sidebar" class="icon-btn only-narrow" aria-label="Close the menu">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z" fill="currentColor"/></svg>
+        </button>
+      </div>
+
+      <nav class="conversations" aria-labelledby="conv-heading">
+        <h2 id="conv-heading" class="side-heading">Conversations</h2>
+        <ul id="conv-list" class="conv-list"></ul>
+        <p id="conv-empty" class="hint">Your conversations appear here. They are stored only in this browser.</p>
+        <p id="storage-note" class="hint warn" hidden>This browser does not allow storage, so conversations are not saved after you close the page.</p>
+      </nav>
+
+      <section class="settings" aria-labelledby="settings-heading">
+        <h2 id="settings-heading" class="side-heading">Settings</h2>
+
+        <label for="collection" class="label">Documents</label>
+        <select id="collection" aria-describedby="collection-desc">
+          <option value="">None (general chat)</option>
+        </select>
+        <p id="collection-desc" class="hint"></p>
+
+        <div class="switch-row">
+          <input type="checkbox" id="grounded-only" class="switch" role="switch" aria-describedby="grounded-desc">
+          <label for="grounded-only">Grounded only</label>
+        </div>
+        <p id="grounded-desc" class="hint">Answers only from the documents, checked by citation and number guards and a critic. When the documents do not say, you are told so.</p>
+
+        <div class="uploads">
+          <input type="file" id="file-input" accept="application/pdf,.pdf" class="visually-hidden" tabindex="-1" aria-hidden="true">
+          <button type="button" id="upload-btn" class="btn btn-block" aria-describedby="upload-privacy">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M11 16V7.8l-3.3 3.3-1.4-1.4L12 4l5.7 5.7-1.4 1.4L13 7.8V16zm-6 4v-2h14v2z" fill="currentColor"/></svg>
+            <span>Upload PDF</span>
+          </button>
+          <ul id="upload-list" class="upload-list" aria-label="Uploaded documents"></ul>
+          <div id="upload-status" class="upload-status" role="status" aria-live="polite">
+            <progress id="upload-bar" max="100" value="0" hidden></progress>
+            <span id="upload-text"></span>
+          </div>
+          <p id="upload-privacy" class="hint">Up to 3 PDFs (20 MB, 300 pages each). They are read and indexed in this browser and never uploaded; only passages that match a question are sent with it.</p>
+        </div>
+
+        <div class="load-panel" aria-labelledby="load-heading">
+          <span class="label" id="load-heading">Search in this browser</span>
+          <div class="load-row"><span class="load-name">Model</span><progress id="model-bar" max="100" value="0"></progress></div>
+          <p id="model-text" class="hint" role="status" aria-live="polite">Loading the search model…</p>
+          <div class="load-row"><span class="load-name">Documents</span><progress id="index-bar" max="100" value="0"></progress></div>
+          <p id="index-text" class="hint" role="status" aria-live="polite"></p>
+        </div>
+
+        <div class="side-links">
+          <button type="button" id="about-btn" class="link-btn">About &amp; sources</button>
+          <a id="repo-link" class="link-btn" href="https://github.com/Swapnil007-Curious/agentic-rag" rel="noopener noreferrer" target="_blank">Source code</a>
+        </div>
+      </section>
+    </aside>
+    <div id="scrim" class="scrim" hidden></div>
+
+    <main class="main" id="main">
+      <header class="topbar">
+        <button type="button" id="open-sidebar" class="icon-btn only-narrow" aria-label="Open the menu" aria-controls="sidebar" aria-expanded="false">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z" fill="currentColor"/></svg>
+        </button>
+        <h1 id="chat-title" class="chat-title">Study Assistant</h1>
+        <span id="mode-badge" class="badge" hidden></span>
+      </header>
+
+      <div id="scroller" class="scroller">
+        <section id="welcome" class="welcome" aria-labelledby="welcome-heading">
+          <h2 id="welcome-heading">What would you like to learn?</h2>
+          <p class="lede">Ask anything: concepts, code, math, science or law. When a question matches the selected documents, the answer cites them; otherwise it comes from general knowledge and says so. Searching happens in your browser.</p>
+          <p class="examples-label" id="examples-label">Try one</p>
+          <ul id="examples" class="chips" aria-labelledby="examples-label"></ul>
+        </section>
+        <ol id="messages" class="messages" aria-label="Conversation"></ol>
+        <div id="live" class="visually-hidden" role="status" aria-live="polite"></div>
+      </div>
+
+      <button type="button" id="jump" class="jump" hidden>
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M11 4h2v12.2l5.3-5.3 1.4 1.4L12 20l-7.7-7.7 1.4-1.4 5.3 5.3z" fill="currentColor"/></svg>
+        <span>Latest</span>
+      </button>
+
+      <form id="composer" class="composer" novalidate>
+        <div class="composer-box">
+          <label for="composer-input" class="visually-hidden">Message</label>
+          <textarea id="composer-input" rows="1" maxlength="4000" placeholder="Message the assistant" aria-describedby="composer-hint"></textarea>
+          <div class="composer-actions">
+            <button type="button" id="stop-btn" class="btn btn-stop" hidden>
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16"><path d="M6 6h12v12H6z" fill="currentColor"/></svg>
+              <span>Stop</span>
+            </button>
+            <button type="submit" id="send-btn" class="btn btn-primary btn-send" aria-label="Send message">
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="M3 20.5 21 12 3 3.5v6.6L15 12 3 13.9z" fill="currentColor"/></svg>
+            </button>
+          </div>
+        </div>
+        <p id="composer-hint" class="hint composer-hint"><span id="char-count"></span><span>Enter to send, Shift+Enter for a new line.</span> <span id="notice" class="notice"></span></p>
+      </form>
+    </main>
+
+    <aside id="passage-panel" class="panel" aria-labelledby="panel-title" hidden>
+      <div class="panel-top">
+        <p class="eyebrow" id="panel-label">Source</p>
+        <button type="button" id="panel-close" class="icon-btn" aria-label="Close the source">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <h2 id="panel-title" class="panel-title" tabindex="-1"></h2>
+      <p id="panel-meta" class="hint"></p>
+      <div id="panel-text" class="panel-text"></div>
+    </aside>
+  </div>
+
+  <dialog id="about" class="about" aria-labelledby="about-title">
+    <div class="about-head">
+      <h2 id="about-title">About &amp; sources</h2>
+      <button type="button" id="about-close" class="icon-btn" aria-label="Close About and sources">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z" fill="currentColor"/></svg>
+      </button>
+    </div>
+    <div class="about-body">
+      <p>A study assistant for students and developers. Your question is embedded and the documents are searched <strong>in your browser</strong>; matching passages are added to the question and the reply cites them. Each message is answered by one language model call through a small rate-limited proxy. <strong>Verify</strong> checks a cited reply with citation and number guards (in the browser) and a critic model. <strong>Grounded only</strong> answers strictly from the documents or says they do not cover the question.</p>
+      <p><strong>Privacy.</strong> Your questions, the recent conversation and the passages selected for a question are sent to the proxy and the model provider (Groq) to produce the answer; neither stores message contents. Uploaded PDFs never leave your browser except as passages included in a question. Conversations are stored only in this browser.</p>
+      <p><strong>Non-commercial use.</strong> Several document collections are licensed for non-commercial use only (for example CC BY-NC-SA and CC BY-NC); this demo is free and non-commercial. Excerpts shown remain under their original licences listed below.</p>
+      <p>Answers can be wrong. Law collections: not legal advice. Human biology: educational, not medical advice; for symptoms or emergencies contact a doctor or local emergency services.</p>
+      <div id="about-sources"></div>
+      <h3>Software</h3>
+      <ul class="about-list">
+        <li>bge-small-en-v1.5 (BAAI, MIT licence), run with Transformers.js and ONNX Runtime Web (Apache 2.0 / MIT)</li>
+        <li>pdf.js (Apache 2.0) for reading uploaded PDFs</li>
+        <li>KaTeX (MIT licence) and highlight.js (BSD 3-Clause licence)</li>
+      </ul>
+    </div>
+  </dialog>
+</body>
+</html>

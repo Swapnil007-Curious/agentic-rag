@@ -1,0 +1,86 @@
+name: Pages
+
+# Builds web-static/ and deploys it to https://swapnil007-curious.github.io/agentic-rag/.
+# One-time setup: repository Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
+# The LLM proxy URL comes from the repository variable WORKER_URL (Settings -> Secrets and
+# variables -> Actions -> Variables), else from web-static/site.config.json.
+# The collection data (web-static/public/data/) is committed: it is built locally with
+# python scripts/build_static_indexes.py, because the processed corpora are not in git.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web-static/**"
+      - "src/ragsys/app/static/chat.css"
+      - "src/ragsys/app/static/vendor/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-static
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web-static/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Cache the model files
+        uses: actions/cache@v4
+        with:
+          path: web-static/public/models
+          key: bge-small-onnx-${{ hashFiles('web-static/assets.lock.json', 'web-static/site.config.json') }}
+      - name: Type check and unit tests
+        run: |
+          npx tsc --noEmit
+          npx vitest run
+      - name: Build (fetches the pinned, checksum-verified model; copies ONNX Runtime, pdf.js, KaTeX, highlight.js)
+        run: npm run build
+        env:
+          BASE_PATH: /agentic-rag/
+          VITE_WORKER_URL: ${{ vars.WORKER_URL }}
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: web-static/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
+
+  worker-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: deploy/worker
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: deploy/worker/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx vitest run

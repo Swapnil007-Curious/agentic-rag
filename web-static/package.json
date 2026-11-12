@@ -1,0 +1,30 @@
+{
+  "name": "agentic-rag-static",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Static study assistant: retrieval and query embedding in the browser, LLM calls through a rate-limited proxy.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "prepare-assets": "node scripts/prepare-assets.mjs",
+    "dev": "vite",
+    "build": "node scripts/prepare-assets.mjs && vite build && node scripts/report-size.mjs",
+    "preview": "vite preview --strictPort",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.3.2",
+    "pdfjs-dist": "6.4.299"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "20.19.43",
+    "typescript": "6.0.3",
+    "vite": "8.3.5",
+    "vitest": "4.1.12"
+  }
+}

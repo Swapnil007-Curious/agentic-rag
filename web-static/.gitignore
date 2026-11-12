@@ -1,0 +1,10 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+# fetched or copied by scripts/prepare-assets.mjs (the model, ONNX Runtime, pdf.js, KaTeX, highlight.js)
+public/models/
+public/ort/
+public/pdfjs/
+public/vendor/
+dist-test/

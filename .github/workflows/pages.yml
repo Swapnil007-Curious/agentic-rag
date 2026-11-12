@@ -3,7 +3,11 @@ name: Pages
 # Builds web-static/ and deploys it to https://swapnil007-curious.github.io/agentic-rag/.
 # One-time setup: repository Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
 # The LLM proxy URL comes from the repository variable WORKER_URL (Settings -> Secrets and
-# variables -> Actions -> Variables), else from web-static/site.config.json.
+# variables -> Actions -> Variables) when it is set and non-blank, else from
+# web-static/site.config.json (an unset variable expands to "", which never overrides the file).
+# The build prints the URL it uses and fails if both are empty (REQUIRE_WORKER_URL).
+# Pushes that change no file under the paths below (e.g. empty commits) do not start this
+# workflow: use "Run workflow" (workflow_dispatch) to rebuild without a change.
 # The collection data (web-static/public/data/) is committed: it is built locally with
 # python scripts/build_static_indexes.py, because the processed corpora are not in git.
 
@@ -54,7 +58,9 @@ jobs:
         run: npm run build
         env:
           BASE_PATH: /agentic-rag/
+          # "" when the repository variable is unset: site.config.json's workerUrl is used then
           VITE_WORKER_URL: ${{ vars.WORKER_URL }}
+          REQUIRE_WORKER_URL: "true"
       - uses: actions/upload-pages-artifact@v5
         with:
           path: web-static/dist

@@ -289,22 +289,120 @@ gate time (embedding + search) with p50 and p95 (`--fake-llm` runs offline).
 
 ## Public demo
 
-A free public Hugging Face Space runs the assistant with the hosted backend only (no local
-model): **https://huggingface.co/spaces/USERNAME/agentic-rag-assistant** (placeholder until it
-is deployed). In public mode the research page is off and the API key is protected by limits
-from `configs/assistant.yaml`:
+The free, permanent public demo needs no paid server: a static site on GitHub Pages does the
+retrieval in the visitor's browser, and a Cloudflare Worker (free plan) forwards the language
+model calls. Site: **https://swapnil007-curious.github.io/agentic-rag/** (live once deployed,
+see [Setting up the public demo](#setting-up-the-public-demo)).
 
-* 20 messages per 10 minutes and 200 per day per visitor (Verify and Grounded-only count as
-  messages), 10 uploads per hour;
-* messages of at most 4000 characters, replies of at most 1500 tokens;
-* a global daily request cap with a friendly "busy, try later" message;
-* no logging of message contents.
+```
+ Browser (GitHub Pages, web-static/)                          Cloudflare Worker (deploy/worker/)
+ ┌──────────────────────────────────────────────┐            ┌─────────────────────────────────┐
+ │ bge-small (ONNX, Transformers.js, WASM)      │            │ POST /chat                      │
+ │   embeds the question in a Web Worker        │  question, │  CORS: the Pages site, localhost│
+ │ collection index (int8 vectors + passages,   │  history,  │  validate (4000 chars, 10 turns)│
+ │   downloaded when selected, Cache API)       │  selected  │  rate limits (Durable Objects)  │
+ │ gate, context packing, citations, history,   │ ─passages─▶│  build prompts (prompts.json)   │──▶ Groq
+ │   guards, Verify, Grounded only (TypeScript) │ ◀── SSE ── │  stream: true, max_tokens 1500  │◀── (LLM_API_KEY
+ │ uploaded PDFs: pdf.js, chunking, embedding   │   stream   │  no message storage or logging  │    is a secret)
+ │   (never leave the browser)                  │            └─────────────────────────────────┘
+ │ conversations in localStorage                │
+ └──────────────────────────────────────────────┘
+```
 
-The server binds to 127.0.0.1 unless the `HOST` environment variable is set (the Space's image
-sets `HOST=0.0.0.0`, `PORT=7860`); see `src/ragsys/assistant/hosting.py` for `ALLOWED_HOSTS`,
-`FRAME_ANCESTORS`, `TRUST_PROXY` and `PROXY_HOPS`.
+* **Retrieval in the browser.** The question is embedded with bge-small-en-v1.5 (the ONNX export,
+  half precision, run by Transformers.js on ONNX Runtime Web, all self-hosted on the site) and
+  searched in the selected collection's index: the same structural chunks as the Python app,
+  with the bge-small embeddings stored as int8 values with one scale per vector. The gate
+  thresholds, context budget, citation handling, history summary, Verify and Grounded only follow
+  the Python assistant (`web-static/src/`); browser tests check that query embeddings match
+  sentence-transformers and that the top-5 passages match a Python search of the same index.
+* **The model call goes through the Worker**, which holds the API key as a secret, builds the
+  prompts from the same text as the Python app (`deploy/worker/src/prompts.json`, written by
+  `scripts/build_static_indexes.py`) and streams the provider's reply back.
+* **First visit:** about 82 MB for the model and ONNX Runtime plus the selected collection
+  (0.15–3.8 MB compressed), with progress bars; later visits load from the browser's cache.
 
-### Deployment
+**Privacy.** The question, the recent conversation (or its summary) and the passages selected for
+the question go to the Worker and on to the model provider (Groq) to produce the answer. Neither
+the Worker nor the site stores or logs message contents; the Worker keeps only request times per
+client address for its rate limits, for at most a day. Uploaded PDFs stay in the browser: they
+are read, chunked and embedded there, and only the passages a question selects are sent with it.
+Conversations are stored in the browser's localStorage only.
+
+**Limits (per visitor, by `CF-Connecting-IP`):** 20 requests per 10 minutes and 200 per day, a
+global daily cap (800 requests), messages of at most 4000 characters, at most 10 turns per
+request, replies of at most 1500 tokens. A Grounded-only answer uses up to four requests and
+Verify one. Over a limit the Worker answers 429 with a friendly message and `retry-after`; a rate
+limit at the provider is passed on as "busy, try again later".
+
+Rate limits use Durable Objects: the Workers Rate Limiting binding only supports 10- or
+60-second periods and counts per location, and Workers KV allows only 1,000 writes per day on the
+free plan, so neither can enforce "20 per 10 minutes" and "200 per day"; Durable Objects (SQLite
+backend, on the free plan) give one consistent counter per client and one global counter.
+
+### Setting up the public demo
+
+Nothing here runs automatically; these are the commands to run once.
+
+```powershell
+# 0. the static data (only after the app indexes change): passages + int8 vectors per collection,
+#    the manifest, the Worker's prompts and the browser parity fixture
+python scripts/build_static_indexes.py
+
+# 1. the Worker (a free Cloudflare account: https://dash.cloudflare.com/sign-up)
+cd deploy/worker
+npm ci
+npx wrangler login
+npx wrangler secret put LLM_API_KEY      # paste the Groq key when asked; it is stored as a secret
+npx wrangler deploy                      # prints https://agentic-rag-proxy.<your-subdomain>.workers.dev
+cd ../..
+
+# 2. tell the site where the Worker is: either set "workerUrl" in web-static/site.config.json, or
+#    add a repository variable WORKER_URL (GitHub -> Settings -> Secrets and variables -> Actions
+#    -> Variables) with the URL printed by wrangler deploy. A non-blank variable takes precedence;
+#    an unset or blank one falls back to the file. The Pages build prints the URL it uses
+#    ("worker URL: ...") and fails if neither gives one.
+
+# 3. GitHub Pages: Settings -> Pages -> Build and deployment -> Source: "GitHub Actions";
+#    then push to main (or run the "Pages" workflow by hand). The workflow builds web-static/
+#    (fetching the pinned, checksum-verified model) and deploys it.
+```
+
+Local development: `cd web-static; npm ci; npm run build; npx vite preview` (the Worker can run
+locally with `cd deploy/worker; npx wrangler dev` and a `.dev.vars` file holding `LLM_API_KEY`;
+`http://localhost` origins are allowed). Tests: `npx tsc --noEmit`, `npx vitest run` and
+`npx playwright test` in `web-static/` (the browser tests mock the Worker), `npx vitest run` in
+`deploy/worker/` (Workers runtime, mocked provider).
+
+Several collections are licensed for non-commercial use, so the demo is non-commercial; the
+"About & sources" panel lists every document's licence as recorded in its `SOURCES.csv`.
+
+### Other ways to share the app
+
+The Python app can also be shared with its server-side retrieval. In public mode the research
+page is off and the API key is protected by limits from `configs/assistant.yaml` (20 messages per
+10 minutes and 200 per day per visitor, 10 uploads per hour, 4000-character messages, 1500-token
+replies, a global daily cap, no logging of message contents). The server binds to 127.0.0.1
+unless the `HOST` environment variable is set; see `src/ragsys/assistant/hosting.py` for
+`ALLOWED_HOSTS`, `FRAME_ANCESTORS`, `TRUST_PROXY` and `PROXY_HOPS`.
+
+### Tunnel mode
+
+To share the app from this computer without a Space, run it behind a tunnel client:
+
+```powershell
+python scripts/serve.py --tunnel                       # still binds to 127.0.0.1:8000
+cloudflared tunnel --url http://127.0.0.1:8000         # in a second terminal (or ngrok http 8000)
+```
+
+`--tunnel` keeps the loopback address but switches on public mode: the limits above apply per
+visitor, whose address is taken from the tunnel's `CF-Connecting-IP` header (else the last
+`X-Forwarded-For` entry), any host name is accepted (the tunnel's URL), the research page is off,
+only hosted backends are offered and neither message contents nor access lines are logged. A
+banner warns that the app is publicly reachable; stopping the tunnel or the server ends public
+access. `CF-Connecting-IP` is read only in tunnel mode, and without `--tunnel` nothing changes.
+
+### Hugging Face Space
 
 ```powershell
 # 1. assemble deploy/hf_space/build/ (code, configs, the five app indexes, SOURCES.csv files,

@@ -1,0 +1,27 @@
+// Cloudflare Worker: the LLM proxy of the static study assistant (web-static/).
+// Deploy: npx wrangler login; npx wrangler secret put LLM_API_KEY; npx wrangler deploy
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "agentic-rag-proxy",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-15",
+  "observability": { "enabled": false },
+  "vars": {
+    // the OpenAI-compatible endpoint and model (the API key is a secret, never a var)
+    "LLM_BASE_URL": "https://api.groq.com/openai/v1",
+    "LLM_MODEL": "openai/gpt-oss-120b",
+    "LLM_EXTRA_BODY": "{\"reasoning_effort\":\"low\",\"include_reasoning\":false}",
+    // origins allowed to call the proxy (http://localhost:* is always allowed for development)
+    "ALLOWED_ORIGINS": "https://swapnil007-curious.github.io",
+    "MAX_OUTPUT_TOKENS": "1500",
+    "LIMIT_PER_10MIN": "20",
+    "LIMIT_PER_DAY": "200",
+    "GLOBAL_PER_DAY": "800"
+  },
+  // Rate limits live in one Durable Object per client address plus one global object (SQLite
+  // backend: the only kind on the Workers Free plan). See src/limits.ts for why.
+  "durable_objects": {
+    "bindings": [{ "name": "LIMITS", "class_name": "RateLimiter" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RateLimiter"] }]
+}

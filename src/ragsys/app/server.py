@@ -325,6 +325,7 @@ def create_multi_app(
     frame_ancestors: str = "'none'",
     trust_forwarded: bool = False,
     forwarded_hops: int = 1,
+    client_ip_header: str | None = None,
 ) -> FastAPI:
     """``backends``: what /api/backends lists (name, label, model, provider, privacy);
     ``default_backend``: the backend used when a request names none; ``backend_status(name)``:
@@ -332,7 +333,8 @@ def create_multi_app(
     ``assistant``: the chat assistant served at "/" (the research page moves to /research);
     ``public``: hosted demo (research routes off); ``frame_ancestors``: who may frame the page;
     ``trust_forwarded`` / ``forwarded_hops``: client addresses from X-Forwarded-For behind that
-    many reverse proxies (rate limits)."""
+    many reverse proxies (rate limits); ``client_ip_header``: a header naming the client
+    (tunnel mode: CF-Connecting-IP), read only with ``trust_forwarded``."""
     by_name = {e.name: e for e in entries}
     if default not in by_name:
         raise ValueError(f"default collection {default!r} is not served")
@@ -591,6 +593,11 @@ def create_multi_app(
 
     if assistant is not None:
         app.include_router(
-            build_router(assistant, trust_forwarded=trust_forwarded, forwarded_hops=forwarded_hops)
+            build_router(
+                assistant,
+                trust_forwarded=trust_forwarded,
+                forwarded_hops=forwarded_hops,
+                client_ip_header=client_ip_header,
+            )
         )
     return app

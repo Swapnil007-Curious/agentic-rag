@@ -2,13 +2,19 @@
 
 Usage:
     python scripts/serve.py [--collection NAME] [--backend local|hosted] [--port 8000]
-                            [--fake-llm] [--warm-research] [--no-warm]
+                            [--fake-llm] [--warm-research] [--no-warm] [--tunnel]
 
 Locally the server binds to 127.0.0.1 (http://127.0.0.1:8000). It binds elsewhere only when the
 HOST environment variable is set (HOST=0.0.0.0 in the hosted demo's container), which also
 switches on public mode: the research routes are off, only hosted backends are offered and
 the rate limits of configs/assistant.yaml protect the API key (see
 src/ragsys/assistant/hosting.py for ALLOWED_HOSTS, FRAME_ANCESTORS, TRUST_PROXY, PORT).
+
+--tunnel is for sharing the app through a tunnel client on this computer (e.g. `cloudflared
+tunnel --url http://127.0.0.1:8000`): the server still binds to 127.0.0.1 but runs in public
+mode, accepts any host name and takes each visitor's address for the rate limits from the
+tunnel's CF-Connecting-IP header (else X-Forwarded-For). A banner warns that the app is
+publicly reachable. Without --tunnel nothing changes.
 
 The assistant (src/ragsys/assistant/) streams one LLM call per message and grounds it
 automatically in the selected collection's app index and uploaded PDFs; "Verify" runs the
@@ -44,7 +50,7 @@ from ragsys.agents.runtime import (
 )
 from ragsys.app.server import CollectionEntry, create_multi_app, example_questions, read_sources
 from ragsys.assistant import setup as assistant_setup
-from ragsys.assistant.hosting import binding_from_env
+from ragsys.assistant.hosting import Binding, resolve_binding
 from ragsys.collections import Collection as Coll
 from ragsys.collections import add_collection_arguments, load_collections
 from ragsys.config import resolve_path
@@ -131,6 +137,23 @@ def make_entry(coll: Coll, backend: str, fake_llm: bool) -> CollectionEntry:
     )
 
 
+def tunnel_banner(binding: Binding) -> list[str]:
+    """The warning printed at start-up in tunnel mode."""
+    rule = "=" * 78
+    target = f"http://{binding.host}:{binding.port}"
+    return [
+        rule,
+        "WARNING: TUNNEL MODE - this app is PUBLICLY REACHABLE through your tunnel.",
+        "Anyone with the tunnel URL can chat, upload PDFs and spend your API quota.",
+        f"Bound to {binding.host}:{binding.port}; point the tunnel at {target}",
+        f"(e.g. cloudflared tunnel --url {target}). Public mode is on: per-visitor rate",
+        "limits (CF-Connecting-IP, else X-Forwarded-For), message and reply caps, no message",
+        "logging, /research off, hosted backends only, any host name accepted.",
+        "Stop the tunnel (or this server, Ctrl+C) to end public access.",
+        rule,
+    ]
+
+
 class BackendStatus:
     """Availability of each backend, re-checked at most once a minute (a fake is available)."""
 
@@ -168,6 +191,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--fake-llm", action="store_true", help="offline deterministic stand-in")
     ap.add_argument("--threads", type=int, default=4)
+    ap.add_argument(
+        "--tunnel",
+        action="store_true",
+        help="public mode behind a tunnel to 127.0.0.1 (any host name, client IP from the tunnel)",
+    )
     add_collection_arguments(ap)
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
@@ -178,9 +206,11 @@ def main(argv: list[str] | None = None) -> int:
     set_torch_threads(args.threads)
     first_coll = Coll(reg.ui_default or reg.default, reg.collections[reg.ui_default or reg.default])
     base_settings, _ = load_settings(resolve_path(first_coll.generation_config))
-    binding = binding_from_env(os.environ, args.port or base_settings.ui.port)
+    binding = resolve_binding(os.environ, args.port or base_settings.ui.port, tunnel=args.tunnel)
     if args.port:
         binding.port = args.port
+    if args.tunnel and (os.environ.get("HOST") or "").strip():
+        emit("NOTE: HOST is ignored in tunnel mode; binding to 127.0.0.1")
     backends = base_settings.backends()
     # the public demo offers hosted backends only (no local model behind a public address)
     offered = [n for n in backends.names if backends.spec(n).requires_key or not binding.public]
@@ -266,11 +296,19 @@ def main(argv: list[str] | None = None) -> int:
         frame_ancestors=binding.frame_ancestors,
         trust_forwarded=binding.trust_forwarded,
         forwarded_hops=binding.forwarded_hops,
+        client_ip_header=binding.client_ip_header,
     )
-    mode = "public mode" if binding.public else "local only"
+    if binding.tunnel:
+        for line in tunnel_banner(binding):
+            emit(line)
+    mode = "local only"
+    if binding.public:
+        mode = "tunnel, public mode" if binding.tunnel else "public mode"
     emit(f"serving on http://{binding.host}:{binding.port}  ({mode}; Ctrl+C to stop)")
+    # public modes: no access log either (it would record visitors' paths and addresses)
+    run_kwargs: dict[str, object] = {"access_log": False} if binding.public else {}
     try:
-        uvicorn.run(app, host=binding.host, port=binding.port, log_level="warning")
+        uvicorn.run(app, host=binding.host, port=binding.port, log_level="warning", **run_kwargs)
     finally:
         for e in entries:
             if e.built:

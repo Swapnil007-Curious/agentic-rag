@@ -1,0 +1,3 @@
+# Local development only (wrangler dev reads .dev.vars; never commit it). In production the key
+# is a Worker secret: npx wrangler secret put LLM_API_KEY
+LLM_API_KEY=replace-me

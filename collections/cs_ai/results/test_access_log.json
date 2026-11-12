@@ -35,5 +35,15 @@
     ],
     "n_questions": 56,
     "note": "generation ablation: systems G2H G4H; backend hosted model openai/gpt-oss-120b (chosen 2026-11-12); bootstrap vs G1, G2, G4"
+  },
+  {
+    "utc_time": "2026-11-12T21:39:07+00:00",
+    "git_commit": "09019742fcb6dc28d8d7fad8eaf3fedf074ab3bc",
+    "git_dirty": true,
+    "configs": [
+      "G2H"
+    ],
+    "n_questions": 56,
+    "note": "generation ablation: systems G2H; backend hosted model openai/gpt-oss-120b (chosen 2026-11-12); bootstrap vs G1, G2"
   }
 ]

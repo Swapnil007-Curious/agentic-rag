@@ -1,0 +1,126 @@
+{
+  "created_utc": "2026-11-12T21:38:54+00:00",
+  "split": "test",
+  "label": "ablation: hosted openai/gpt-oss-120b (chosen 2026-11-12)",
+  "systems": {
+    "G2H": {
+      "description": "G2 with the hosted generator (generator-scale ablation)",
+      "retrieval": "structural|dense|bge-base",
+      "derived_from": null,
+      "guards": false,
+      "critic": false,
+      "threshold": false,
+      "backend": "hosted",
+      "ablation_of": "G2"
+    }
+  },
+  "backend": {
+    "name": "hosted",
+    "label": "Hosted: openai/gpt-oss-120b (Groq)",
+    "provider": "Groq",
+    "model": "openai/gpt-oss-120b",
+    "base_url": "https://api.groq.com/openai/v1",
+    "model_selected_on": "2026-11-12",
+    "privacy": "Questions and the retrieved passages are sent to the API provider (Groq).",
+    "model_selection": "Chosen on 2026-11-12, before any result was seen, from the provider's models endpoint (GET /models with this account). The intended rule was the largest available general instruction-tuned Llama-family model, but the endpoint listed none (its only Meta models were the llama-prompt-guard-2 22m/86m safety classifiers); the largest general instruction-tuned open-weight model it listed, openai/gpt-oss-120b, was chosen instead. Response headers on that date: 8000 tokens per minute, 1000 requests per day."
+  },
+  "llm": {
+    "G2H": {
+      "base_url": "https://api.groq.com/openai/v1",
+      "model": "openai/gpt-oss-120b",
+      "temperature": 0.0,
+      "max_tokens": 1024,
+      "seed": 0,
+      "json_mode": true,
+      "timeout_s": 120.0,
+      "max_retries": 5,
+      "backoff_initial_s": 2.0,
+      "backoff_max_s": 60.0,
+      "backend": "hosted",
+      "send_api_key": true,
+      "extra_body": {
+        "reasoning_effort": "low",
+        "include_reasoning": false
+      },
+      "requests_per_minute": 30.0,
+      "tokens_per_minute": 8000.0,
+      "max_retry_wait_s": 180.0
+    }
+  },
+  "context": {
+    "G2H": {
+      "budget_tokens": 2048,
+      "revision_budget_tokens": 3072,
+      "min_passages": 1
+    }
+  },
+  "comparisons": {
+    "G2H": [
+      "G1",
+      "G2"
+    ]
+  },
+  "nli": {
+    "model": "cross-encoder/nli-deberta-v3-base",
+    "requested_model": "cross-encoder/nli-deberta-v3-base",
+    "fallback_reason": null,
+    "entailment_threshold": 0.5,
+    "window_tokens": 400,
+    "window_stride": 300
+  },
+  "questions_digest": "deb04419344fae501643f6cde7be045b64fcf586263b5ac57fedb87d21baa0d3",
+  "n_questions": 85,
+  "cost": {
+    "G2H": {
+      "questions": 85,
+      "llm_calls": 85,
+      "cached_calls": 0,
+      "prompt_tokens": 232037,
+      "completion_tokens": 9784,
+      "api_latency_ms_p50": 1166.2,
+      "api_latency_ms_p95": 4737.8,
+      "api_latency_ms_mean": 1918.4,
+      "uncached_wall_ms_mean": 20435.1
+    }
+  },
+  "tables_appended": [
+    "generation_test.csv",
+    "generation_test_by_type.csv",
+    "generation_test_bootstrap.csv"
+  ],
+  "run_info": {
+    "utc_time": "2026-11-12T21:38:54+00:00",
+    "git": {
+      "commit": "09019742fcb6dc28d8d7fad8eaf3fedf074ab3bc",
+      "dirty": true
+    },
+    "python": "3.11.9",
+    "python_executable": "C:\\Users\\Admin\\agentic-rag\\.venv\\Scripts\\python.exe",
+    "os": "Windows 10 (10.0.26200)",
+    "machine": "AMD64",
+    "cpu_model": "11th Gen Intel(R) Core(TM) i3-1115G4 @ 3.00GHz",
+    "cpu_count_logical": 4,
+    "cpu_count_physical": 2,
+    "ram_total_gb": 19.75,
+    "packages": {
+      "ragsys": "0.1.0",
+      "pymupdf": "2.1",
+      "pydantic": "2.14.3",
+      "PyYAML": "6.0.3",
+      "numpy": "2.4.6",
+      "psutil": "7.2.2",
+      "torch": "2.15.0+cpu",
+      "transformers": "5.22.2",
+      "tokenizers": "0.23.3",
+      "sentence-transformers": "6.2.0"
+    }
+  },
+  "reference_nli": {
+    "model": "cross-encoder/nli-deberta-v3-base",
+    "requested_model": "cross-encoder/nli-deberta-v3-base",
+    "fallback_reason": null,
+    "entailment_threshold": 0.5,
+    "window_tokens": 400,
+    "window_stride": 300
+  }
+}

@@ -120,14 +120,22 @@ def error_response(status: int, message: str, code: str) -> JSONResponse:
 
 
 def build_router(
-    assistant: ChatAssistant, *, trust_forwarded: bool = False, forwarded_hops: int = 1
+    assistant: ChatAssistant,
+    *,
+    trust_forwarded: bool = False,
+    forwarded_hops: int = 1,
+    client_ip_header: str | None = None,
 ) -> APIRouter:
     router = APIRouter()
 
     def client(request: Request) -> str:
         peer = request.client.host if request.client else None
         return client_address(
-            peer, request.headers, trust_forwarded=trust_forwarded, hops=forwarded_hops
+            peer,
+            request.headers,
+            trust_forwarded=trust_forwarded,
+            hops=forwarded_hops,
+            client_header=client_ip_header,
         )
 
     @router.get("/api/health")

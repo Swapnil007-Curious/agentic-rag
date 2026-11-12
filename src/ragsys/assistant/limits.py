@@ -5,6 +5,7 @@ message is logged or written."""
 from __future__ import annotations
 
 import datetime as _dt
+import ipaddress
 import threading
 import time
 from collections import OrderedDict, deque
@@ -81,11 +82,24 @@ class DailyCap:
 
 
 def client_address(
-    peer: str | None, headers: Mapping[str, str], *, trust_forwarded: bool, hops: int = 1
+    peer: str | None,
+    headers: Mapping[str, str],
+    *,
+    trust_forwarded: bool,
+    hops: int = 1,
+    client_header: str | None = None,
 ) -> str:
     """The client address: the connecting peer, or behind ``hops`` trusted reverse proxies the
     address the outermost of them saw (the ``hops``-th entry from the right of
-    X-Forwarded-For; entries further left can be forged by the client)."""
+    X-Forwarded-For; entries further left can be forged by the client). ``client_header``
+    (tunnel mode: CF-Connecting-IP) names the client directly and is used first when it holds
+    a valid IP address."""
+    if trust_forwarded and client_header:
+        raw = headers.get(client_header, "").strip()
+        try:
+            return str(ipaddress.ip_address(raw))
+        except ValueError:
+            pass  # missing or not an address: fall back to X-Forwarded-For
     if trust_forwarded:
         xff = headers.get("x-forwarded-for", "")
         parts = [p.strip() for p in xff.split(",") if p.strip()]

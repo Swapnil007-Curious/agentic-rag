@@ -1,0 +1,143 @@
+/* Reset, type, materials and the controls shared across the app. */
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 var(--fs-body) / 1.6 var(--font-ui);
+  letter-spacing: 0;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+html.theming body, html.theming .glass, html.theming .rail, html.theming .evidence, html.theming .composer, html.theming .msg, html.theming .tile, html.theming .source-card {
+  transition: background-color var(--t-color) ease, color var(--t-color) ease, border-color var(--t-color) ease;
+}
+button, input, select, textarea { font: inherit; color: inherit; letter-spacing: inherit; }
+button { cursor: pointer; }
+a { color: var(--brass-text); text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+h1, h2, h3, h4 { margin: 0; font-weight: 500; line-height: 1.25; }
+p { margin: 0; }
+svg { display: block; }
+::selection { background: var(--brass-soft); }
+
+.mono { font-family: var(--font-mono); font-size: var(--fs-micro); letter-spacing: 0.01em; font-variant-numeric: tabular-nums; }
+.display { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.02em; line-height: 1.05; }
+.eyebrow {
+  font-family: var(--font-mono); font-size: var(--fs-micro); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-muted); font-weight: 500;
+}
+
+/* focus: 2 px brass, 2 px offset, everywhere */
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; border-radius: 6px; }
+.visually-hidden {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.skip-link {
+  position: fixed; left: var(--s-3); top: -60px; z-index: 200; padding: var(--s-2) var(--s-4);
+  background: var(--brass); color: var(--on-brass); border-radius: var(--r-1); text-decoration: none; font-weight: 500;
+}
+.skip-link:focus { top: var(--s-3); }
+
+/* ------------------------------------------------------------------ materials */
+.glass, .glass-sm {
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: inset 0 1px 0 var(--edge), var(--shadow-1);
+}
+.glass-sm { -webkit-backdrop-filter: blur(16px) saturate(160%); backdrop-filter: blur(16px) saturate(160%); }
+.rail.glass, .evidence.glass {
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  backdrop-filter: blur(28px) saturate(160%);
+  box-shadow: inset 0 1px 0 var(--edge), var(--shadow-2);
+}
+/* Blur only where content moves beneath the glass (top bar, composer, drawers and the sheet while
+   open). The desktop rail and evidence panel sit beside the conversation with only the smooth
+   ambient gradient behind them, where a blur is invisible but costs a re-render of the backdrop. */
+@media (min-width: 1100px) {
+  .rail.glass, .evidence.glass { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (max-width: 1099px) {
+  .rail.glass:not(.open) { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .glass, .glass-sm, .rail.glass, .evidence.glass { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-contrast: more) {
+  .glass, .glass-sm, .rail, .evidence, .composer, .popover, .dialog, .source-card, .tile, .bubble-user { border: 1px solid var(--line-strong); }
+}
+
+/* ambient aurora: two slow lapis layers, max opacity 0.25 */
+.aurora { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; opacity: 0; }
+/* the gradients are already soft (no filter). The drift advances in 240 steps per cycle, under
+   a pixel each: it reads as continuous, and the glass above re-blurs 5 times a second, not 60 */
+.aurora span { position: absolute; width: 80vmax; height: 80vmax; border-radius: 50%; opacity: 0.25; will-change: transform; }
+.aurora-a { left: -15vmax; top: -25vmax; background: radial-gradient(circle at 45% 45%, var(--aurora-a) 0%, color-mix(in srgb, var(--aurora-a) 50%, transparent) 30%, transparent 68%); animation: drift-a 48s steps(240, jump-none) infinite alternate; }
+.aurora-b { right: -20vmax; bottom: -30vmax; background: radial-gradient(circle at 55% 55%, var(--aurora-b) 0%, color-mix(in srgb, var(--aurora-b) 50%, transparent) 30%, transparent 68%); animation: drift-b 56s steps(240, jump-none) infinite alternate; }
+@keyframes drift-a { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(12vmax, 8vmax, 0) scale(1.15); } }
+@keyframes drift-b { from { transform: translate3d(0, 0, 0) scale(1.1); } to { transform: translate3d(-10vmax, -9vmax, 0) scale(0.95); } }
+html.ready .aurora { opacity: 1; transition: opacity 400ms ease; }
+html.reduce-motion .aurora span { animation: none; }
+
+/* ------------------------------------------------------------------ controls */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
+  min-height: 44px; padding: 0 var(--s-4); border-radius: var(--r-1);
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--text);
+  font-weight: 500; font-size: var(--fs-small); white-space: nowrap;
+  transition: background-color var(--t-fast) ease, border-color var(--t-fast) ease, transform 100ms ease;
+}
+.btn:hover { background: var(--surface-2); }
+.btn:active, .icon-btn:active, .pill:active, .tile:active, .chip:active, .btn-send:active, .act:active { transform: scale(0.97); transition: transform 100ms ease; }
+.btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: var(--brass); border-color: var(--brass); color: var(--on-brass); }
+.btn-primary:hover { background: color-mix(in srgb, var(--brass) 88%, white); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--text-muted); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+.btn-rail { width: 100%; justify-content: flex-start; padding: 0 var(--s-3); }
+.btn-rail .kbd { margin-left: auto; }
+.btn-primary .kbd { color: var(--on-brass); border-color: rgba(11, 18, 48, 0.35); opacity: 0.8; }
+.icon-btn {
+  display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: var(--r-1);
+  border: 0; background: transparent; color: var(--text-muted); flex: 0 0 auto;
+  transition: background-color var(--t-fast) ease, color var(--t-fast) ease, transform 100ms ease;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
+.kbd {
+  font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.02em; color: var(--text-muted);
+  border: 1px solid var(--line-strong); border-radius: 6px; padding: 1px 6px; line-height: 1.4; background: transparent;
+}
+.pill {
+  display: inline-flex; align-items: center; gap: var(--s-2); min-height: 36px; padding: 0 var(--s-3) 0 var(--s-2);
+  border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--text);
+  font-size: var(--fs-small); font-weight: 500; max-width: 100%;
+  transition: background-color var(--t-fast) ease, border-color var(--t-fast) ease, transform 100ms ease;
+}
+.pill:hover { border-color: var(--brass); }
+.pill[aria-expanded="true"] { border-color: var(--brass); background: var(--brass-soft); }
+.pill > span:not(.pill-icon) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill-icon { display: inline-grid; place-items: center; width: 22px; height: 22px; color: var(--brass); }
+.pill-icon svg { width: 18px; height: 18px; }
+.pill-chevron { color: var(--text-muted); flex: 0 0 auto; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); flex: 0 0 auto; }
+.dot.ok { background: var(--supported); }
+.dot.busy { background: var(--brass); }
+.dot.bad { background: var(--unsupported); }
+progress { -webkit-appearance: none; appearance: none; height: 4px; border: 0; border-radius: 2px; background: var(--line-strong); overflow: hidden; }
+progress::-webkit-progress-bar { background: var(--line-strong); border-radius: 2px; }
+progress::-webkit-progress-value { background: var(--brass); border-radius: 2px; }
+progress::-moz-progress-bar { background: var(--brass); }
+
+/* reduced motion: 150 ms opacity fades only (html.reduce-motion mirrors the media query so
+   tests and the theme code can read one flag) */
+html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after {
+  animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+  transition-duration: 150ms !important; transition-property: opacity, color, background-color, border-color !important;
+  scroll-behavior: auto !important;
+}

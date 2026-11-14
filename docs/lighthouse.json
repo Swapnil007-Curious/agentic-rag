@@ -1,0 +1,17 @@
+{
+  "fetchTime": "2026-11-14T07:54:05.404Z",
+  "lighthouseVersion": "13.6.0",
+  "scores": {
+    "Performance": 65,
+    "Accessibility": 100,
+    "Best Practices": 100,
+    "SEO": 100
+  },
+  "metrics": {
+    "First Contentful Paint": "0.8 s",
+    "Largest Contentful Paint": "0.8 s",
+    "Total Blocking Time": "7,100 ms",
+    "Cumulative Layout Shift": "0.011",
+    "Speed Index": "5.6 s"
+  }
+}

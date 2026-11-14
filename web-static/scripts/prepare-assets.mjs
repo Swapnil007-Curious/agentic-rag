@@ -4,6 +4,7 @@
 //   ort/                        ONNX Runtime Web's WASM build (from node_modules)
 //   pdfjs/                      the pdf.js worker (from node_modules)
 //   vendor/                     KaTeX and highlight.js, copied from the Python app's vendored files
+//   fonts/                      the three latin font files (fontsource packages, from node_modules)
 // It also checks that the collection data (scripts/build_static_indexes.py) is present.
 
 import { createHash } from "node:crypto";
@@ -74,6 +75,11 @@ await copyInto(join(root, "node_modules/onnxruntime-web/dist"), join(pub, "ort")
   "ort-wasm-simd-threaded.wasm",
 ]);
 await copyInto(join(root, "node_modules/pdfjs-dist/build"), join(pub, "pdfjs"), ["pdf.worker.min.mjs"]);
+// latin subsets only: Instrument Serif 400, Geist (variable), Geist Mono (variable)
+await mkdir(join(pub, "fonts"), { recursive: true });
+await copyFile(join(root, "node_modules/@fontsource/instrument-serif/files/instrument-serif-latin-400-normal.woff2"), join(pub, "fonts", "instrument-serif-latin-400-normal.woff2"));
+await copyFile(join(root, "node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2"), join(pub, "fonts", "geist-latin-wght-normal.woff2"));
+await copyFile(join(root, "node_modules/@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2"), join(pub, "fonts", "geist-mono-latin-wght-normal.woff2"));
 await copyTree(join(root, "../src/ragsys/app/static/vendor"), join(pub, "vendor"));
 await writeFile(join(pub, "vendor", "README.txt"), "Copied from src/ragsys/app/static/vendor by scripts/prepare-assets.mjs.\n");
 if (!(await exists(join(pub, "data", "manifest.json")))) {

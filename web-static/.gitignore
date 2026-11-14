@@ -7,4 +7,6 @@ public/models/
 public/ort/
 public/pdfjs/
 public/vendor/
+public/fonts/
 dist-test/
+dist-shots/

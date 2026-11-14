@@ -8,7 +8,9 @@ import { cleanCitations, sourceLine } from "./citations.ts";
 import type { CollectionStore, Progress } from "./data.ts";
 import type { Embedder } from "./embedder.ts";
 import { decide, gateQueries, mergeHits } from "./gate.ts";
-import { groundedAnswer, toProxyPassages, type ClosestSection } from "./grounded.ts";
+import { groundedAnswer, toProxyPassages, type ClosestSection, type GroundedResult } from "./grounded.ts";
+import type { GuardReport } from "./guards.ts";
+import type { CriticOutput } from "./jsonx.ts";
 import { planHistory, transcript, type Summary, type Turn } from "./history.ts";
 import type { Manifest, Passage } from "./types.ts";
 import type { UploadStore } from "./uploads.ts";
@@ -22,11 +24,30 @@ export interface ChatRequest {
   summary: Summary | null;
 }
 
+/** A pipeline stage as it starts and finishes (for the UI's verification trace; informational only). */
+export type StageId = "embed" | "search" | "draft" | "synth" | "guards" | "critic";
+export interface StageEvent {
+  stage: StageId;
+  status: "active" | "done" | "skipped";
+  ms?: number;
+  note?: string;
+}
+
 export interface ChatCallbacks {
   onContext?(grounded: boolean, passages: Passage[]): void;
   onToken?(t: string): void;
   onStatus?(text: string): void;
   onIndexProgress?: Progress;
+  onStage?(event: StageEvent): void;
+}
+
+/** What the grounded pipeline checked (the fields groundedAnswer already returns). */
+export interface GroundedCheck {
+  guards: GuardReport | null;
+  critic: CriticOutput | null;
+  reason: GroundedResult["reason"];
+  detail: string;
+  llmCalls: number;
 }
 
 export interface ChatOutcome {
@@ -41,7 +62,8 @@ export interface ChatOutcome {
   outcome?: "answered" | "abstained";
   closest?: ClosestSection[];
   abstentionMessage?: string;
-  timings: { gate_ms: number; ttft_ms: number | null; total_ms: number };
+  check?: GroundedCheck;
+  timings: { gate_ms: number; ttft_ms: number | null; total_ms: number; embed_ms?: number; search_ms?: number };
 }
 
 export class Assistant {
@@ -84,7 +106,15 @@ export class Assistant {
     await this.embedder.ready;
     const titles = this.uploads.titles();
     const g = this.manifest.gate;
+    cb.onStage?.({ stage: "embed", status: "active" });
     const decision = await decide(latest, previous, sources, this.manifest.context_tokens, g, (q) => this.embedder.queries(q), titles);
+    if (sources.length) {
+      cb.onStage?.({ stage: "embed", status: "done", ms: decision.embedMs });
+      cb.onStage?.({ stage: "search", status: "done", ms: decision.searchMs, note: decision.grounded ? `${decision.passages.length} passages` : "no match" });
+    } else {
+      cb.onStage?.({ stage: "embed", status: "skipped", note: "no documents" });
+      cb.onStage?.({ stage: "search", status: "skipped", note: "no documents" });
+    }
     cb.onContext?.(decision.grounded, decision.passages);
     const plan = await planHistory(req.turns, this.manifest.history.budget_tokens, {
       maxTurns: this.manifest.history.max_turns,
@@ -97,6 +127,7 @@ export class Assistant {
     let first: number | null = null;
     let text = "";
     let stopped = false;
+    cb.onStage?.({ stage: "draft", status: "active" });
     try {
       await callProxy(
         this.workerUrl,
@@ -120,6 +151,7 @@ export class Assistant {
       if (err instanceof DOMException && err.name === "AbortError") stopped = true;
       else throw err;
     }
+    cb.onStage?.({ stage: "draft", status: "done", ms: performance.now() - tReq, ...(first === null ? {} : { note: `first token ${Math.round(first - tReq)} ms` }) });
     const valid = decision.passages.map((p) => p.label);
     const cleaned = cleanCitations(text, valid);
     const cited = decision.passages.filter((p) => cleaned.used.includes(p.label));
@@ -136,6 +168,8 @@ export class Assistant {
         gate_ms: decision.embedMs + decision.searchMs,
         ttft_ms: first === null ? null : first - tReq,
         total_ms: performance.now() - t0,
+        embed_ms: decision.embedMs,
+        search_ms: decision.searchMs,
       },
     };
   }
@@ -150,22 +184,53 @@ export class Assistant {
     const sources = await this.sources(req.collection, cb.onIndexProgress);
     await this.embedder.ready;
     const g = this.manifest.gate;
+    cb.onStage?.({ stage: "embed", status: "active" });
+    const tEmbed = performance.now();
     const vectors = await this.embedder.queries(gateQueries(latest, previous, g.follow_up_max_words));
+    const embedMs = performance.now() - tEmbed;
+    cb.onStage?.({ stage: "embed", status: "done", ms: embedMs });
+    const tSearch = performance.now();
     const ranked = mergeHits(sources.map((s) => s.search(vectors, g.search_k * 2))).slice(0, g.search_k * 2);
+    const searchMs = performance.now() - tSearch;
+    cb.onStage?.({ stage: "search", status: "done", ms: searchMs, note: `${ranked.length} candidates` });
     const meta = req.collection ? this.store.meta(req.collection) : undefined;
     const settings = meta?.grounded ?? this.manifest.uploads_grounded;
     const profile = this.profileOf(req.collection);
     const opts = signal ? { signal } : {};
+    let synthCalls = 0;
+    let guardsReported = false;
     const result = await groundedAnswer(
       latest,
       ranked,
       settings,
       {
-        synth: async (r) => (await callProxy(this.workerUrl, { mode: "synth", profile, ...r }, opts)).text,
-        critic: async (r) => (await callProxy(this.workerUrl, { mode: "critic", profile, ...r }, opts)).text,
+        synth: async (r) => {
+          synthCalls += 1;
+          const note = synthCalls > 1 ? { note: "revision" } : {};
+          cb.onStage?.({ stage: "synth", status: "active", ...note });
+          const t = performance.now();
+          const text = (await callProxy(this.workerUrl, { mode: "synth", profile, ...r }, opts)).text;
+          cb.onStage?.({ stage: "synth", status: "done", ms: performance.now() - t, ...note });
+          cb.onStage?.({ stage: "guards", status: "active" });
+          guardsReported = false;
+          return text;
+        },
+        critic: async (r) => {
+          // the guards ran between the synthesizer reply and this call (inside groundedAnswer)
+          cb.onStage?.({ stage: "guards", status: "done" });
+          guardsReported = true;
+          cb.onStage?.({ stage: "critic", status: "active" });
+          const t = performance.now();
+          const text = (await callProxy(this.workerUrl, { mode: "critic", profile, ...r }, opts)).text;
+          cb.onStage?.({ stage: "critic", status: "done", ms: performance.now() - t });
+          return text;
+        },
       },
       this.uploads.titles(),
     );
+    if (!guardsReported && result.guards) cb.onStage?.({ stage: "guards", status: "done", note: result.guards.passed ? "passed" : "failed" });
+    else if (!guardsReported) cb.onStage?.({ stage: "guards", status: "skipped" });
+    if (!result.critic) cb.onStage?.({ stage: "critic", status: "skipped" });
     const answered = result.outcome === "answered";
     const cited = result.passages.filter((p) => result.citations.includes(p.label));
     const message = meta?.abstention_message ?? "Not found in these documents";
@@ -181,7 +246,8 @@ export class Assistant {
       outcome: result.outcome,
       closest: result.closest,
       abstentionMessage: message,
-      timings: { gate_ms: 0, ttft_ms: null, total_ms: performance.now() - t0 },
+      check: { guards: result.guards, critic: result.critic, reason: result.reason, detail: result.detail, llmCalls: result.llmCalls },
+      timings: { gate_ms: embedMs + searchMs, ttft_ms: null, total_ms: performance.now() - t0, embed_ms: embedMs, search_ms: searchMs },
     };
   }
 

@@ -1,0 +1,188 @@
+/* Veridex tokens: "Lapis & Brass". Dark is the default; light is applied by the system preference
+   until the visitor chooses (html[data-theme]). Brass is reserved for proof: citations, the
+   verification trace, the seal and the primary action. */
+
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/instrument-serif-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/geist-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/geist-mono-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  /* dark (default) */
+  --bg: #0b1230;
+  --surface: #121a3d;
+  --surface-2: #1a2350;
+  --line: rgba(231, 236, 255, 0.08);
+  --line-strong: rgba(231, 236, 255, 0.16);
+  --edge: rgba(231, 236, 255, 0.14);
+  --text: #e7ecff;
+  --text-muted: #8c96c0;
+  --brass: #d9a441;
+  --brass-text: #d9a441;
+  --brass-soft: rgba(217, 164, 65, 0.14);
+  --on-brass: #0b1230;
+  --supported: #4fd1a5;
+  --partial: #f2c14e;
+  --unsupported: #f07a7a;
+  --supported-soft: rgba(79, 209, 165, 0.14);
+  --partial-soft: rgba(242, 193, 78, 0.14);
+  --unsupported-soft: rgba(240, 122, 122, 0.14);
+  --glass: rgba(18, 26, 61, 0.72);
+  --glass-strong: rgba(14, 21, 50, 0.82);
+  --scrim: rgba(4, 8, 30, 0.55);
+  --shadow-1: 0 1px 2px rgba(4, 8, 30, 0.35), 0 6px 20px rgba(4, 8, 30, 0.35);
+  --shadow-2: 0 2px 4px rgba(4, 8, 30, 0.4), 0 18px 48px rgba(4, 8, 30, 0.55);
+  --aurora-a: rgba(63, 90, 200, 0.5);
+  --aurora-b: rgba(31, 52, 150, 0.55);
+  --code-bg: rgba(4, 8, 30, 0.5);
+  --hl-keyword: #ff9d8a;
+  --hl-string: #a8d9ff;
+  --hl-number: #ffd37a;
+  --hl-comment: #8c96c0;
+  --hl-title: #d2b4ff;
+  --hl-attr: #ffb38a;
+  --hl-built: #8fd0ff;
+
+  /* type */
+  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-ui: "Geist", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --fs-display: clamp(2.75rem, 2rem + 4vw, 4.5rem);
+  --fs-h1: clamp(1.6rem, 1.3rem + 1.2vw, 2.1rem);
+  --fs-h2: clamp(1.15rem, 1.05rem + 0.5vw, 1.35rem);
+  --fs-body: 1rem;
+  --fs-small: 0.875rem;
+  --fs-micro: 0.75rem;
+
+  /* shape and space (4 px base) */
+  --r-1: 10px;
+  --r-2: 14px;
+  --r-3: 20px;
+  --r-4: 28px;
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.25rem;
+  --s-6: 1.5rem;
+  --s-8: 2rem;
+  --s-10: 2.5rem;
+  --s-12: 3rem;
+
+  /* layout */
+  --rail-w: 264px;
+  --evidence-w: 380px;
+  --column-w: 760px;
+  --topbar-h: 56px;
+
+  /* motion (CSS-only transitions; springs live in motion.ts) */
+  --t-fast: 120ms;
+  --t-color: 250ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  color-scheme: dark;
+}
+
+/* light, by system preference until the visitor chooses */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f5f7fc;
+    --surface: #ffffff;
+    --surface-2: #eef1f9;
+    --line: rgba(11, 18, 48, 0.08);
+    --line-strong: rgba(11, 18, 48, 0.16);
+    --edge: rgba(255, 255, 255, 0.9);
+    --text: #0b1230;
+    --text-muted: #5a6390;
+    --brass: #a87414;
+    --brass-text: #8b5f0b;
+    --brass-soft: rgba(168, 116, 20, 0.12);
+    --on-brass: #0b1230;
+    --supported: #1c7a5b;
+    --partial: #8a5a00;
+    --unsupported: #b9353a;
+    --supported-soft: rgba(28, 122, 91, 0.12);
+    --partial-soft: rgba(138, 90, 0, 0.12);
+    --unsupported-soft: rgba(185, 53, 58, 0.12);
+    --glass: rgba(255, 255, 255, 0.72);
+    --glass-strong: rgba(245, 247, 252, 0.86);
+    --scrim: rgba(11, 18, 48, 0.4);
+    --shadow-1: 0 1px 2px rgba(11, 18, 48, 0.06), 0 6px 20px rgba(11, 18, 48, 0.08);
+    --shadow-2: 0 2px 4px rgba(11, 18, 48, 0.08), 0 18px 48px rgba(11, 18, 48, 0.16);
+    --aurora-a: rgba(120, 146, 230, 0.35);
+    --aurora-b: rgba(168, 116, 20, 0.14);
+    --code-bg: #eef1f9;
+    --hl-keyword: #b3261e;
+    --hl-string: #0a3069;
+    --hl-number: #8a5a00;
+    --hl-comment: #5a6390;
+    --hl-title: #6f3fbf;
+    --hl-attr: #953800;
+    --hl-built: #0550ae;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f5f7fc;
+  --surface: #ffffff;
+  --surface-2: #eef1f9;
+  --line: rgba(11, 18, 48, 0.08);
+  --line-strong: rgba(11, 18, 48, 0.16);
+  --edge: rgba(255, 255, 255, 0.9);
+  --text: #0b1230;
+  --text-muted: #5a6390;
+  --brass: #a87414;
+  --brass-text: #8b5f0b;
+  --brass-soft: rgba(168, 116, 20, 0.12);
+  --on-brass: #0b1230;
+  --supported: #1c7a5b;
+  --partial: #8a5a00;
+  --unsupported: #b9353a;
+  --supported-soft: rgba(28, 122, 91, 0.12);
+  --partial-soft: rgba(138, 90, 0, 0.12);
+  --unsupported-soft: rgba(185, 53, 58, 0.12);
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-strong: rgba(245, 247, 252, 0.86);
+  --scrim: rgba(11, 18, 48, 0.4);
+  --shadow-1: 0 1px 2px rgba(11, 18, 48, 0.06), 0 6px 20px rgba(11, 18, 48, 0.08);
+  --shadow-2: 0 2px 4px rgba(11, 18, 48, 0.08), 0 18px 48px rgba(11, 18, 48, 0.16);
+  --aurora-a: rgba(120, 146, 230, 0.35);
+  --aurora-b: rgba(168, 116, 20, 0.14);
+  --code-bg: #eef1f9;
+  --hl-keyword: #b3261e;
+  --hl-string: #0a3069;
+  --hl-number: #8a5a00;
+  --hl-comment: #5a6390;
+  --hl-title: #6f3fbf;
+  --hl-attr: #953800;
+  --hl-built: #0550ae;
+  color-scheme: light;
+}
+
+/* solid surfaces and borders when the visitor asks for less transparency or more contrast */
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass: var(--surface); --glass-strong: var(--surface); }
+}
+@media (prefers-contrast: more) {
+  :root { --glass: var(--surface); --glass-strong: var(--surface); --line: var(--text-muted); --line-strong: var(--text); }
+}

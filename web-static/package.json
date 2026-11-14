@@ -1,8 +1,8 @@
 {
-  "name": "agentic-rag-static",
+  "name": "veridex-web",
   "private": true,
   "version": "0.1.0",
-  "description": "Static study assistant: retrieval and query embedding in the browser, LLM calls through a rate-limited proxy.",
+  "description": "Veridex: hybrid-retrieval, self-verifying knowledge assistant. Retrieval and query embedding in the browser, LLM calls through a rate-limited proxy.",
   "type": "module",
   "engines": {
     "node": ">=20.19.0"
@@ -14,15 +14,25 @@
     "preview": "vite preview --strictPort",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "brand": "node scripts/brand.mjs",
+    "contrast": "node scripts/contrast.mjs",
+    "lighthouse": "node scripts/lighthouse.mjs",
+    "shots": "playwright test --config playwright.shots.config.ts"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
     "@huggingface/transformers": "4.3.2",
+    "motion": "^14.13.0",
     "pdfjs-dist": "6.4.299"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
     "@types/node": "20.19.43",
+    "happy-dom": "^21.0.4",
+    "lighthouse": "^13.6.0",
     "typescript": "6.0.3",
     "vite": "8.3.5",
     "vitest": "4.1.12"

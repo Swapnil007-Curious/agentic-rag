@@ -1,0 +1,154 @@
+/* Three zones: rail | conversation | evidence. The rail and the evidence panel are glass over
+   the aurora; the conversation scrolls beneath the top bar and the composer dock. */
+
+.app {
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr) var(--evidence-slot, 0px);
+  height: 100vh; height: 100dvh; overflow: hidden;
+}
+.app[data-rail="collapsed"] { --rail-w: 64px; }
+
+/* ------------------------------------------------------------------ rail */
+.rail {
+  position: relative; z-index: 20; display: flex; flex-direction: column; gap: var(--s-2);
+  padding: var(--s-3); overflow: hidden auto; min-width: 0;
+  border-right: 1px solid var(--line);
+}
+.rail-head { display: flex; align-items: center; gap: var(--s-2); min-height: 44px; }
+.wordmark { display: inline-flex; align-items: center; gap: var(--s-2); color: var(--text); text-decoration: none; min-width: 0; padding: 2px 4px; border-radius: 8px; }
+.seal-mark { color: var(--brass); display: inline-grid; place-items: center; flex: 0 0 auto; }
+.wordmark-text { font-family: var(--font-display); font-size: 1.6rem; letter-spacing: -0.02em; line-height: 1; white-space: nowrap; }
+.rail-head .icon-btn { margin-left: auto; }
+.rail-section { display: flex; flex-direction: column; gap: var(--s-1); flex: 0 0 auto; }
+.rail-history { flex: 1 1 auto; min-height: 64px; overflow-y: auto; }
+.rail-foot { flex: 0 0 auto; }
+.rail-heading { font-family: var(--font-mono); font-size: var(--fs-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); font-weight: 500; margin: var(--s-2) var(--s-2) var(--s-1); }
+.rail-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.rail-item {
+  display: flex; align-items: center; gap: var(--s-2); width: 100%; min-height: 44px; padding: 0 var(--s-2);
+  border: 0; border-radius: var(--r-1); background: transparent; color: var(--text); text-align: left;
+  transition: background-color var(--t-fast) ease;
+}
+.rail-item:hover { background: var(--surface-2); }
+.rail-item[aria-current="true"] { background: var(--brass-soft); }
+.rail-item[aria-current="true"] .rail-item-icon { color: var(--brass); }
+.rail-item-icon { display: inline-grid; place-items: center; width: 24px; height: 24px; color: var(--text-muted); flex: 0 0 auto; }
+.rail-item-icon svg { width: 20px; height: 20px; }
+.rail-item-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.rail-item-name { font-size: var(--fs-small); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail-item-meta { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail-hint { font-size: var(--fs-micro); color: var(--text-muted); line-height: 1.45; margin: var(--s-1) var(--s-2) 0; }
+.rail-hint.warn { color: var(--partial); }
+.rail-foot { margin-top: auto; display: flex; flex-direction: column; gap: 2px; padding-top: var(--s-2); border-top: 1px solid var(--line); }
+.rail-status { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-2); color: var(--text-muted); min-height: 36px; }
+.rail-status .mono { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.icon-moon { display: none; }
+:root[data-theme="light"] .icon-sun { display: none; }
+:root[data-theme="light"] .icon-moon { display: block; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .icon-sun { display: none; }
+  :root:not([data-theme="dark"]) .icon-moon { display: block; }
+}
+
+/* collapsed rail: icons only */
+.app[data-rail="collapsed"] .wordmark-text, .app[data-rail="collapsed"] .btn-text, .app[data-rail="collapsed"] .kbd,
+.app[data-rail="collapsed"] .rail-heading, .app[data-rail="collapsed"] .rail-item-text, .app[data-rail="collapsed"] .rail-hint,
+.app[data-rail="collapsed"] .rail-history, .app[data-rail="collapsed"] .rail-status, .app[data-rail="collapsed"] .upload-list,
+.app[data-rail="collapsed"] .upload-status { display: none; }
+.app[data-rail="collapsed"] .rail { padding: var(--s-3) var(--s-2); }
+.app[data-rail="collapsed"] .rail-head { flex-direction: column; gap: var(--s-2); }
+.app[data-rail="collapsed"] .rail-head .icon-btn { margin: 0; }
+.app[data-rail="collapsed"] .btn-rail { justify-content: center; padding: 0; }
+.app[data-rail="collapsed"] .rail-item { justify-content: center; padding: 0; }
+
+/* ------------------------------------------------------------------ conversation */
+.stage { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.topbar {
+  position: absolute; left: 0; right: 0; top: 0; z-index: 10; height: var(--topbar-h);
+  display: flex; align-items: center; gap: var(--s-2); padding: 0 var(--s-3) 0 var(--s-2);
+}
+/* soft edges where content meets the floating bars (static gradients, not a mask on the
+   scrolling layer: a mask over a moving background is re-rendered every frame) */
+.topbar::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 20px; pointer-events: none;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 70%, transparent), transparent);
+}
+.chat-title { flex: 1 1 auto; min-width: 0; font-size: var(--fs-small); font-weight: 500; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: var(--s-2); }
+.scroller {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding: calc(var(--topbar-h) + var(--s-4)) var(--s-4) 196px;
+}
+.column { width: 100%; max-width: var(--column-w); margin: 0 auto; will-change: transform; }
+.jump {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 180px; z-index: 12;
+  display: inline-flex; align-items: center; gap: var(--s-2); min-height: 40px; padding: 0 var(--s-4);
+  border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--text);
+  box-shadow: var(--shadow-1); font-size: var(--fs-small); font-weight: 500;
+}
+.dock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 11; padding: 0 var(--s-4) calc(var(--s-3) + env(safe-area-inset-bottom)); pointer-events: none; }
+.dock::before {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: calc(100% + 64px); z-index: -1; pointer-events: none;
+  background: linear-gradient(to bottom, transparent 0, color-mix(in srgb, var(--bg) 88%, transparent) 72px, var(--bg) 110px);
+}
+.dock > * { pointer-events: auto; }
+
+/* ------------------------------------------------------------------ evidence */
+.evidence {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 30; width: var(--evidence-w);
+  display: flex; flex-direction: column; border-left: 1px solid var(--line);
+  transform: translateX(100%); will-change: transform; overflow: hidden;
+}
+.evidence-head { display: flex; align-items: center; justify-content: space-between; padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4); min-height: var(--topbar-h); border-bottom: 1px solid var(--line); flex: 0 0 auto; }
+.evidence-title { font-family: var(--font-display); font-size: 1.5rem; letter-spacing: -0.02em; }
+.evidence-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--s-4) var(--s-4) calc(var(--s-8) + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: var(--s-4); }
+.sheet-grip { display: none; }
+@media (min-width: 1100px) {
+  .app[data-evidence="open"] { --evidence-slot: var(--evidence-w); }
+}
+
+/* ------------------------------------------------------------------ overlays */
+.scrim { position: fixed; inset: 0; z-index: 25; background: var(--scrim); opacity: 0; }
+.only-drawer, .only-mobile { display: none; }
+
+/* ------------------------------------------------------------------ tablet: drawers */
+@media (max-width: 1099px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .only-drawer { display: inline-grid; }
+  .only-wide { display: none; }
+  .rail {
+    position: fixed; left: 0; top: 0; bottom: 0; z-index: 40; width: min(300px, 88vw);
+    transform: translateX(-100%); will-change: transform;
+  }
+  .app[data-rail="collapsed"] .rail { width: min(300px, 88vw); padding: var(--s-3); }
+  .app[data-rail="collapsed"] .wordmark-text, .app[data-rail="collapsed"] .btn-text, .app[data-rail="collapsed"] .kbd,
+  .app[data-rail="collapsed"] .rail-heading, .app[data-rail="collapsed"] .rail-item-text, .app[data-rail="collapsed"] .rail-hint,
+  .app[data-rail="collapsed"] .rail-history, .app[data-rail="collapsed"] .rail-status, .app[data-rail="collapsed"] .upload-list,
+  .app[data-rail="collapsed"] .upload-status { display: revert; }
+  .app[data-rail="collapsed"] .rail-head { flex-direction: row; }
+  .app[data-rail="collapsed"] .rail-head .icon-btn { margin-left: auto; }
+  .app[data-rail="collapsed"] .btn-rail { justify-content: flex-start; padding: 0 var(--s-3); }
+  .app[data-rail="collapsed"] .rail-item { justify-content: flex-start; padding: 0 var(--s-2); }
+  .evidence { width: min(420px, 92vw); }
+}
+
+/* ------------------------------------------------------------------ mobile: sheet, compact bar */
+@media (max-width: 699px) {
+  .only-mobile { display: inline-flex; }
+  .chat-title { display: none; }
+  .topbar .pill { flex: 1 1 auto; min-width: 0; max-width: 60vw; margin: 0 auto; justify-content: center; }
+  .scroller { padding-left: var(--s-4); padding-right: var(--s-4); padding-bottom: 210px; }
+  .evidence {
+    top: auto; left: 0; right: 0; bottom: 0; width: 100%; height: 90vh; height: 90dvh;
+    border-left: 0; border-top: 1px solid var(--line); border-radius: var(--r-4) var(--r-4) 0 0;
+    transform: translateY(100%);
+  }
+  .sheet-grip { display: grid; place-items: center; height: 24px; flex: 0 0 auto; touch-action: none; cursor: grab; }
+  .sheet-grip span { width: 40px; height: 4px; border-radius: 2px; background: var(--line-strong); }
+  .evidence-head { min-height: 44px; padding-top: 0; touch-action: none; }
+  .jump { bottom: 196px; }
+}
+@media print {
+  .rail, .dock, .topbar, .jump, .evidence, .aurora, .msg-actions { display: none !important; }
+  .app { display: block; height: auto; }
+  .scroller { overflow: visible; padding: 0; }
+}

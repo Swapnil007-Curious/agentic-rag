@@ -1,7 +1,0 @@
-/* Additions for the static app (the rest is the Python app's chat.css). */
-.load-panel { margin-top: 14px; }
-.load-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-.load-name { font-size: 0.8rem; color: var(--fg-soft); width: 76px; flex: 0 0 auto; }
-.load-row progress { flex: 1 1 auto; height: 6px; accent-color: var(--accent); }
-.load-panel .hint { margin-top: 2px; }
-.load-panel.done progress { accent-color: var(--ok); }

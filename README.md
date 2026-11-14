@@ -1,4 +1,15 @@
-# Agnostic Agentic-RAG: Hybrid Vector-Semantic Document Intelligence for Niche Low-Resource Corpora
+# Veridex: hybrid-retrieval, self-verifying knowledge assistant
+
+(research codename: Agentic-RAG)
+
+**Live:** https://swapnil007-curious.github.io/agentic-rag/ — ask anything; every answer is
+cited and carries a verification seal. Retrieval runs in your browser; only the question and the
+retrieved passages go to the LLM proxy.
+
+![Veridex: a verified answer with the evidence panel open](docs/screenshots/verified-evidence-desktop-dark.png)
+
+The web app's design (tokens, layout, motion, the map from each element to the real pipeline
+data, contrast ratios and Lighthouse scores) is documented in [DESIGN.md](DESIGN.md).
 
 This repository contains three parts of the project.
 
@@ -289,10 +300,17 @@ gate time (embedding + search) with p50 and p95 (`--fake-llm` runs offline).
 
 ## Public demo
 
-The free, permanent public demo needs no paid server: a static site on GitHub Pages does the
-retrieval in the visitor's browser, and a Cloudflare Worker (free plan) forwards the language
-model calls. Site: **https://swapnil007-curious.github.io/agentic-rag/** (live once deployed,
-see [Setting up the public demo](#setting-up-the-public-demo)).
+The free, permanent public demo (Veridex, `web-static/`) needs no paid server: a static site on
+GitHub Pages does the retrieval in the visitor's browser, and a Cloudflare Worker (free plan)
+forwards the language model calls. Site: **https://swapnil007-curious.github.io/agentic-rag/**
+(see [Setting up the public demo](#setting-up-the-public-demo)).
+
+The interface is vanilla TypeScript + Vite. Its collection tiles, verification trace (Embed,
+Search, Draft or Synthesize, Guards, Critic, Verify with their measured durations), the seal
+(verified / partially supported / not enough evidence, from the real verifier and critic output),
+source cards with cosine scores, the command palette (Ctrl/Cmd+K), How it works and share links
+(`?q=&c=` pre-fill the question, never send it) are described in [DESIGN.md](DESIGN.md);
+screenshots of every state are in `docs/screenshots/`.
 
 ```
  Browser (GitHub Pages, web-static/)                          Cloudflare Worker (deploy/worker/)
@@ -372,7 +390,10 @@ Local development: `cd web-static; npm ci; npm run build; npx vite preview` (the
 locally with `cd deploy/worker; npx wrangler dev` and a `.dev.vars` file holding `LLM_API_KEY`;
 `http://localhost` origins are allowed). Tests: `npx tsc --noEmit`, `npx vitest run` and
 `npx playwright test` in `web-static/` (the browser tests mock the Worker), `npx vitest run` in
-`deploy/worker/` (Workers runtime, mocked provider).
+`deploy/worker/` (Workers runtime, mocked provider). Also in `web-static/`: `npm run contrast`
+(WCAG ratios of the colour tokens), `npm run lighthouse` (mobile Lighthouse against the
+production preview), `npm run shots` (the screenshots in `docs/screenshots/`) and `npm run brand`
+(regenerates the favicon, icons and the Open Graph image from the seal).
 
 Several collections are licensed for non-commercial use, so the demo is non-commercial; the
 "About & sources" panel lists every document's licence as recorded in its `SOURCES.csv`.
